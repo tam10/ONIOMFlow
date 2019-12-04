@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<geometry>
+	<residue ID="A1" name="NME" charge="0.0000" state="CAP">
+		<atom ID=" N  " charge="-0.4157" amber="N">
+			<xyz>-0.6750,-1.1691,0.0000</xyz>
+			<bonds> H  (S), CH3(S)</bonds>
+		</atom>
+		<atom ID=" H  " charge="0.2719" amber="H">
+			<xyz>-0.1700,-2.0438,0.0000</xyz>
+			<bonds> N  (S)</bonds>
+		</atom>
+		<atom ID=" CH3" charge="-0.1490" amber="CT">
+			<xyz>-2.1240,-1.1691,0.0000</xyz>
+			<bonds> N  (S),1HH3(S),2HH3(S),3HH3(S)</bonds>
+		</atom>
+		<atom ID="1HH3" charge="0.0976" amber="H1">
+			<xyz>-2.4879,-0.1417,0.0000</xyz>
+			<bonds> CH3(S)</bonds>
+		</atom>
+		<atom ID="2HH3" charge="0.0976" amber="H1">
+			<xyz>-2.4879,-1.6829,-0.8898</xyz>
+			<bonds> CH3(S)</bonds>
+		</atom>
+		<atom ID="3HH3" charge="0.0976" amber="H1">
+			<xyz>-2.4879,-1.6829,0.8898</xyz>
+			<bonds> CH3(S)</bonds>
+		</atom>
+	</residue>
+</geometry>

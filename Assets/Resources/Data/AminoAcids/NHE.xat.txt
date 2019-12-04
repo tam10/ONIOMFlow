@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<geometry>
+	<residue ID="A1" name="NHE" charge="0.0000" state="CAP">
+		<atom ID=" N  " charge="-0.4630" amber="N">
+			<xyz>0.0000,0.0000,0.0000</xyz>
+			<bonds> HN1(S), HN2(S)</bonds>
+		</atom>
+		<atom ID=" HN1" charge="0.2315" amber="H">
+			<xyz>1.0100,0.0000,0.0000</xyz>
+			<bonds> N  (S)</bonds>
+		</atom>
+		<atom ID=" HN2" charge="0.2315" amber="H">
+			<xyz>-0.5111,0.8711,0.0000</xyz>
+			<bonds> N  (S)</bonds>
+		</atom>
+	</residue>
+</geometry>

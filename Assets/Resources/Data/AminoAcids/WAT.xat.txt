@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<geometry>
+	<residue ID="A1" name="WAT" charge="0.0000" state="WATER">
+		<atom ID=" HW1" charge="0.4170" amber="HW">
+			<xyz>-0.7840,0.5541,0.0000</xyz>
+			<bonds> OW (S)</bonds>
+		</atom>
+		<atom ID=" HW2" charge="0.4170" amber="HW">
+			<xyz>0.7840,0.5541,0.0000</xyz>
+			<bonds> OW (S)</bonds>
+		</atom>
+		<atom ID=" OW " charge="-0.8340" amber="OW">
+			<xyz>0.0000,0.0000,0.0000</xyz>
+			<bonds> HW1(S), HW2(S)</bonds>
+		</atom>
+	</residue>
+</geometry>

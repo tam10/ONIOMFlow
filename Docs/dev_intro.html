@@ -1,0 +1,30 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Developer's Guide</title>
+        <link href="styles.css" rel="stylesheet" type="text/css" />
+        <script src="content.js" type="text/javascript"></script>
+    </head>
+
+    <body>
+        <h1>Developer's Guide</h1>
+        <h2>Introduction</h2>
+        <p>This software is free and open-source. It is designed to grow over time to accept new formats, run new tasks and have new purposes. As such, this guide should provide the necessary information to help devopers understand the software and expand it.</p>
+
+        <h2>How to add Geometry Interfaces <span class="unity-required"></span></h2>
+        <p><a href="geometry_interfaces.html">Geometry Interfaces</a> (GIs) are described in Settings/Flow.xml and linked by their GeometryInterfaceID (GIID) in Constants/Constants.cs. Adding a GI requires adding a <span class="html-open-tag">geometryInterface</span> tag to Flow.xml and making the following changes:</p>
+        <ol>
+            <li>Add a new item to the GeometryInterfaceID enum in Constants.cs</li>
+            <li>Add a unique string to map to this item in the StringToGeometryInterfaceID dictionary</li>
+            <li>Add a "name" attribute to <span class="html-open-tag">geometryInterface</span> - this must correspond with the string provided in the StringToGeometryInterfaceID dictionary</li>
+            <li>Give the GI a short name to appear in the GUI with <span class="html-open-tag">title</span></li>
+            <li>Give the GI a full name to appear in the popup with <span class="html-open-tag">fullName</span></li>
+            <li>Give the GI a description depending on what error state it is with <span class="html-open-tag">disabledDescription</span>, <span class="html-open-tag">completedDescription</span>, <span class="html-open-tag">okDescription</span>, <span class="html-open-tag">loadingDescription</span>, <span class="html-open-tag">warningDescription</span>, and <span class="html-open-tag">errorDescription</span></li>
+            <li>Set the coordinates of new GI with <span class="html-open-tag">position</span></li>
+            <li>Add <a href="residue_checker.html">Residue Checkers</a> with <span class="html-open-tag">residueCheck</span>. Each Residue Checker will need a name that corresponds to the StringToResidueCheckerID dictionary in Constants.cs, and the <a href="geometry_interface_status.html">Geometry Interface Status</a> if the check fails</li>
+            <li>Add <a href="atom_checker.html">Atom Checkers</a> with <span class="html-open-tag">atomCheck</span>. Each Atom Checker will need a name that corresponds to the StringToAtomCheckerID dictionary in Constants.cs, and the <a href="geometry_interface_status.html">Geometry Interface Status</a> if the check fails</li>
+        </ol>
+        
+
+    </body>
+</html>

@@ -1,0 +1,37 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Introduction</title>
+        <link href="styles.css" rel="stylesheet" type="text/css" />
+        <script src="content.js" type="text/javascript"></script>
+    </head>
+
+    <body>
+        <h1>Introduction</h1>
+        <nav id="toc" class="toc"></nav>
+
+        <h2>Overview</h2>
+
+        <h3>What is ONIOM-Flow?</h3>
+        <p>ONIOM-Flow is a Graphical User Interface designed to facilitate ONIOM calculations for biological systems. It is intended to take Protein Database (PDB) files with Non-Standard Residues and produce Gaussian Job Files (.gjf/.com) with the necessary partial charges and parameters.</p>
+
+        <h3>What isn't ONIOM-Flow?</h3>
+        <p>ONIOM-Flow is not black-box software. While it is designed to remove some of the processes that are normally needed for setting up ONIOM calculations, it still requires user input at various stages.</p>
+
+        <h2>Structure</h2>
+        <p>The interface consists of two classes: Geometry Interfaces (<a href="geometry_interfaces.html">GIs</a>) and <a href="arrows.html">Arrows</a>.</p>
+        <ul>
+            <li>GIs provide a way to access geometries, called Atoms in the case of this software. They contain the current state of the Atoms, and allow loading and saving through a variety of formats including the in-house <a href="xat.html">XAT format</a>. They also provide methods of validation to allow the user to ensure the Atoms are in the correct state to continue.</li>
+            <li>Arrows link GIs. Clicking on an active Arrow (green or blue in colour) will open a popup listing the <a href="tasks.html">Tasks</a> that will be performed.</li>
+        </ul>
+        
+        <h2>History</h2>
+        <p>This software was borne out of a Python project started by Clyde Fare in 2014 as part of his <a href="github.com/Clyde-fare/gausspy">gausspy project</a>, and continued by Tristan Mackenzie. This project attempted to link together several pieces of software written by others to produce a near-black box piece of code that could protonate and parameterise proteins for ONIOM calculations. However, this was abandoned due to impracticalities created by the incompatibilities between the software (some had strict definitions for file formats/PDB IDs etc) which lead to the project expanding to the point where Python was no longer a feasible language. The need for graphical feedback and cross-platform compatibility to the user resulted in Unity being the platform of choice for development.</p>
+
+        <h2>Devoper's Guide</h2>
+        <p>If you'd like to contribute to or learn about the finer details in this project, click on <a href="dev_intro.html">this link</a> for the guide.</p>
+        
+
+
+    </body>
+</html>

@@ -1,0 +1,188 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Tasks</title>
+        <link href="styles.css" rel="stylesheet" type="text/css" />
+        <script src="content.js" type="text/javascript"></script>
+    </head>
+
+    <body>
+        <table style="width:100%">
+            <tr>
+                <th>Task Name</th>
+                <th>Task ID</th> 
+                <th>Parent Class</th> 
+                <th>Description</th>
+                <th>Notes</th>
+            </tr>
+            <tr>
+                <td>Load Atoms</td>
+                <td>loadAtoms</td> 
+                <td><a href="geometry_interfaces.html">Geometry Interface</a></td>
+                <td>Load <a href="atoms.html">Atoms</a> in-between tasks</td>
+                <td>This will open a popup requesting a file name and wait for user input. Use this in combination with Save Atoms to run external commands.</td>
+            </tr>
+            <tr>
+                <td>Save Atoms</td>
+                <td>saveAtoms</td> 
+                <td><a href="geometry_interfaces.html">Geometry Interface</a></td>
+                <td>Save atoms in-between tasks</td>
+                <td>Use this to save the current state of the <a href="atoms.html">Atoms</a> in-between tasks, or in combination with Load Atoms to run external commands.</td>
+            </tr>
+            <tr>
+                <td>Check Geometry</td>
+                <td>checkGeometry</td> 
+                <td><a href="geometry_interfaces.html">Geometry Interface</a></td>
+                <td>Perform <a href="atom_checker.html">Atom Checks</a> and <a href="residue_checker.html">Residue Checks</a> on <a href="atoms.html">Atoms</a> in <a href="geometry_interfaces.html">Geometry Interface</a>.</td>
+                <td>Checks are defined in Settings/Flow.xml and can be used to provide feedback and validate geometries. </td>
+            </tr>
+            <tr>
+                <td>Get Specified Chain Atoms</td>
+                <td>getChain</td> 
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Get only the atoms in the chain specified in settings.</td>
+                <td>This is essential for many external programs that can only deal with one chain at a time, otherwise chains will be dealt with individually.</td>
+            </tr>
+            <tr>
+                <td>Standardise Water Residues</td>
+                <td>standardiseWaters</td> 
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Give all water residues their standard Residue Names and <a href="PDBID.html">PDBIDs</a>.</td>
+                <td>Standard names are defined in Settings/Atoms.xml</td>
+            </tr>
+            <tr>
+                <td>Strip PDB Special Characters</td>
+                <td>removePDBSpecialCharacters</td> 
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Remove special characters from PDB Names within residues.</td>
+                <td>Also removes duplicates that might be created.</td>
+            </tr>
+            <tr>
+                <td>Merge Neighbouring Non-Standard Residues</td>
+                <td>mergeNonStandardResidues</td> 
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Merge Non-Standard Residues if they are touching.</td>
+                <td>This is useful in cases where standard amino acid names are given to parts of a non-standard group e.g. 1GFL.</td>
+            </tr>
+            <tr>
+                <td>Calculate AMBER Types (Antechamber)</td>
+                <td>calculateAMBERTypesWithAntechamber</td>
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Calculate AMBER Types using Antechamber</td>
+                <td>This is currently the recommended way of computing AMBER types.</td>
+            </tr>
+            <tr>
+                <td>Calculate AMBER Types</td>
+                <td>calculateAMBERTypes</td>
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Look up AMBER Types</td>
+                <td>Experimental method that uses connectivity to determine AMBER type.</td>
+            </tr>
+            <tr>
+                <td>Calculate AMBER Parameters (parmchk2)</td>
+                <td>calculateParameters</td>
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Use parmchk2 to calculate AMBER parameters</td>
+                <td>This requires the geometry to have AMBER types already set.</td>
+            </tr>
+            <tr>
+                <td>Calculate Connectivity</td>
+                <td>calculateConnectivity</td>
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Compute bond orders by residue</td>
+                <td>Computes n^2 connectivity residue by residue, then the connections between them. This might be extremely slow if residues are huge.</td>
+            </tr>
+            <tr>
+                <td>Clear Connectivity</td>
+                <td>clearConnectivity</td>
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Remove all bonds.</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Flag Non-Standard Residues</td>
+                <td>selectNonStandardResidues</td>
+                <td><a href="cleaner.html">Cleaner</a></td>
+                <td>Mark residues as non-standard</td>
+                <td>Allows manual selection of Non-Standard Residues if they haven't been automatically detected.</td>
+            </tr>
+            <tr>
+                <td>Protonate Standard Residues (PDB2PQR)</td>
+                <td>protonateWithPDB2PQR</td>
+                <td><a href="protonator.html">Protonator</a></td>
+                <td>Protonate and assign partial charges to Standard Residues using PDB2PQR</td>
+                <td>This is currently the recommended way to protonate Standard Residues, and provides control over pH.</td>
+            </tr>
+            <tr>
+                <td>Protonate Non-Standard Residues (Reduce)</td>
+                <td>protonateWithReduce</td>
+                <td><a href="protonator.html">Protonator</a></td>
+                <td>Protonate Non-Standard Residues using Reduce</td>
+                <td>Experimental protonator for Non-Standard Residues. <a href="protonator.html#protonating_residues_manually">Manual protonation</a> is recommended</td>
+            </tr>
+            <tr>
+                <td>Get Standard Residues</td>
+                <td>getSRs</td>
+                <td><a href="protonator.html">Protonator</a></td>
+                <td>Separate and <a href="capping.html">cap</a> Standard Residues.</td>
+                <td>This is used to isolate Standard Residues from Atoms, allowing the use of external commands that only work on Standard Residues.</td>
+            </tr>
+            <tr>
+                <td>Get Non-Standard Residues</td>
+                <td>getNSRs</td>
+                <td><a href="protonator.html">Protonator</a></td>
+                <td>Separate and <a href="capping.html">cap</a> Non-Standard Residues.</td>
+                <td>This is used to isolate Non-Standard Residues from Atoms, reducing the demand of specialist and expensive external commands.</td>
+            </tr>
+            <tr>
+                <td>Calculate Partial Charges (R.E.D.)</td>
+                <td>calculatePartialCharges</td>
+                <td><a href="partial_charge_calculation.html">Partial Charge Calculator</a></td>
+                <td>Compute partial charges for each residue.</td>
+                <td>This requires a full optimisation of the current geometry, and takes a very long time for systems larger than 100 atoms.</td>
+            </tr>
+            <tr>
+                <td>Get Partial Charges from MOL2 file</td>
+                <td>getPartialChargesFromMol2</td>
+                <td><a href="partial_charge_calculation.html">Partial Charge Calculator</a></td>
+                <td>Read partial charges from a previously completed RED calculation.</td>
+                <td>This is recommended if you are using the same Non-Standard Residues from a previous calculation.</td>
+            </tr>
+            <tr>
+                <td>Merge Geometries</td>
+                <td>mergeGeometries</td>
+                <td><a href="geometry_merger.html">Geometry Merger</a></td>
+                <td>Merge two geometries, removing capping residues.</td>
+                <td>This is used to join Non-Standard and Standard Residues. Requires the geometries to be properly aligned.</td>
+            </tr>
+            <tr>
+                <td>Validate Layers</td>
+                <td>validateLayers</td>
+                <td><a href="gaussian_calculation_setup.html">Gaussian Calculation Setup</a></td>
+                <td>Check this geometry has the correct number of ONIOM Layers for a Gaussian calculation.</td>
+                <td>Use this to ensure the Atoms have the correct Layer setup.</td>
+            </tr>
+            <tr>
+                <td>Gaussian Calculation Setup</td>
+                <td>setupCalculation</td>
+                <td><a href="gaussian_calculation_setup.html">Gaussian Calculation Setup</a></td>
+                <td>Get information to initialise a Gaussian calculation.</td>
+                <td>Creates a popup to fill in information for a <a href="gaussian_calculation_setup.html">.com or .gjf</a> file</td>
+            </tr>
+            <tr>
+                <td>Get Model Layer</td>
+                <td>getModelLayer</td>
+                <td><a href="gaussian_calculation_setup.html">Gaussian Calculation Setup</a></td>
+                <td>Isolate the Model Layer for parameterisation.</td>
+                <td>This also adds <a href="oniom_layer.html#link_atoms">Link atoms</a> so parameters at the interface are computed.</td>
+            </tr>
+            <tr>
+                <td>Get Intermediate Layer</td>
+                <td>getIntermediateLayer</td>
+                <td><a href="gaussian_calculation_setup.html">Gaussian Calculation Setup</a></td>
+                <td>Isolate the Intermediate Layer for parameterisation.</td>
+                <td>This also adds <a href="oniom_layer.html#link_atoms">Link atoms</a> so parameters at the interface are computed.</td>
+            </tr>
+        </table>
+    </body>
+</html>

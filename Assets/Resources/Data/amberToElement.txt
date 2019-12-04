@@ -1,0 +1,71 @@
+#Hydrogen Types
+H,H,0
+HA,H,0
+HC,H,0
+HO,H,0
+HS,H,0
+HW,H,0
+H1,H,0
+H2,H,0
+H3,H,0
+H4,H,0
+H5,H,0
+#All Carbon Type
+C,C,0
+CA,C,0
+CB,C,0
+CC,C,0
+CK,C,0
+CM,C,0
+CN,C,0
+CQ,C,0
+CR,C,0
+CT,C,0
+CV,C,0
+CW,C,0
+C,C,0
+#United Carbon Types
+CD,C,0
+CE,C,0
+CF,C,0
+CG,C,0
+CH,C,0
+CI,C,0
+CJ,C,0
+CP,C,0
+C2,C,0
+C3,C,0
+#Nitrogen Types
+N,N,0
+NA,N,0
+NB,N,0
+NC,N,0
+NT,N,0
+N2,N,0
+N3,N,0
+N*,N,0
+#Oxygen Types
+O,O,0
+OH,O,0
+OS,O,0
+OW,O,0
+O2,O,0
+#Sulfur Types
+S,S,0
+SH,S,0
+#Phosphorus                         
+P,P,0
+#Chlorine 
+CL,Cl,-1
+#Ion Types                          
+CU,Cu,2
+CØ,Ca,2
+I,I,-1
+IM,Cl,-1
+MG,Mg,2
+QC,Cs,2
+QK,K,1
+QL,Li,1
+QN,Na,1
+QR,Rb,1
+FE,Fe,2

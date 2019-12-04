@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<geometry>
+	<residue ID="A1" name="PRO" charge="-1.0000" state="C_TER">
+		<atom ID=" N  " charge="-0.2802" amber="N">
+			<xyz>0.0000,0.0000,0.0000</xyz>
+			<bonds> CD (S), CA (S)</bonds>
+		</atom>
+		<atom ID=" CD " charge="0.0434" amber="CT">
+			<xyz>1.4580,0.0000,0.0000</xyz>
+			<bonds> N  (S),2HD (S),3HD (S), CG (S)</bonds>
+		</atom>
+		<atom ID="2HD " charge="0.0331" amber="H1">
+			<xyz>1.8219,-0.1635,-1.0144</xyz>
+			<bonds> CD (S)</bonds>
+		</atom>
+		<atom ID="3HD " charge="0.0331" amber="H1">
+			<xyz>1.8219,-0.7967,0.6488</xyz>
+			<bonds> CD (S)</bonds>
+		</atom>
+		<atom ID=" CG " charge="0.0466" amber="CT">
+			<xyz>1.8005,1.3639,0.5220</xyz>
+			<bonds> CD (S),2HG (S),3HG (S), CB (S)</bonds>
+		</atom>
+		<atom ID="2HG " charge="0.0172" amber="HC">
+			<xyz>2.6719,1.7482,-0.0082</xyz>
+			<bonds> CG (S)</bonds>
+		</atom>
+		<atom ID="3HG " charge="0.0172" amber="HC">
+			<xyz>2.0228,1.3005,1.5872</xyz>
+			<bonds> CG (S)</bonds>
+		</atom>
+		<atom ID=" CB " charge="-0.0543" amber="CT">
+			<xyz>0.5826,2.2218,0.2757</xyz>
+			<bonds> CG (S),2HB (S),3HB (S), CA (A)</bonds>
+		</atom>
+		<atom ID="2HB " charge="0.0381" amber="HC">
+			<xyz>0.7625,2.8719,-0.5805</xyz>
+			<bonds> CB (S)</bonds>
+		</atom>
+		<atom ID="3HB " charge="0.0381" amber="HC">
+			<xyz>0.3818,2.8304,1.1574</xyz>
+			<bonds> CB (S)</bonds>
+		</atom>
+		<atom ID=" CA " charge="-0.1336" amber="CT">
+			<xyz>-0.5738,1.3327,0.0000</xyz>
+			<bonds> N  (S), CB (A), HA (S), C  (S)</bonds>
+		</atom>
+		<atom ID=" HA " charge="0.0776" amber="H1">
+			<xyz>-1.2008,1.4589,0.8826</xyz>
+			<bonds> CA (S)</bonds>
+		</atom>
+		<atom ID=" C  " charge="0.6631" amber="C">
+			<xyz>-1.4178,1.5225,-1.2523</xyz>
+			<bonds> CA (S), O  (D), OXT(D)</bonds>
+		</atom>
+		<atom ID=" O  " charge="-0.7697" amber="O2">
+			<xyz>-1.5273,0.6152,-2.0740</xyz>
+			<bonds> C  (D)</bonds>
+		</atom>
+		<atom ID=" OXT" charge="-0.7697" amber="O2">
+			<xyz>-2.0000,2.5853,-1.4570</xyz>
+			<bonds> C  (D)</bonds>
+		</atom>
+	</residue>
+</geometry>

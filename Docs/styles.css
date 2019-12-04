@@ -1,0 +1,169 @@
+@charset "UTF-8";
+/* CSS Document */
+body {
+    font-family: Calibri, 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
+    font-size: 14px;
+    text-align: justify;
+    margin-left: 225px;
+}
+h1 {
+    font-size: 22px;
+    text-align: center;
+    color: rgb(52, 71, 245);
+    font-weight: bold;
+    margin-bottom: 0.5em;
+    border-bottom: 1px solid rgb(200, 200, 200);
+}
+h2 {
+    font-size: 18px;
+    text-align: left;
+    color: rgb(24, 24, 240);
+    font-weight: bold;
+    margin-bottom: 0.25em;
+    border-bottom: 1px solid rgb(200, 200, 200);
+}
+h3 {
+    font-size: 14px;
+    text-align: left;
+    color: rgb(24, 24, 240);
+    text-decoration: underline;
+}
+h4 {
+    font-size: 14px;
+    text-align: left;
+    color: rgb(24, 24, 240);
+}
+h5 {
+    font-size: 14px;
+    text-align: left;
+    color: rgb(24, 24, 240);
+}
+nav.toc {
+    border: 1px solid gray;
+    padding: 1em;
+    display: table;
+    background: rgb(236, 236, 236);
+}
+div.toch1 {
+    text-align: left;
+    color: rgb(24, 24, 240);
+    margin-left: 1em;
+}
+div.toch2 {
+    text-align: left;
+    color: rgb(24, 24, 240);
+    margin-left: 2em;
+}
+div.toch3 {
+    text-align: left;
+    color: rgb(24, 24, 240);
+    margin-left: 3em;
+}
+div.toch4 {
+    text-align: left;
+    color: rgb(24, 24, 240);
+    margin-left: 4em;
+}
+div.toch5 {
+    text-align: left;
+    color: rgb(24, 24, 240);
+    margin-left: 5em;
+}
+div.toctitle {
+    font-size: 14px;
+    font-weight: bold;
+    color: rgb(0, 0, 0);
+    text-align: center;
+}
+span.sub-title-info {
+    font-size: 14px;
+    text-align: left;
+    color: rgb(184, 8, 8);
+    font-style: italic;
+    font-weight: normal;
+}
+span.unity-required::before {
+    content: "(Unity Required)";
+    font-size: 14px;
+    text-align: left;
+    color: rgb(184, 8, 8);
+    font-style: italic;
+    font-weight: normal;
+}
+span.unity-not-required::before {
+    content: "(Unity Not Required)";
+    font-size: 14px;
+    text-align: left;
+    color: rgb(184, 8, 8);
+    font-style: italic;
+    font-weight: normal;
+}
+span.html-open-tag {
+    color: rgb(55, 30, 197);
+    font-family: monospace;
+}
+span.html-open-tag::before {
+    content: "<";
+    color:  rgb(61, 61, 61);
+}
+span.html-open-tag::after {
+    content: ">";
+    color: rgb(61, 61, 61);
+}
+div.sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 200px;
+    display: block!important;
+    overflow: auto;
+    z-index: 1;
+    background: rgb(236, 236, 236);
+}
+div.sidebarSection {
+    font-size: 16px;
+    text-align: left;
+    color: rgb(24, 24, 240);
+    margin-left: 0.25em;
+    font-weight: bold;
+}
+a.sidebarLink {
+    font-size: 14px;
+    text-align: left;
+    color: rgb(24, 24, 240);
+    text-decoration: underline;
+    margin-left: 0.25em;
+    font-weight: normal;
+}
+a.sidebarLink:link {
+        color: rgb(0, 0, 61);
+        text-decoration: none;
+}
+a.sidebarLink:visited {
+    color: rgb(61, 0, 66);
+    text-decoration: none;
+}
+a.sidebarLink:hover {
+    text-decoration: underline;
+    background-color: #c6cbfa;
+}
+table, th, tr, td {
+    border: 1px solid rgb(61, 61, 61);
+    border-collapse: collapse;
+}
+table {
+    padding: 20px; 
+}
+th, tr, td {
+  padding: 5px;
+}
+th {
+    text-align: left;
+    font-size: 14px;
+    background: rgb(200, 200, 200);
+}
+tr, td {
+    background: rgb(236, 236, 236);
+    font-size: 12px;
+}

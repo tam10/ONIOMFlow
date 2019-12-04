@@ -1,0 +1,98 @@
+REMARK
+REMARK TITLE Atoms(Clone)
+REMARK CHARGE-VALUE 0
+REMARK MULTIPLICITY-VALUE 1
+REMARK INTRA-MCC 0.0 | 1 2 3 4 5 6 41 42 43 44 45 46 | Remove
+REMARK
+ATOM      1  C   ACE A  64      11.642  68.057 -12.147                       C
+ATOM      2  CH3 ACE A  64      13.165  67.915 -12.160                       C
+ATOM      3 1HH3 ACE A  64      13.473  67.041 -12.734                       H
+ATOM      4 2HH3 ACE A  64      13.595  68.813 -12.604                       H
+ATOM      5 3HH3 ACE A  64      13.514  67.816 -11.132                       H
+ATOM      6  O   ACE A  64      10.935  67.243 -12.737                       O
+ATOM      7  C   CRA A  65       9.431  69.147  -9.749                       C
+ATOM      8  C1  CRA A  65       8.131  70.900  -9.852                       C
+ATOM      9  C2  CRA A  65       7.239  68.914 -12.412                       C
+ATOM     10  CA  CRA A  65      10.237  67.920 -10.172                       C
+ATOM     11  CA1 CRA A  65       8.729  70.767  -8.479                       C
+ATOM     12  CA2 CRA A  65       8.418  69.770 -11.975                       C
+ATOM     13  CB  CRA A  65      10.723  67.085  -8.984                       C
+ATOM     14  CB1 CRA A  65       8.491  71.711  -7.501                       C
+ATOM     15  CD1 CRA A  65       9.853  70.805  -5.669                       C
+ATOM     16  CD2 CRA A  65       8.622  72.829  -5.348                       C
+ATOM     17  CE1 CRA A  65      10.348  70.900  -4.352                       C
+ATOM     18  CE2 CRA A  65       9.098  72.935  -4.033                       C
+ATOM     19  CG  CRA A  65       8.987  71.776  -6.180                       C
+ATOM     20  CZ  CRA A  65       9.954  71.973  -3.543                       C
+ATOM     21  H   CRA A  65      12.037  69.210 -10.424                       H
+ATOM     22  HA  CRA A  65       8.418  70.740 -12.574                       H
+ATOM     23  HA1 CRA A  65       9.340  69.200 -12.327                       H
+ATOM     24  HA2 CRA A  65       9.731  67.221 -10.991                       H
+ATOM     25  HB  CRA A  65       7.656  72.556  -7.694                       H
+ATOM     26  HB1 CRA A  65      11.645  66.515  -9.336                       H
+ATOM     27  HB2 CRA A  65      10.908  67.885  -8.175                       H
+ATOM     28  HD  CRA A  65       7.923  73.648  -5.854                       H
+ATOM     29  HD1 CRA A  65      10.359  70.106  -6.488                       H
+ATOM     30  HE  CRA A  65       8.592  73.634  -3.214                       H
+ATOM     31  HE1 CRA A  65      11.047  70.081  -3.846                       H
+ATOM     32  HG  CRA A  65       8.957  66.774  -7.830                       H
+ATOM     33  HH  CRA A  65      10.822  72.968  -1.980                       H
+ATOM     34  N   CRA A  65      11.385  68.446 -10.896                       N
+ATOM     35  N1  CRA A  65       9.543  69.559  -8.452                       N
+ATOM     36  N2  CRA A  65       8.653  69.907 -10.550                       N
+ATOM     37  O   CRA A  65       7.326  71.733 -10.289                       O
+ATOM     38  O1  CRA A  65       6.736  69.089 -13.541                       O
+ATOM     39  OG  CRA A  65       9.652  66.344  -8.424                       O
+ATOM     40  OH  CRA A  65      10.379  72.087  -2.245                       O
+ATOM     41  CH3 NME A  68       5.756  67.061 -11.927                       C
+ATOM     42  H   NME A  68       7.767  67.571 -11.397                       H
+ATOM     43 1HH3 NME A  68       4.852  67.646 -12.096                       H
+ATOM     44 2HH3 NME A  68       6.005  66.507 -12.832                       H
+ATOM     45 3HH3 NME A  68       5.588  66.362 -11.108                       H
+ATOM     46  N   NME A  68       6.850  67.949 -11.587                       N
+CONECT 1    2    6   34
+CONECT 2    1    3    4    5
+CONECT 3    2
+CONECT 4    2
+CONECT 5    2
+CONECT 6    1
+CONECT 7   10   35   36
+CONECT 8   11   36   37
+CONECT 9   12   38   46
+CONECT 10    7   13   24   34
+CONECT 11    8   14   35
+CONECT 12    9   22   23   36
+CONECT 13   10   26   27   39
+CONECT 14   11   19   25
+CONECT 15   17   19   29
+CONECT 16   18   19   28
+CONECT 17   15   20   31
+CONECT 18   16   20   30
+CONECT 19   14   15   16
+CONECT 20   17   18   40
+CONECT 21   34
+CONECT 22   12
+CONECT 23   12
+CONECT 24   10
+CONECT 25   14
+CONECT 26   13
+CONECT 27   13
+CONECT 28   16
+CONECT 29   15
+CONECT 30   18
+CONECT 31   17
+CONECT 32   39
+CONECT 33   40
+CONECT 34    1   10   21
+CONECT 35    7   11
+CONECT 36    7    8   12
+CONECT 37    8
+CONECT 38    9
+CONECT 39   13   32
+CONECT 40   20   33
+CONECT 41   43   44   45   46
+CONECT 42   46
+CONECT 43   41
+CONECT 44   41
+CONECT 45   41
+CONECT 46    9   41   42

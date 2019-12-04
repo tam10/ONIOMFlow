@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<geometry>
+	<residue ID="A1" name="ILE" charge="0.0000" state="STANDARD">
+		<atom ID=" N  " charge="-0.4157" amber="N">
+			<xyz>2.7360,54.5578,0.0000</xyz>
+			<bonds> H  (S), CA (S)</bonds>
+		</atom>
+		<atom ID=" H  " charge="0.2719" amber="H">
+			<xyz>1.7325,54.6722,0.0000</xyz>
+			<bonds> N  (S)</bonds>
+		</atom>
+		<atom ID=" CA " charge="-0.0597" amber="CT">
+			<xyz>3.5588,55.7506,0.0000</xyz>
+			<bonds> N  (S), HA (S), CB (S), C  (S)</bonds>
+		</atom>
+		<atom ID=" HA " charge="0.0869" amber="H1">
+			<xyz>4.1883,55.7583,0.8898</xyz>
+			<bonds> CA (S)</bonds>
+		</atom>
+		<atom ID=" CB " charge="0.1303" amber="CT">
+			<xyz>4.4392,55.7607,-1.2452</xyz>
+			<bonds> CA (S), HB (S), CG2(S), CG1(S)</bonds>
+		</atom>
+		<atom ID=" HB " charge="0.0187" amber="HC">
+			<xyz>5.0790,54.8783,-1.2457</xyz>
+			<bonds> CB (S)</bonds>
+		</atom>
+		<atom ID=" CG2" charge="-0.3204" amber="CT">
+			<xyz>3.5587,55.7505,-2.4903</xyz>
+			<bonds> CB (S),1HG2(S),2HG2(S),3HG2(S)</bonds>
+		</atom>
+		<atom ID="1HG2" charge="0.0882" amber="HC">
+			<xyz>2.9189,56.6330,-2.4908</xyz>
+			<bonds> CG2(S)</bonds>
+		</atom>
+		<atom ID="2HG2" charge="0.0882" amber="HC">
+			<xyz>4.1875,55.7578,-3.3807</xyz>
+			<bonds> CG2(S)</bonds>
+		</atom>
+		<atom ID="3HG2" charge="0.0882" amber="HC">
+			<xyz>2.9395,54.8535,-2.4908</xyz>
+			<bonds> CG2(S)</bonds>
+		</atom>
+		<atom ID=" CG1" charge="-0.0430" amber="CT">
+			<xyz>5.3051,57.0160,-1.2452</xyz>
+			<bonds> CB (S),2HG1(S),3HG1(S), CD1(S)</bonds>
+		</atom>
+		<atom ID="2HG1" charge="0.0236" amber="HC">
+			<xyz>4.6660,57.8990,-1.2452</xyz>
+			<bonds> CG1(S)</bonds>
+		</atom>
+		<atom ID="3HG1" charge="0.0236" amber="HC">
+			<xyz>5.9346,57.0238,-0.3554</xyz>
+			<bonds> CG1(S)</bonds>
+		</atom>
+		<atom ID=" CD1" charge="-0.0660" amber="CT">
+			<xyz>6.1855,57.0262,-2.4904</xyz>
+			<bonds> CG1(S),1HD1(S),2HD1(S),3HD1(S)</bonds>
+		</atom>
+		<atom ID="1HD1" charge="0.0186" amber="HC">
+			<xyz>5.5567,57.0189,-3.3807</xyz>
+			<bonds> CD1(S)</bonds>
+		</atom>
+		<atom ID="2HD1" charge="0.0186" amber="HC">
+			<xyz>6.8047,57.9233,-2.4909</xyz>
+			<bonds> CD1(S)</bonds>
+		</atom>
+		<atom ID="3HD1" charge="0.0186" amber="HC">
+			<xyz>6.8253,56.1437,-2.4909</xyz>
+			<bonds> CD1(S)</bonds>
+		</atom>
+		<atom ID=" C  " charge="0.5973" amber="C">
+			<xyz>2.7011,57.0079,0.0000</xyz>
+			<bonds> CA (S), O  (D)</bonds>
+		</atom>
+		<atom ID=" O  " charge="-0.5679" amber="O">
+			<xyz>1.4748,56.9264,0.0000</xyz>
+			<bonds> C  (D)</bonds>
+		</atom>
+	</residue>
+</geometry>

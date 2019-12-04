@@ -1,0 +1,390 @@
+# Table derived from http://www.bmrb.wisc.edu/ref_info/atom_nom.tbl
+# Terminal amine protons
+
+TER,1H  ,H
+TER,2H  ,H
+TER,3H  ,H
+
+# Terminal carboxyl atoms	
+
+TER, O  ,O
+TER, OXT,O
+
+# Residue atoms
+
+# Alanine
+ALA, H  ,H
+ALA, HA ,H
+ALA,1HB ,H
+ALA,2HB ,H
+ALA,3HB ,H
+ALA, C  ,C
+ALA, CA ,C
+ALA, CB ,C
+ALA, N  ,N
+ALA, O  ,O
+
+# Arginine
+ARG, H  ,H
+ARG, HA ,H
+ARG,1HB ,H
+ARG,2HB ,H
+ARG,1HG ,H
+ARG,2HG ,H
+ARG,1HD ,H
+ARG,2HD ,H
+ARG, HE ,H
+ARG,1HH1,H
+ARG,2HH1,H
+ARG,1HH2,H
+ARG,2HH2,H
+ARG, C  ,C
+ARG, CA ,C
+ARG, CB ,C
+ARG, CG ,C
+ARG, CD ,C
+ARG, CZ ,C
+ARG, N  ,N
+ARG, NE ,N
+ARG, NH1,N
+ARG, NH2,N
+ARG, O  ,O
+
+# Aspartic Acid
+ASP, H  ,H
+ASP, HA ,H
+ASP,1HB ,H
+ASP,2HB ,H
+ASP, HD2,H
+ASP, C  ,C
+ASP, CA ,C
+ASP, CB ,C
+ASP, CG ,C
+ASP, N  ,N
+ASP, O  ,O
+ASP, OD1,O
+ASP, OD2,O
+
+# Asparagine
+ASN, H  ,H
+ASN, HA ,H
+ASN,1HB ,H
+ASN,2HB ,H
+ASN,1HD2,H
+ASN,2HD2,H
+ASN, C  ,C
+ASN, CA ,C
+ASN, CB ,C
+ASN, CG ,C
+ASN, N  ,N
+ASN, ND2,N
+ASN, O  ,O
+ASN, OD1,O
+
+# Cysteine
+CYS, H  ,H
+CYS, HA ,H
+CYS,1HB ,H
+CYS,2HB ,H
+CYS, HG ,H
+CYS, C  ,C
+CYS, CA ,C
+CYS, CB ,C
+CYS, N  ,N
+CYS, O  ,O
+CYS, SG ,S
+
+# Glutamic Acid
+GLU, H  ,H
+GLU, HA ,H
+GLU,1HB ,H
+GLU,2HB ,H
+GLU,1HG ,H
+GLU,2HG ,H
+GLU, HE2,H
+GLU, C  ,C
+GLU, CA ,C
+GLU, CB ,C
+GLU, CG ,C
+GLU, CD ,C
+GLU, N  ,N
+GLU, O  ,O
+GLU, OE1,O
+GLU, OE2,O
+
+# Glutamine
+GLN, H  ,H
+GLN, HA ,H
+GLN,1HB ,H
+GLN,2HB ,H
+GLN,1HG ,H
+GLN,2HG ,H
+GLN,1HE2,H
+GLN,2HE2,H
+GLN, C  ,C
+GLN, CA ,C
+GLN, CB ,C
+GLN, CG ,C
+GLN, CD ,C
+GLN, N  ,N
+GLN, NE2,N
+GLN, O  ,O
+GLN, OE1,O
+
+# Glycine
+GLY, H  ,H
+GLY,1HA ,H
+GLY,2HA ,H
+GLY, C  ,C
+GLY, CA ,C
+GLY, N  ,N
+GLY, O  ,O
+
+# Histidine
+HIS, H  ,H
+HIS, HA ,H
+HIS,1HB ,H
+HIS,2HB ,H
+HIS, HD1,H
+HIS, HD2,H
+HIS, HE1,H
+HIS, HNE2,H
+HIS, C  ,C
+HIS, CA ,C
+HIS, CB ,C
+HIS, CG ,C
+HIS, CD2,C
+HIS, CE1,C
+HIS, N  ,N
+HIS, ND1,N
+HIS, NE2,N
+HIS, O  ,O
+
+# Isoleucine
+ILE, H  ,H
+ILE, HA ,H
+ILE, HB ,H
+ILE,1HG1,H
+ILE,2HG1,H
+ILE,1HG2,H
+ILE,2HG2,H
+ILE,3HG2,H
+ILE,1HD1,H
+ILE,2HD1,H
+ILE,3HD1,H
+ILE, C  ,C
+ILE, CA ,C
+ILE, CB ,C
+ILE, CG1,C
+ILE, CG2,C
+ILE, CD1,C
+ILE, N  ,N
+ILE, O  ,O
+
+# Leucine
+LEU, H  ,H
+LEU, HA ,H
+LEU,1HB ,H
+LEU,2HB ,H
+LEU, HG ,H
+LEU,1HD1,H
+LEU,2HD1,H
+LEU,3HD1,H
+LEU,1HD2,H
+LEU,2HD2,H
+LEU,3HD2,H
+LEU, C  ,C
+LEU, CA ,C
+LEU, CB ,C
+LEU, CG ,C
+LEU, CD1,C
+LEU, CD2,C
+LEU, N  ,N
+LEU, O  ,O
+
+# Lysine
+LYS, H  ,H
+LYS, HA ,H
+LYS,1HB ,H
+LYS,2HB ,H
+LYS,1HG ,H
+LYS,2HG ,H
+LYS,1HD ,H
+LYS,2HD ,H
+LYS,1HE ,H
+LYS,2HE ,H
+LYS,1HZ ,H
+LYS,2HZ ,H
+LYS,3HZ ,H
+LYS, C  ,C
+LYS, CA ,C
+LYS, CB ,C
+LYS, CG ,C
+LYS, CD ,C
+LYS, CE ,C
+LYS, N  ,N
+LYS, NZ ,N
+LYS, O  ,O
+
+# Methionine
+MET, H  ,H
+MET, HA ,H
+MET,1HB ,H
+MET,2HB ,H
+MET,1HG ,H
+MET,2HG ,H
+MET,1HE ,H
+MET,2HE ,H
+MET,3HE ,H
+MET, C  ,C
+MET, CA ,C
+MET, CB ,C
+MET, CG ,C
+MET, CE ,C
+MET, N  ,N
+MET, O  ,O
+MET, SD ,S
+
+# Phenylalanine
+PHE, H  ,H
+PHE, HA ,H
+PHE,1HB ,H
+PHE,2HB ,H
+PHE, HD1,H
+PHE, HD2,H
+PHE, HE1,H
+PHE, HE2,H
+PHE, HZ ,H
+PHE, C  ,C
+PHE, CA ,C
+PHE, CB ,C
+PHE, CG ,C
+PHE, CD1,C
+PHE, CD2,C
+PHE, CE1,C
+PHE, CE2,C
+PHE, CZ ,C
+PHE, N  ,N
+PHE, O  ,O
+
+# Proline
+PRO, H  ,H
+PRO, H1 ,H
+PRO, HA ,H
+PRO,1HB ,H
+PRO,2HB ,H
+PRO,1HG ,H
+PRO,2HG ,H
+PRO,1HD ,H
+PRO,2HD ,H
+PRO, C  ,C
+PRO, CA ,C
+PRO, CB ,C
+PRO, CG ,C
+PRO, CD ,C
+PRO, N  ,N
+PRO, O  ,O
+
+# Serine
+SER, H  ,H
+SER, HA ,H
+SER,1HB ,H
+SER,2HB ,H
+SER, HG ,H
+SER, C  ,C
+SER, CA ,C
+SER, CB ,C
+SER, N  ,N
+SER, O  ,O
+SER, OG ,O
+
+# Threonine
+THR, H  ,H
+THR, HA ,H
+THR, HB ,H
+THR, HG1,H
+THR,1HG2,H
+THR,2HG2,H
+THR,3HG2,H
+THR, C  ,C
+THR, CA ,C
+THR, CB ,C
+THR, CG2,C
+THR, N  ,N
+THR, O  ,O
+THR, OG1,O
+
+# Tryptophan
+TRP, H  ,H
+TRP, HA ,H
+TRP,1HB ,H
+TRP,2HB ,H
+TRP, HD1,H
+TRP, HE1,H
+TRP, HE3,H
+TRP, HZ2,H
+TRP, HZ3,H
+TRP, HH2,H
+TRP, C  ,C
+TRP, CA ,C
+TRP, CB ,C
+TRP, CG ,C
+TRP, CD1,C
+TRP, CD2,C
+TRP, CE2,C
+TRP, CE3,C
+TRP, CZ2,C
+TRP, CZ3,C
+TRP, CH2,C
+TRP, N  ,N
+TRP, NE1,N
+TRP, O  ,O
+
+# Tyrosine
+TYR, H  ,H
+TYR, HA ,H
+TYR,1HB ,H
+TYR,2HB ,H
+TYR, HD1,H
+TYR, HD2,H
+TYR, HE1,H
+TYR, HE2,H
+TYR, HH ,H
+TYR, C  ,C
+TYR, CA ,C
+TYR, CB ,C
+TYR, CG ,C
+TYR, CD1,C
+TYR, CD2,C
+TYR, CE1,C
+TYR, CE2,C
+TYR, CZ ,C
+TYR, N  ,N
+TYR, O  ,O
+TYR, OH ,O
+
+# Valine
+VAL, H  ,H
+VAL, HA ,H
+VAL, HB ,H
+VAL,1HG1,H
+VAL,2HG1,H
+VAL,3HG1,H
+VAL,1HG2,H
+VAL,2HG2,H
+VAL,3HG2,H
+VAL, C  ,C
+VAL, CA ,C
+VAL, CB ,C
+VAL, CG1,C
+VAL, CG2,C
+VAL, N  ,N
+VAL, O  ,O
+
+# Water
+HOH, HW1,H
+HOH, HW2,H
+HOH, OW ,O
+WAT, HW1,H
+WAT, HW2,H
+WAT, OW ,O

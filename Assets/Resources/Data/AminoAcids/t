@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<geometry>
+	<residue ID="A1" name="ACE" charge="0.0000" state="CAP">
+		<atom ID="1HH3" charge="0.1123" amber="HC">
+			<xyz>2.0000,1.0000,0.0000</xyz>
+			<bonds> CH3(S)</bonds>
+		</atom>
+		<atom ID=" CH3" charge="-0.3662" amber="CT">
+			<xyz>2.0000,2.0900,0.0000</xyz>
+			<bonds>1HH3(S),2HH3(S),3HH3(S), C  (S)</bonds>
+		</atom>
+		<atom ID="2HH3" charge="0.1123" amber="HC">
+			<xyz>1.4863,2.4538,0.8898</xyz>
+			<bonds> CH3(S)</bonds>
+		</atom>
+		<atom ID="3HH3" charge="0.1123" amber="HC">
+			<xyz>1.4863,2.4539,-0.8898</xyz>
+			<bonds> CH3(S)</bonds>
+		</atom>
+		<atom ID=" C  " charge="0.5972" amber="C">
+			<xyz>3.4274,2.6408,0.0000</xyz>
+			<bonds> CH3(S), O  (D)</bonds>
+		</atom>
+		<atom ID=" O  " charge="-0.5679" amber="O">
+			<xyz>4.3906,1.8774,0.0000</xyz>
+			<bonds> C  (D)</bonds>
+		</atom>
+	</residue>
+</atoms>

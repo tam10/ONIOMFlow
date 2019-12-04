@@ -1,0 +1,83 @@
+
+GUI
+Fix side scrolling in Tables
+
+GAUSSIAN INPUT READER
+Look through UNUSED tags
+
+SETTINGS
+Settings related to elements should be in Data
+Make a UI for Settings
+
+NOTIFICATIONS
+Add more verbose information
+Allow scrolling of recent notifications
+updateTaskBar should be a function
+
+COLOURS
+All colours should be unified in ColorScheme.ColorScheme
+
+CHECKERS
+Prevent checkers from "fixing" errors that aren't caught - or add them to checkers
+
+CHAINS/GetChain
+Make sure that not checking this won't break the program - split geometry for external command by chain first.
+
+CLEANER
+Some functions should be moved to other classes such as AMBER and parameter calculations.
+Will need to update Tasks.xml and tasks.html
+Make GetResidueGroup non-recursive. DONE but needs checking.
+
+PROTONATOR
+Move GetNSRs and GetSRs to a new class - GeometrySplitter
+Provide some progress feedback for R.E.D.
+Allow selection of mol2 file
+
+ARROWS/TASKS/PROCEDURES
+Simplify this by moving info to Flow.xml and Tasks.xml
+Remove switches from ArrowFunctions and give this responsibility to the xml files so the user can modify
+See if ArrowProcedure is even necessary - a lot of repetition
+Probably can't touch TIDs as they reference functions
+
+MATHEMATICS
+Make functions to change Angle and Dihedral
+
+ATOMS
+Reevaluate the ChangePDBID() method. Looks like it only reconnects internal connections.
+Fix ResetConnectivity()
+
+PROTONATOR
+broke
+CAP residues aren't recognised in Reduce command
+
+RESIDUE
+Changed:
+newbondLength = Data.bondDistances[new ElementPair(hostPDBID, atomID.pdbID)][0] - Settings.bondLeeway * 1.5f;
+to 
+newbondLength = Data.bondDistances[new ElementPair(hostPDBID, atomPDBID)][0] - Settings.bondLeeway * 1.5f;
+
+ATOM VISUALISER
+Changed MoveCamera IEnumerator
+
+Check readers and writers are working - changed AtomMap stuff
+
+AtomVisualiser History - need to implement with Geometry : Monobehaviour
+AtomVisualiser BrushOptimise - Partial charge from standard residue?
+
+
+DOCUMENTATION
+Flow - Done
+GeometryInterface - Done
+Tooltip - Done
+Mathematics - Done
+PopupWindow - Done
+ProceduresPopup - Done
+DraggedGIPopup - Done
+XATReader - Done
+Geometry - Done
+SingleMessageBar - Done
+Cylinder - Done
+Sphere - Done
+Multiprompt - Done
+Arrow
+Clean

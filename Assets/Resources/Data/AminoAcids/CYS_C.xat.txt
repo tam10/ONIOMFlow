@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<geometry>
+	<residue ID="A1" name="CYS" charge="-1.0000" state="C_TER">
+		<atom ID=" N  " charge="-0.3821" amber="N">
+			<xyz>0.0000,0.0000,0.0000</xyz>
+			<bonds> H  (S), CA (S)</bonds>
+		</atom>
+		<atom ID=" H  " charge="0.2681" amber="H">
+			<xyz>1.0100,0.0000,0.0000</xyz>
+			<bonds> N  (S)</bonds>
+		</atom>
+		<atom ID=" CA " charge="-0.1635" amber="CT">
+			<xyz>-0.6870,1.2758,0.0000</xyz>
+			<bonds> N  (S), HA (S), CB (S), C  (S)</bonds>
+		</atom>
+		<atom ID=" HA " charge="0.1396" amber="H1">
+			<xyz>-1.3118,1.3526,-0.8898</xyz>
+			<bonds> CA (S)</bonds>
+		</atom>
+		<atom ID=" CB " charge="-0.1996" amber="CT">
+			<xyz>-1.5736,1.4219,1.2321</xyz>
+			<bonds> CA (S),2HB (S),3HB (S), SG (S)</bonds>
+		</atom>
+		<atom ID="2HB " charge="0.1437" amber="H1">
+			<xyz>-2.3178,0.6256,1.2414</xyz>
+			<bonds> CB (S)</bonds>
+		</atom>
+		<atom ID="3HB " charge="0.1437" amber="H1">
+			<xyz>-0.9608,1.3563,2.1312</xyz>
+			<bonds> CB (S)</bonds>
+		</atom>
+		<atom ID=" SG " charge="-0.3102" amber="SH">
+			<xyz>-2.4966,2.9731,1.3660</xyz>
+			<bonds> CB (S), HSG(S)</bonds>
+		</atom>
+		<atom ID=" HSG" charge="0.2068" amber="HS">
+			<xyz>-3.0941,2.6804,2.5176</xyz>
+			<bonds> SG (S)</bonds>
+		</atom>
+		<atom ID=" C  " charge="0.7497" amber="C">
+			<xyz>0.3035,2.4314,0.0000</xyz>
+			<bonds> CA (S), O  (D), OXT(D)</bonds>
+		</atom>
+		<atom ID=" O  " charge="-0.7981" amber="O2">
+			<xyz>1.5135,2.2159,0.0000</xyz>
+			<bonds> C  (D)</bonds>
+		</atom>
+		<atom ID=" OXT" charge="-0.7981" amber="O2">
+			<xyz>-0.0946,3.5942,0.0000</xyz>
+			<bonds> C  (D)</bonds>
+		</atom>
+	</residue>
+</geometry>

@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<geometry>
+	<residue ID="A1" name="THR" charge="1.0000" state="N_TER">
+		<atom ID=" N  " charge="0.1812" amber="N3">
+			<xyz>3.3258,1.5479,0.0000</xyz>
+			<bonds>1H  (S),2H  (S),3H  (S), CA (S)</bonds>
+		</atom>
+		<atom ID="1H  " charge="0.1934" amber="H">
+			<xyz>4.0462,0.8400,0.0000</xyz>
+			<bonds> N  (S)</bonds>
+		</atom>
+		<atom ID="2H  " charge="0.1934" amber="H">
+			<xyz>2.8231,1.4995,-0.8747</xyz>
+			<bonds> N  (S)</bonds>
+		</atom>
+		<atom ID="3H  " charge="0.1934" amber="H">
+			<xyz>2.8231,1.4995,0.8747</xyz>
+			<bonds> N  (S)</bonds>
+		</atom>
+		<atom ID=" CA " charge="0.0034" amber="CT">
+			<xyz>3.9700,2.8458,0.0000</xyz>
+			<bonds> N  (S), HA (S), CB (S), C  (S)</bonds>
+		</atom>
+		<atom ID=" HA " charge="0.1087" amber="HP">
+			<xyz>3.6717,3.4001,-0.8898</xyz>
+			<bonds> CA (S)</bonds>
+		</atom>
+		<atom ID=" CB " charge="0.4514" amber="CT">
+			<xyz>3.5770,3.6538,1.2321</xyz>
+			<bonds> CA (S), HB (S), CG2(S), OG1(S)</bonds>
+		</atom>
+		<atom ID=" HB " charge="-0.0323" amber="H1">
+			<xyz>4.0751,4.6230,1.2058</xyz>
+			<bonds> CB (S)</bonds>
+		</atom>
+		<atom ID=" CG2" charge="-0.2554" amber="CT">
+			<xyz>2.0659,3.8594,1.2444</xyz>
+			<bonds> CB (S),1HG2(S),2HG2(S),3HG2(S)</bonds>
+		</atom>
+		<atom ID="1HG2" charge="0.0627" amber="HC">
+			<xyz>1.5671,2.8906,1.2712</xyz>
+			<bonds> CG2(S)</bonds>
+		</atom>
+		<atom ID="2HG2" charge="0.0627" amber="HC">
+			<xyz>1.7844,4.4370,2.1249</xyz>
+			<bonds> CG2(S)</bonds>
+		</atom>
+		<atom ID="3HG2" charge="0.0627" amber="HC">
+			<xyz>1.7647,4.3978,0.3458</xyz>
+			<bonds> CG2(S)</bonds>
+		</atom>
+		<atom ID=" OG1" charge="-0.6764" amber="OH">
+			<xyz>3.9715,2.9474,2.4112</xyz>
+			<bonds> CB (S), HG1(T)</bonds>
+		</atom>
+		<atom ID=" HG1" charge="0.4070" amber="HO">
+			<xyz>3.7241,3.4561,3.1869</xyz>
+			<bonds> OG1(T)</bonds>
+		</atom>
+		<atom ID=" C  " charge="0.6163" amber="C">
+			<xyz>5.4855,2.7052,0.0000</xyz>
+			<bonds> CA (S), O  (D)</bonds>
+		</atom>
+		<atom ID=" O  " charge="-0.5722" amber="O">
+			<xyz>6.0088,1.5932,0.0000</xyz>
+			<bonds> C  (D)</bonds>
+		</atom>
+	</residue>
+</geometry>

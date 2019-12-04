@@ -1,0 +1,94 @@
+{
+    "sections": {
+            "main_pages": {
+                "name": "Main Pages",
+                "items": [
+                    {
+                        "name": "Introduction",
+                        "link": "intro.html"
+                    },
+                    {
+                        "name": "Developer's Guide",
+                        "link": "dev_intro.html"
+                    }
+                ]
+            },
+            "classes": {
+                "name": "Classes",
+                "items": [
+                    {
+                        "name": "Geometry Interface",
+                        "link": "geometry_interfaces.html",
+                        "brief": "Geometry Interfaces provide a graphical interface to Atoms objects and their properties."
+                    },
+                    {
+                        "name": "Arrow",
+                        "link": "arrows.html",
+                        "brief": "Arrows link Geometry Interfaces and are the interface to the execution of Tasks."
+                    },
+                    {
+                        "name": "Atom Checker",
+                        "link": "atom_checker.html",
+                        "brief": "Provides error checking and feedback on the Atom level."
+                    },
+                    {
+                        "name": "Residue Checker",
+                        "link": "residue_checker.html",
+                        "brief": "Provides error checking and feedback on the Residue level."
+                    },
+                    {
+                        "name": "Task",
+                        "link": "tasks.html",
+                        "brief": "Individual processes that are performed on or using Atoms."
+                    }
+                ]
+            },
+            "formats": {
+                "name": "File Formats",
+                "items": [
+                    {
+                        "name": ".xat",
+                        "link": "xat.html"
+                    },
+                    {
+                        "name": ".pdb",
+                        "link": "xat.html"
+                    },
+                    {
+                        "name": ".pqr",
+                        "link": "xat.html"
+                    },
+                    {
+                        "name": ".prm",
+                        "link": "xat.html"
+                    },
+                    {
+                        "name": ".com/.gjf",
+                        "link": "xat.html"
+                    },
+                    {
+                        "name": ".p2n",
+                        "link": "xat.html"
+                    },
+                    {
+                        "name": ".mol2",
+                        "link": "xat.html"
+                    }
+                ]
+
+            },
+            "fileIO": {
+                "name": "File Input/Output (dev)",
+                "items": [
+                    {
+                        "name": "File Reader",
+                        "link": "xat.html"
+                    },
+                    {
+                        "name": "File Writer",
+                        "link": "xat.html"
+                    }
+                ]
+            }
+        }
+}

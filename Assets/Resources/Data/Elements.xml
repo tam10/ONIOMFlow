@@ -1,0 +1,1370 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<elements>
+
+	<!--
+	COMMON ELEMENTS
+	-->
+
+	<atom element="H">
+		<!--
+		Default
+		-->
+		<radius>1.20</radius>
+		<red>1.</red>
+		<green>1.</green>
+		<blue>1.</blue>
+		<maxValency>1.</maxValency>
+		<mass>1.</mass>
+
+		<!-- 
+		State contains possible connectivities for an atom
+		-->
+		<state name="neutral">
+			<single>1</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<!--
+		Environments can be used to determine AMBER atom types as well as states
+
+		Conditions are determined with a logical OR between groups, and logical AND within
+		If a condition is met, that environment is used.
+
+		Tests:
+		element, pdb, amber: Check this name in this atom. One per atom.
+
+		inRing: Check this atom is in a ring of this size
+
+		neighbour: Perform tests on all neighbouring atoms
+		A true result removes this atom from the pool of neighbouring atoms, allowing the same test to be performed on multiple atoms (eg water)
+
+		neighbourCount: Check this atom has this many neighbours (int)
+
+		If a neighbour needs to be checked, its environment will be calculated first
+
+		NEED TO CHECK RADII
+		-->
+		<environment name="aromatic">
+			<amber>HA</amber>
+			<radius>1.20</radius>
+			<red>.9</red>
+			<green>1.</green>
+			<blue>.9</blue>
+			<state>neutral</state>
+
+			<condition>
+				<neighbour>
+					<element>C</element>
+					<neighbourCount>3</neighbourCount>
+					<inRing>6</inRing>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="carbon CR">
+			<amber>H5</amber>
+			<radius>1.20</radius>
+			<red>.9</red>
+			<green>1.</green>
+			<blue>.9</blue>
+			<state>neutral</state>
+
+			<condition>
+				<neighbour>
+					<element>C</element>
+					<inRing>5</inRing>
+					<neighbour>
+						<element>N</element>
+					</neighbour>
+					<neighbour>
+						<element>N</element>
+					</neighbour>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="carbon CV">
+			<amber>H4</amber>
+			<radius>1.20</radius>
+			<red>.9</red>
+			<green>1.</green>
+			<blue>.9</blue>
+			<state>neutral</state>
+
+			<condition>
+				<neighbour>
+					<element>C</element>
+					<inRing>5</inRing>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="carbon">
+			<amber>HC</amber>
+			<radius>1.20</radius>
+			<red>1.</red>
+			<green>1.</green>
+			<blue>1.</blue>
+			<state>neutral</state>
+
+			<condition>
+				<neighbour>
+					<element>C</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="amino">
+			<amber>H2</amber>
+			<radius>1.20</radius>
+			<red>0.9</red>
+			<green>0.9</green>
+			<blue>1.</blue>
+			<state>neutral</state>
+
+			<condition>
+				<neighbour>
+					<element>N</element>
+					<neighbour>
+						<element>H</element>
+					</neighbour>
+					<neighbour>
+						<element>H</element>
+					</neighbour>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="nitrogen">
+			<amber>H</amber>
+			<radius>1.20</radius>
+			<red>0.9</red>
+			<green>0.9</green>
+			<blue>1.</blue>
+			<state>neutral</state>
+
+			<condition>
+				<neighbour>
+					<element>N</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<!---
+		Must come before oxygen
+		-->
+		<environment name="water">
+			<amber>HW</amber>
+			<radius>1.20</radius>
+			<red>1.</red>
+			<green>0.9</green>
+			<blue>0.9</blue>
+			<state>neutral</state>
+
+			<condition>
+				<neighbour>
+					<element>O</element>
+					<neighbour>
+						<element>H</element>
+					</neighbour>
+					<neighbour>
+						<element>H</element>
+					</neighbour>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="oxygen">
+			<amber>HO</amber>
+			<radius>1.20</radius>
+			<red>1.</red>
+			<green>0.9</green>
+			<blue>0.9</blue>
+			<state>neutral</state>
+
+			<condition>
+				<neighbour>
+					<element>O</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="sulfur">
+			<amber>HS</amber>
+			<radius>1.20</radius>
+			<red>1.</red>
+			<green>1.</green>
+			<blue>0.9</blue>
+			<state>neutral</state>
+
+			<condition>
+				<neighbour>
+					<element>S</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+	</atom>
+
+	<atom element="C">
+		<radius>1.70</radius>
+		<red>.5</red>
+		<green>.5</green>
+		<blue>.5</blue>
+		<maxValency>4.</maxValency>
+		<mass>12.</mass>
+
+		<state name="sp3">
+			<single>4</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="SSD">
+			<single>2</single>
+			<double>1</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="SAA">
+			<single>1</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>2</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="DD">
+			<single>0</single>
+			<double>2</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="ST">
+			<single>1</single>
+			<double>0</double>
+			<triple>1</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="sp3">
+			<amber>CT</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.5</green>
+			<blue>0.5</blue>
+			<state>sp3</state>
+
+			<condition>
+				<neighbourCount>4</neighbourCount>
+			</condition>
+		</environment>
+
+		<environment name="aromatic 6-ring 1-sub neighbours:N?,N?,H?">
+			<amber>CQ</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.5</green>
+			<blue>0.7</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>6</inRing>
+				<neighbour>
+					<amber>NC</amber>
+				</neighbour>
+				<neighbour>
+					<amber>NC</amber>
+				</neighbour>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="pyrimidine-position-5">
+			<amber>CM</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.6</green>
+			<blue>0.6</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>6</inRing>
+				<neighbour>
+					<amber>CM</amber>
+				</neighbour>
+				<neighbour>
+					<amber>CA</amber>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="pyrimidine-position-6">
+			<amber>CM</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.6</green>
+			<blue>0.6</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>6</inRing>
+				<neighbour>
+					<amber>NC</amber>
+				</neighbour>
+				<neighbour>
+					<amber>CA</amber>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<!--
+		Must come before aromatic
+		-->
+		<environment name="carbonyl">
+			<amber>C</amber>
+			<radius>1.70</radius>
+			<red>0.6</red>
+			<green>0.5</green>
+			<blue>0.5</blue>
+			<state>SSD</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<neighbour>
+					<element>O</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="guanidine">
+			<amber>CA</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.5</green>
+			<blue>0.6</blue>
+			<state>SSD</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<neighbour>
+					<element>N</element>
+				</neighbour>
+				<neighbour>
+					<element>N</element>
+				</neighbour>
+				<neighbour>
+					<element>N</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="aromatic 6-ring 1-sub">
+			<amber>CA</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.6</green>
+			<blue>0.5</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>6</inRing>
+			</condition>
+		</environment>
+
+		<!--
+		Must be before CC and C*
+		-->
+
+		<environment name="HIS neighbours:N?,N?,H?">
+			<amber>CR</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.5</green>
+			<blue>0.7</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>5</inRing>
+				<residue>HID,HIE,HIS</residue>
+				<neighbour>
+					<element>N</element>
+				</neighbour>
+				<neighbour>
+					<element>N</element>
+				</neighbour>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="aromatic 5-ring neighbours:N?,N?">
+			<amber>CK</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.5</green>
+			<blue>0.7</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>5</inRing>
+				<neighbour>
+					<element>N</element>
+				</neighbour>
+				<neighbour>
+					<element>N</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="aromatic 5-ring neighbours:HA">
+			<amber>CV</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.6</green>
+			<blue>0.5</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>5</inRing>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="aromatic 5-ring 1-sub 1-N?-neighbour">
+			<amber>CC</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.5</green>
+			<blue>0.6</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>5</inRing>
+				<neighbour>
+					<element>N</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="aromatic 5-ring neighbours:NA,HA">
+			<amber>CW</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.6</green>
+			<blue>0.6</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>5</inRing>
+				<neighbour>
+					<amber>NA</amber>
+				</neighbour>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="aromatic 5-ring 1-sub">
+			<amber>C*</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.6</green>
+			<blue>0.5</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>5</inRing>
+			</condition>
+		</environment>
+
+		<environment name="ring-junction">
+			<amber>CB</amber>
+			<radius>1.70</radius>
+			<red>0.5</red>
+			<green>0.6</green>
+			<blue>0.5</blue>
+			<state>SAA</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<neighbour>
+					<inRing>5,6</inRing>
+				</neighbour>
+				<neighbour>
+					<inRing>5,6</inRing>
+				</neighbour>
+			</condition>
+		</environment>
+
+	</atom>
+
+	<atom element="N">
+		<radius>1.55</radius>
+		<red>0.</red>
+		<green>0.</green>
+		<blue>1.</blue>
+		<maxValency>5.</maxValency>
+		<mass>14.</mass>
+
+		<state name="sp3">
+			<single>3</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="sp2">
+			<single>3</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="SD">
+			<single>1</single>
+			<double>1</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="AA">
+			<single>0</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>2</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="T">
+			<single>0</single>
+			<double>0</double>
+			<triple>1</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="sp3+">
+			<single>4</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>1</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="SSD+">
+			<single>2</single>
+			<double>1</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>1</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="SAA+">
+			<single>1</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>2</aromatic>
+			<charge>1</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="ST+">
+			<single>1</single>
+			<double>0</double>
+			<triple>1</triple>
+			<aromatic>0</aromatic>
+			<charge>1</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="D-">
+			<single>0</single>
+			<double>1</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>-1</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="SS-">
+			<single>2</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>-1</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="amide">
+			<amber>N</amber>
+			<radius>1.55</radius>
+			<red>0.3</red>
+			<green>0.3</green>
+			<blue>1.</blue>
+			<state>sp2</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<neighbour>
+					<amber>C</amber>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="5-ring neighbours:H?">
+			<amber>NA</amber>
+			<radius>1.55</radius>
+			<red>0.</red>
+			<green>0.3</green>
+			<blue>1.</blue>
+			<state>sp3</state>
+
+			<condition>
+				<inRing>5</inRing>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="aromatic 5-ring 0-sub">
+			<amber>NB</amber>
+			<radius>1.55</radius>
+			<red>0.</red>
+			<green>0.3</green>
+			<blue>1.</blue>
+			<state>AA</state>
+
+			<condition>
+				<neighbourCount>2</neighbourCount>
+				<inRing>5</inRing>
+			</condition>
+		</environment>
+
+		<environment name="aromatic neighbour:CT">
+			<amber>N*</amber>
+			<radius>1.55</radius>
+			<red>0.</red>
+			<green>0.3</green>
+			<blue>1.</blue>
+			<state>sp3</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<inRing>5,6</inRing>
+				<neighbour>
+					<element>C</element>
+					<neighbourCount>4</neighbourCount>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="aromatic 6-ring 0-sub">
+			<amber>NC</amber>
+			<radius>1.55</radius>
+			<red>0.</red>
+			<green>0.3</green>
+			<blue>1.</blue>
+			<state>sp3</state>
+
+			<condition>
+				<neighbourCount>2</neighbourCount>
+				<inRing>6</inRing>
+			</condition>
+		</environment>
+
+		<!--
+		Put amino and 3-sub last
+		-->
+		<environment name="amino">
+			<amber>N</amber>
+			<radius>1.55</radius>
+			<red>0.</red>
+			<green>0.</green>
+			<blue>1.</blue>
+			<state>sp3+</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="3-sub">
+			<amber>NT</amber>
+			<radius>1.55</radius>
+			<red>0.</red>
+			<green>0.</green>
+			<blue>1.</blue>
+			<state>sp3</state>
+
+			<condition>
+				<neighbourCount>3</neighbourCount>
+			</condition>
+		</environment>
+
+		<environment name="ammonium">
+			<amber>N3</amber>
+			<radius>1.55</radius>
+			<red>.1</red>
+			<green>.1</green>
+			<blue>1.</blue>
+			<state>sp3</state>
+
+			<condition>
+				<neighbourCount>4</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+
+	<atom element="O">
+		<radius>1.52</radius>
+		<red>1.</red>
+		<green>0.</green>
+		<blue>0.</blue>
+		<maxValency>2.</maxValency>
+		<mass>16.</mass>
+
+		<state name="D">
+			<single>0</single>
+			<double>1</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="SS">
+			<single>2</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="SD+">
+			<single>1</single>
+			<double>1</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>1</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="T+">
+			<single>0</single>
+			<double>0</double>
+			<triple>1</triple>
+			<aromatic>0</aromatic>
+			<charge>1</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="S-">
+			<single>1</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>-1</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="carboxyl">
+			<amber>O2</amber>
+			<radius>1.52</radius>
+			<red>1.</red>
+			<green>0.</green>
+			<blue>0.</blue>
+			<state>D</state>
+
+			<condition>
+				<neighbourCount>1</neighbourCount>
+				<neighbour>
+					<element>C</element>
+					<neighbour>
+						<element>O</element>
+					</neighbour>
+					<neighbour>
+						<element>O</element>
+					</neighbour>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="carbonyl">
+			<amber>O</amber>
+			<radius>1.52</radius>
+			<red>1.</red>
+			<green>0.</green>
+			<blue>0.</blue>
+			<state>D</state>
+
+			<condition>
+				<neighbourCount>1</neighbourCount>
+				<neighbour>
+					<element>C</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="phosphate non-bridging">
+			<amber>O2</amber>
+			<radius>1.52</radius>
+			<red>1.</red>
+			<green>0.</green>
+			<blue>0.</blue>
+			<state>D</state>
+
+			<condition>
+				<neighbourCount>1</neighbourCount>
+				<neighbour>
+					<element>P</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="water">
+			<amber>OW</amber>
+			<radius>1.52</radius>
+			<red>1.</red>
+			<green>.3</green>
+			<blue>.3</blue>
+			<state>SS</state>
+
+			<condition>
+				<neighbourCount>2</neighbourCount>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="hydroxyl">
+			<amber>OH</amber>
+			<radius>1.52</radius>
+			<red>.9</red>
+			<green>.1</green>
+			<blue>.1</blue>
+			<state>SS</state>
+
+			<condition>
+				<neighbourCount>2</neighbourCount>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="ester">
+			<amber>OS</amber>
+			<radius>1.52</radius>
+			<red>.8</red>
+			<green>.2</green>
+			<blue>.2</blue>
+			<state>SS</state>
+
+			<condition>
+				<neighbourCount>2</neighbourCount>
+				<neighbour>
+					<element>C</element>
+					<neighbour>
+						<element>O</element>
+					</neighbour>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="ether">
+			<amber>OS</amber>
+			<radius>1.52</radius>
+			<red>.7</red>
+			<green>.2</green>
+			<blue>.2</blue>
+			<state>SS</state>
+
+			<condition>
+				<neighbourCount>2</neighbourCount>
+				<neighbour>
+					<element>C</element>
+				</neighbour>
+			</condition>
+		</environment>
+	</atom>
+
+
+	<atom element="S">
+		<radius>1.80</radius>
+		<red>1.</red>
+		<green>1.</green>
+		<blue>.0</blue>
+		<maxValency>2.</maxValency>
+		<mass>32.</mass>
+
+		<state name="SS">
+			<single>2</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="cysteine">
+			<amber>SH</amber>
+			<radius>1.8</radius>
+			<red>1.</red>
+			<green>1.0</green>
+			<blue>.0</blue>
+			<state>SS</state>
+
+			<condition>
+				<neighbourCount>2</neighbourCount>
+				<neighbour>
+					<element>H</element>
+				</neighbour>
+			</condition>
+		</environment>
+
+		<environment name="disulfide">
+			<amber>S</amber>
+			<radius>1.8</radius>
+			<red>0.8</red>
+			<green>0.8</green>
+			<blue>.0</blue>
+			<state>SS</state>
+
+			<condition>
+				<neighbourCount>2</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+
+	<atom element="P">
+		<radius>1.8</radius>
+		<red>1.</red>
+		<green>.7</green>
+		<blue>0.</blue>
+		<maxValency>5.</maxValency>
+		<mass>31.</mass>
+
+		<state name="SSS">
+			<single>3</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<state name="SSSD">
+			<single>3</single>
+			<double>1</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="phosphate">
+			<amber>P</amber>
+			<radius>1.8</radius>
+			<red>1.</red>
+			<green>.7</green>
+			<blue>.0</blue>
+			<state>SSSD</state>
+
+			<condition>
+				<neighbourCount>4</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<!--
+	Halogens
+	-->
+
+	<atom element="F">
+		<radius>1.47</radius>
+		<red>.4</red>
+		<green>1.</green>
+		<blue>0.</blue>
+		<maxValency>1.</maxValency>
+		<mass>19.</mass>
+
+		<state name="S">
+			<single>1</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="fluoride">
+			<amber>F</amber>
+			<radius>1.47</radius>
+			<red>.4</red>
+			<green>1.</green>
+			<blue>0.</blue>
+			<state>S</state>
+
+			<condition>
+				<neighbourCount>1</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<atom element="Cl">
+		<radius>1.75</radius>
+		<red>0.</red>
+		<green>1.</green>
+		<blue>0.</blue>
+		<maxValency>1.</maxValency>
+		<mass>35.</mass>
+
+		<state name="S">
+			<single>1</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="chloride">
+			<amber>Cl</amber>
+			<radius>1.75</radius>
+			<red>0.</red>
+			<green>1.</green>
+			<blue>0.</blue>
+			<state>S</state>
+
+			<condition>
+				<neighbourCount>1</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<atom element="Br">
+		<radius>1.85</radius>
+		<red>.4</red>
+		<green>.2</green>
+		<blue>.1</blue>
+		<maxValency>1.</maxValency>
+		<mass>79.</mass>
+
+		<state name="S">
+			<single>1</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="bromide">
+			<amber>Br</amber>
+			<radius>1.85</radius>
+			<red>.4</red>
+			<green>.2</green>
+			<blue>.1</blue>
+			<state>S</state>
+
+			<condition>
+				<neighbourCount>1</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<atom element="I">
+		<radius>1.98</radius>
+		<red>.4</red>
+		<green>.2</green>
+		<blue>.6</blue>
+		<maxValency>1.</maxValency>
+		<mass>127.</mass>
+
+		<state name="S">
+			<single>1</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="iodide">
+			<amber>I</amber>
+			<radius>1.98</radius>
+			<red>.4</red>
+			<green>.2</green>
+			<blue>.6</blue>
+			<state>S</state>
+
+			<condition>
+				<neighbourCount>1</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<!--
+	IONS
+	-->
+
+	<atom element="Na">
+		<radius>1.16</radius>
+		<red>1.</red>
+		<green>.2</green>
+		<blue>1.</blue>
+		<maxValency>0.</maxValency>
+		<mass>23.</mass>
+
+		<state name="1+">
+			<single>0</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>1</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="ion">
+			<amber>Na</amber>
+			<radius>1.16</radius>
+			<red>1.</red>
+			<green>.4</green>
+			<blue>1.</blue>
+			<state>1+</state>
+
+			<condition>
+				<neighbourCount>0</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<atom element="K">
+		<radius>1.52</radius>
+		<red>1.</red>
+		<green>.2</green>
+		<blue>1.</blue>
+		<maxValency>0.</maxValency>
+		<mass>39.</mass>
+
+		<state name="1+">
+			<single>0</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>1</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="ion">
+			<amber>K</amber>
+			<radius>1.52</radius>
+			<red>1.</red>
+			<green>.2</green>
+			<blue>1.</blue>
+			<state>1+</state>
+
+			<condition>
+				<neighbourCount>0</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<atom element="Mg">
+		<radius>0.86</radius>
+		<red>.6</red>
+		<green>.2</green>
+		<blue>1.</blue>
+		<maxValency>0.</maxValency>
+		<mass>24.</mass>
+
+		<state name="2+">
+			<single>0</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>2</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="ion">
+			<amber>Mg</amber>
+			<radius>0.86</radius>
+			<red>.6</red>
+			<green>.2</green>
+			<blue>1.</blue>
+			<state>2+</state>
+
+			<condition>
+				<neighbourCount>0</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<atom element="Ca">
+		<radius>1.14</radius>
+		<red>1.</red>
+		<green>.5</green>
+		<blue>.6</blue>
+		<maxValency>0.</maxValency>
+		<mass>40.</mass>
+
+		<state name="2+">
+			<single>0</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>2</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="ion">
+			<amber>Ca</amber>
+			<radius>1.14</radius>
+			<red>1.</red>
+			<green>.5</green>
+			<blue>.6</blue>
+			<state>2+</state>
+
+			<condition>
+				<neighbourCount>0</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<atom element="Cd">
+		<radius>1.09</radius>
+		<red>1.</red>
+		<green>.8</green>
+		<blue>.2</blue>
+		<maxValency>0.</maxValency>
+		<mass>114.</mass>
+
+		<state name="2+">
+			<single>0</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>2</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="ion">
+			<amber>Cd</amber>
+			<radius>1.58</radius>
+			<red>1.</red>
+			<green>.8</green>
+			<blue>.2</blue>
+			<state>2+</state>
+
+			<condition>
+				<neighbourCount>0</neighbourCount>
+			</condition>
+		</environment>
+	</atom>
+
+	<atom element="X">
+		<radius>1.0</radius>
+		<red>0.</red>
+		<green>0.</green>
+		<blue>0.</blue>
+		<maxValency>1.</maxValency>
+		<mass>100.</mass>
+
+		<state name="X">
+			<single>0</single>
+			<double>0</double>
+			<triple>0</triple>
+			<aromatic>0</aromatic>
+			<charge>0</charge>
+			<radical>0</radical>
+		</state>
+
+		<environment name="X">
+			<amber></amber>
+			<radius>1</radius>
+			<red>0.</red>
+			<green>0.</green>
+			<blue>0.</blue>
+			<state>X</state>
+		</environment>
+
+	</atom>
+
+</elements>
+
+
+
+<!--
+sulfur types
+S
+sulfur in disulfide linkage or methionine
+SH
+sulfur in cystine
+phosphorus
+P
+phosphorus in phosphate group
+
+Hydrogen 1.20
+Carbon 1.70
+Nitrogen	1.55
+Oxygen	1.52
+Fluorine	1.47
+Phosphorus	1.8
+Sulfur	1.8
+Chlorine	1.75
+-->

@@ -1,0 +1,4 @@
+NA,Na
+MG,Mg
+FE,Fe
+CL,Cl

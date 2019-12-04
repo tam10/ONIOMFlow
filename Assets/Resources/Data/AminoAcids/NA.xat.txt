@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<geometry>
+	<residue ID="A1" name="NA" charge="1.0000" state="HETERO">
+		<atom ID=" NA " charge="1.0000" amber="QN">
+			<xyz>0.0000,0.0000,0.0000</xyz>
+		</atom>
+	</residue>
+</geometry>

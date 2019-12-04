@@ -1,0 +1,517 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<flow>
+
+    <loadTypes>
+        <loadType>com</loadType>
+        <loadType>gjf</loadType>
+        <loadType>log</loadType>
+        <loadType>pdb</loadType>
+        <loadType>mol2</loadType>
+        <loadType>pqr</loadType>
+        <loadType>xat</loadType>
+    </loadTypes>
+
+    <saveTypes>
+        <saveType>xat</saveType>
+        <saveType>pdb</saveType>
+        <saveType>p2n</saveType>
+        <saveType>com</saveType>
+        <saveType>gjf</saveType>
+        <saveType>mol2</saveType>
+    </saveTypes>
+
+    <geometryInterface name="original">
+        <title>Original</title>
+        <fullName>Original Atoms</fullName>
+
+
+
+        <disabledDescription>This is the starting geometry file.\nThis is usually a PDB file from a crystal structure</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Click arrow to proceed to next geometry</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>-100</x><y>250</y></position>
+
+        <residueCheck>
+            <name>standard</name>
+            <errorLevel>ok</errorLevel>
+        </residueCheck>
+        <residueCheck>
+            <name>pdbsUnique</name>
+            <errorLevel>warning</errorLevel>
+        </residueCheck>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>warning</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <geometryInterface name="cleaned">
+        <title>Cleaned</title>
+        <fullName>Cleaned Atoms</fullName>
+
+        <disabledDescription>This geometry needs to have been processed to be compatible for protonation and parameterisation programs</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Click either arrow to proceed to next geometries</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>-100</x><y>150</y></position>
+
+        <residueCheck>
+            <name>standard</name>
+            <errorLevel>ok</errorLevel>
+        </residueCheck>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <geometryInterface name="sr">
+        <title>SR</title>
+        <fullName>Standard Residues</fullName>
+
+        <disabledDescription>Standard residues (SRs/standard amino acids) that can be protonated.\nCharges and parameters need to be determined for these residues</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Click the arrow to proceed to next geometry</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>-100</x><y>50</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <geometryInterface name="pcsr">
+        <title>PCSR</title>
+        <fullName>Protonated Standard Residues</fullName>
+
+        <disabledDescription>Standard residues (SRs/standard amino acids) that have been protonated using pH.\nCharges are standardised across these residues</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. When NSR side is completed, click the arrow to proceed to next geometry</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>-100</x><y>-50</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>hasAMBER</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+
+    </geometryInterface>
+
+    <geometryInterface name="nsr">
+        <title>NSR</title>
+        <fullName>Non-Standard Residues</fullName>
+
+        <disabledDescription>Non-standard residues (NSRs) that cannot be protonated using standard software.\nCharges and parameters need to be determined for these residues</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Click arrow to proceed to next geometry</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>0</x><y>150</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+
+    </geometryInterface>
+
+    <geometryInterface name="pnsr">
+        <title>PNSR</title>
+        <fullName>Protonated Non-Standard Residues</fullName>
+
+        <disabledDescription>Non-standard residues (NSRs) that have been fully protonated.\nCharges and parameters need to be determined for these residues</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Click arrow to proceed to next geometry</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>0</x><y>50</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>hasAMBER</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <geometryInterface name="pcnsr">
+        <title>PCNSR</title>
+        <fullName>Protonated Non-Standard Residues with Charges</fullName>
+
+        <disabledDescription>Non-standard residues (NSRs) that have been fully protonated with charges computed.\nParameters need to be determined for these residues</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. When SR side is completed, click the arrow to proceed to next geometry</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>0</x><y>-50</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>hasAMBER</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+
+    </geometryInterface>
+
+    <geometryInterface name="combined">
+        <title>Combined</title>
+        <fullName>Combined Residues</fullName>
+
+        <disabledDescription>The fully protonated protein (real system) with charges and parameters</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Click either arrow to proceed to next geometries</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>-100</x><y>-150</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>hasAMBER</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <geometryInterface name="model">
+        <title>Model</title>
+        <fullName>Model Layer</fullName>
+
+        <disabledDescription>The model region (area of interest) for beginning a 2-Layer ONIOM calculation</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Click either arrow to proceed to next geometries</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>0</x><y>-150</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>hasAMBER</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <geometryInterface name="intermediate">
+        <title>Middle</title>
+        <fullName>Middle Layer</fullName>
+
+        <disabledDescription>The middle region, which in combination with a model region is the starting point of a 3-Layer ONIOM calculation</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Click arrow to proceed to next geometry</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>100</x><y>-150</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>hasAMBER</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <geometryInterface name="oneLayer">
+        <title>AMBER</title>
+        <fullName>One-Layer AMBER Input</fullName>
+
+        <disabledDescription>The fully protonated protein (real system) with charges and parameters, prepared for an AMBER calculation</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Save as Gaussian Input file to begin AMBER calculation</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>-100</x><y>-250</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>hasAMBER</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <geometryInterface name="twoLayer">
+        <title>2-Layer</title>
+        <fullName>Two-Layer ONIOM Input</fullName>
+
+        <disabledDescription>The combination of the model region and real system, prepared for a 2-Layer ONIOM calculation</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Save as Gaussian Input file to begin ONIOM 2-Layer calculation</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>0</x><y>-250</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>hasAMBER</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <geometryInterface name="threeLayer">
+        <title>3-Layer</title>
+        <fullName>Three-Layer ONIOM Input</fullName>
+
+        <disabledDescription>The combination of the model region, middle region and real system, prepared for a 3-Layer ONIOM calculation</disabledDescription>
+        <completedDescription>Completed</completedDescription>
+        <okDescription>No problems found. Save as Gaussian Input file to begin ONIOM 3-Layer calculation</okDescription>
+        <loadingDescription>Currently executing tasks</loadingDescription>
+        <warningDescription>Problems found. Click status icon to view analysis results</warningDescription>
+        <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
+
+        <position><x>100</x><y>-250</y></position>
+
+        <atomCheck>
+            <name>hasPDB</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>pdbsAlphanum</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+        <atomCheck>
+            <name>hasAMBER</name>
+            <errorLevel>error</errorLevel>
+        </atomCheck>
+    </geometryInterface>
+
+    <connection name="originalToCleaned">
+        <startName>original</startName>
+        <endName>cleaned</endName>
+        <defaultTasks>
+            <task>getChain</task>
+            <task>removePDBSpecialCharacters</task>
+            <task>standardiseWaters</task>
+            <task>calculateConnectivity</task>
+            <task>checkGeometry</task>
+            <task>fillMissingResidues</task>
+            <task>optimiseMissingResidues</task>
+            <task>selectNonStandardResidues</task>
+            <task>mergeNonStandardResidues</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+
+    <connection name="cleanedToSR">
+        <startName>cleaned</startName>
+        <endName>sr</endName>
+        <defaultTasks>
+            <task>getSRs</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+    
+    <connection name="cleanedToNSR">
+        <startName>cleaned</startName>
+        <endName>nsr</endName>
+        <defaultTasks>
+            <task>getNSRs</task>
+            <task>calculateConnectivity</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+
+    <connection name="srToPCSR">
+        <startName>sr</startName>
+        <endName>pcsr</endName>
+        <defaultTasks>
+            <task>protonateWithPDB2PQR</task>
+            <task>calculateAMBERTypes</task>
+            <task>calculateConnectivity</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+
+    <connection name="nsrToPNSR">
+        <startName>nsr</startName>
+        <endName>pnsr</endName>
+        <defaultTasks>
+            <task>protonateWithReduce</task>
+            <task>calculateConnectivity</task>
+            <task>calculateAMBERTypesWithAntechamber</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+
+    <connection name="pnsrToPCNSR">
+        <startName>pnsr</startName>
+        <endName>pcnsr</endName>
+        <defaultTasks>
+            <task>calculateParameters</task>
+            <task>getPartialChargesFromMol2</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+    
+    <connection name="pcnsrToCombined">
+        <startName>pcnsr</startName>
+        <endName>combined</endName>
+        <elbow>YY</elbow>
+        <defaultTasks>
+            <task>mergeGeometries</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+    
+    <connection name="pcsrToCombined">
+        <startName>pcsr</startName>
+        <endName>combined</endName>
+        <defaultTasks>
+            <task>mergeGeometries</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+    
+    <connection name="combinedToModel">
+        <startName>combined</startName>
+        <endName>model</endName>
+        <defaultTasks>
+            <task>getModelLayer</task>
+            <task>calculateConnectivity</task>
+            <task>calculateParameters</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+    
+    <connection name="combinedToOneLayer">
+        <startName>combined</startName>
+        <endName>oneLayer</endName>
+        <defaultTasks>
+            <task>validateLayers</task>
+            <task>setupCalculation</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+    
+    <connection name="modelToIntermediate">
+        <startName>model</startName>
+        <endName>intermediate</endName>
+        <defaultTasks>
+            <task>getIntermediateLayer</task>
+            <task>calculateConnectivity</task>
+            <task>calculateParameters</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+    
+    <connection name="modelToTwoLayer">
+        <startName>model</startName>
+        <endName>twoLayer</endName>
+        <defaultTasks>
+            <task>validateLayers</task>
+            <task>setupCalculation</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+    
+    <connection name="intermediateToThreeLayer">
+        <startName>intermediate</startName>
+        <endName>threeLayer</endName>
+        <defaultTasks>
+            <task>validateLayers</task>
+            <task>setupCalculation</task>
+            <task>checkGeometry</task>
+        </defaultTasks>
+    </connection>
+
+</flow>

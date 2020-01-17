@@ -9,6 +9,7 @@ using VT = Constants.VanDerWaalsType;
 using BT = Constants.BondType;
 using RS = Constants.ResidueState;
 using TID = Constants.TaskID;
+using Amber = Constants.Amber;
 
 public class Graph {
 
@@ -30,12 +31,12 @@ public class Graph {
     private Atom[] atomRefs;
     private float3[] forces;
 
-    public static Parameters parameters;
+    public Parameters parameters;
 
 	public Geometry geometry;
 
 
-	public IEnumerator SetGeometry(Geometry geometry, List<ResidueID> mobileResidueIDs) {
+	public IEnumerator SetGeometry(Geometry geometry, List<ResidueID> mobileResidueIDs=null) {
 
         /*
         
@@ -62,20 +63,24 @@ public class Graph {
 
 		this.geometry = geometry;
         parameters = Settings.defaultParameters.Duplicate();
-        parameters.UpdateParameters(geometry.parameters);
+        parameters.UpdateParameters(geometry.parameters, true);
 
         List<ResidueID> nearbyResidueIDs = new List<ResidueID>();
         
+        nearbyAtomIDs = new List<AtomID>();
+        mobileAtomIDs = new List<AtomID>();
         atomIDToIndex = new Dictionary<AtomID, int>();
+
+        List<bool> mobileMaskList = new List<bool>();
 
         numNearbyAtoms = 0;
         numMobileAtoms = 0;
         int numNearbyResidues = 0;
 
         void AddNearbyResidue(ResidueID nearbyResidueID, Residue nearbyResidue, bool mobile) {
-            if (!nearbyResidueIDs.Contains(nearbyResidueID)) {
-                return;
-            }
+            // if (!nearbyResidueIDs.Contains(nearbyResidueID)) {
+            //     return;
+            // }
             nearbyResidueIDs.Add(nearbyResidueID);
             numNearbyResidues++;
             foreach ((PDBID pdbID, Atom atom) in nearbyResidue.atoms) {
@@ -83,7 +88,7 @@ public class Graph {
                 nearbyAtomIDs.Add(atomID);
                 atomIDToIndex[atomID] = numNearbyAtoms;
 
-                mobileMask[numNearbyAtoms] = mobile;
+                mobileMaskList.Add(mobile);
 
                 if (mobile) {
                     mobileAtomIDs.Add(atomID);
@@ -93,11 +98,23 @@ public class Graph {
             }
         }
 
+        int GetGraphDistance(int[][] graph, int index0, int index1) {
+            foreach (int connection0 in graph[index0]) {
+                if (connection0 == index1) {return 1;}
+                foreach (int connection1 in graph[connection0]) {
+                    if (connection1 == index1) {return 2;}
+                    foreach (int connection2 in graph[connection1]) {
+                        if (connection2 == index1) {return 3;}
+                    }
+                }
+            }
+            return -1;
+        }
+
         foreach ((ResidueID residueID, Residue residue) in geometry.residueDict) {
-            bool mobile = mobileResidueIDs.Contains(residueID);
+            bool mobile = mobileResidueIDs == null ? true : mobileResidueIDs.Contains(residueID);
 
             if (mobile) {
-                AddNearbyResidue(residueID, residue, mobile);
                 foreach (ResidueID nearbyResidueID in residue.ResiduesWithinDistance(Settings.maxNonBondingCutoff)) {
                     if (!nearbyResidueIDs.Contains(nearbyResidueID)) {
                         AddNearbyResidue(nearbyResidueID, geometry.residueDict[nearbyResidueID], mobile);
@@ -105,6 +122,8 @@ public class Graph {
                 }
             }
         }
+
+        mobileMask = mobileMaskList.ToArray();
 
         int currentResidueNum = 0;
         //Copy across partial charges
@@ -152,167 +171,282 @@ public class Graph {
         atomRefs = new Atom[numNearbyAtoms];
         positions = new float3[numNearbyAtoms];
         forces = new float3[numNearbyAtoms];
+        
+        AtomicParameter[] atomicParameters = new AtomicParameter[numNearbyAtoms];
+        Amber[] ambers = new Amber[numNearbyAtoms];
+        float[] charges = new float[numNearbyAtoms];
+        int[][] connections = new int[numNearbyAtoms][];
 
+        float nonBonSq = CustomMathematics.Squared(Settings.maxNonBondingCutoff);
+
+        //First pass to populate arrays
         for (int i=0; i<numNearbyAtoms; i++) {
             AtomID atomID0 = nearbyAtomIDs[i];
             Atom atom0 = geometry.GetAtom(atomID0);
-
+            
             atomRefs[i] = atom0;
             positions[i] = atom0.position;
+            ambers[i] = atom0.amber;
+            charges[i] = atom0.partialCharge;
+            atomicParameters[i] = parameters.atomicParameters
+                .Where(x => x.type == atom0.amber)
+                .FirstOrDefault();
+
+            List<int> neighbours = new List<int>();
+            foreach ((AtomID atomID, BT bondType) in atom0.EnumerateConnections()) {
+                int neighbour;
+                if (!atomIDToIndex.TryGetValue(atomID, out neighbour)) {
+                    CustomLogger.LogFormat(
+                        EL.WARNING,
+                        "Skipping connected atom {0} in Graph generation - not in Nearby Atoms List",
+                        atomID
+                    );
+                } else {
+                    neighbours.Add(neighbour);
+                }
+            }
+            connections[i] = neighbours.ToArray();
+
+        }
+
+        float nonBonTimeTot = 0f;
+        float impropersTimeTot = 0f;
+        float stretchTimeTot = 0f;
+        float bendTimeTot = 0f;
+        float torsionTimeTot = 0f;
+
+        int2 ij = new int2();
+        //int3 ijk = new int3();
+        int4 ijkl = new int4();
+        //int4 jikl = new int4();
+
+        Amber[] stretchTypes = new Amber[2];
+        Amber[] bendTypes = new Amber[3];
+        Amber[] dihedralTypes = new Amber[4];
+
+        NonBonding nonBonding = parameters.nonbonding;
+        
+        CustomLogger.LogOutput(
+            "Start          AtN    NonBon     Stretch    Bend       Improper   Torsion"
+        );
+
+        for (int i=0; i<numNearbyAtoms; i++) {
 
             if (!mobileMask[i]) {
                 continue;
             }
 
-            //Non-bonding terms
-            foreach (AtomID atomID1 in nearbyAtomIDs) {
-                if (atomID1 == atomID0) {continue;}
-                Atom atom1 = geometry.GetAtom(atomID1);
-                if (CustomMathematics.GetDistance(atom0, atom1) < Settings.maxNonBondingCutoff) {
-                    
-                    try { 
-                        //Check this hasn't been added in reverse
-                        (int, int) nonBondKey = (
-                            atomIDToIndex[atomID0], 
-                            atomIDToIndex[atomID1]
-                        );
-                        if (!nonBondings.Select(
-                            x => x.index0 == nonBondKey.Item2 && 
-                                x.index1 == nonBondKey.Item1
-                        ).Any(x => x)) {
-                            nonBondings.Add(new PrecomputedNonBonding(atom0, atom1, nonBondKey, geometry.GetGraphDistance(atomID0, atomID1, 3)));
-                        }
-                    } catch {}
+            //ij.x = ijk.x = ijkl.x = jikl.y = i;
+            ij.x = ijkl.x = i;
 
+            //
+            float startTime = Time.realtimeSinceStartup;
+
+            float3 position0 = positions[i];
+            float charge0 = charges[i];
+
+            AtomicParameter atomicParameter0 = atomicParameters[i];
+                
+            //Non-bonding terms
+            if (atomicParameter0 == null) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "No Atomic Parameter for Amber Type: {0}",
+                    ambers[i]
+                );
+            } else {
+                for (int j=i+1; j<numNearbyAtoms; j++) {
+                    if (math.distancesq(position0, positions[j]) < nonBonSq) {
+                        
+                        ij.y = j;
+                        AtomicParameter atomicParameter1 = atomicParameters[j];
+
+                        float averageRadius = (atomicParameter0.radius + atomicParameter1.radius) * 0.5f;
+
+                        if (averageRadius == 0f) {
+                            continue;
+                        }
+
+                        nonBondings.Add(new PrecomputedNonBonding(
+                            atomicParameter0,
+                            atomicParameter1,
+                            nonBonding,
+                            ij, 
+                            GetGraphDistance(connections, i, j),
+                            charge0 * charges[j],
+                            parameters.dielectricConstant,
+                            averageRadius
+                        ));
+
+                    }
                 }
             }
 
-            AtomID[] atom0Neighbours = atom0.EnumerateConnections()
-                .Select(x => x.Item1)
-                .ToArray();
+            
+            float nonBonTime = Time.realtimeSinceStartup - startTime;
+            nonBonTimeTot += nonBonTime;
+
+            int[] atom0Neighbours = connections[i];
+
+            //
+            startTime = Time.realtimeSinceStartup;
 
             //Impropers
             if (atom0Neighbours.Length == 3) {
 
+                dihedralTypes[1] = ambers[i];
+
                 //Cycle over the 6 possible improper combinations for this central Atom
                 foreach (int3 improperCycle in improperCycles) {
-                    AtomID atomID1 = atom0Neighbours[improperCycle.x];
-                    AtomID atomID2 = atom0Neighbours[improperCycle.y];
-                    AtomID atomID3 = atom0Neighbours[improperCycle.z];
+                    int j = atom0Neighbours[improperCycle.x];
+                    int k = atom0Neighbours[improperCycle.y];
+                    int l = atom0Neighbours[improperCycle.z];
 
-                    Atom atom1 = geometry.GetAtom(atomID1);
-                    Atom atom2 = geometry.GetAtom(atomID2);
-                    Atom atom3 = geometry.GetAtom(atomID3);
-
-                    try { 
-                        //Check this hasn't been added in reverse
-                        (int, int, int, int) dihedralKey = (
-                            atomIDToIndex[atomID1], 
-                            atomIDToIndex[atomID0],
-                            atomIDToIndex[atomID2],
-                            atomIDToIndex[atomID3]
-                        );
-                        if (!impropers.Select(
-                            x => x.index0 == dihedralKey.Item4 && 
-                                x.index1 == dihedralKey.Item3 && 
-                                x.index2 == dihedralKey.Item2 && 
-                                x.index3 == dihedralKey.Item1
-                        ).Any(x => x)) {
-                            impropers.Add(new DihedralCalculator(atom1, atom0, atom2, atom3, false, dihedralKey));
+                    //Centre atom is outer loop so it's impossible to be added in reverse
+                    dihedralTypes[0] = ambers[j];
+                    dihedralTypes[2] = ambers[k];
+                    dihedralTypes[3] = ambers[l];
+                    foreach (ImproperTorsion improper in parameters.improperTorsions) {
+                        if (improper.TypeEquivalentOrWild(dihedralTypes)) {
+                            impropers.Add(new DihedralCalculator(
+                                improper, 
+                                new int4(j,i,k,l)
+                            ));
                         }
-                    } catch {}
+                        break;
+                    }
+
                 }
                 
             }
             
+            float impropersTime = Time.realtimeSinceStartup - startTime;
+            impropersTimeTot += impropersTime;
+            
+            
+            float stretchTime = 0f;
+            float bendTime = 0f;
+            float torsionTime = 0f;
+
+            stretchTypes[0] = bendTypes[0] = dihedralTypes[0] = ambers[i];
 
             //Stretches
-            foreach (AtomID atomID1 in atom0Neighbours) {
-                Atom atom1 = geometry.GetAtom(atomID1);
+            foreach (int j in atom0Neighbours) {
+
+                //
+                startTime = Time.realtimeSinceStartup;
+                bendTypes[1] = dihedralTypes[1] = stretchTypes[1] = ambers[j];
                 
-                try { 
-                    //Check this hasn't been added in reverse
-                    (int, int) stretchKey = (
-                        atomIDToIndex[atomID0], 
-                        atomIDToIndex[atomID1]
-                    );
-                    if (!stretches.Select(
-                        x => x.index0 == stretchKey.Item2 && 
-                            x.index1 == stretchKey.Item1
-                    ).Any(x => x)) {
-                        stretches.Add(new StretchCalculator(atom0, atom1, stretchKey));
+                ijkl.y = j;
+                if (j > i) {
+                    
+                    foreach (Stretch stretch in parameters.stretches) {
+                        if (stretch.TypeEquivalentOrWild(stretchTypes)) {
+                            stretches.Add(new StretchCalculator(
+                                parameters, 
+                                stretch, 
+                                ijkl.xy
+                            ));
+                            goto hasStretch;
+                        }
                     }
-                } catch {
                     CustomLogger.LogFormat(
                         EL.WARNING,
-                        "No Stretch Parameter for Atoms: '{0}'-'{1}'. Ambers: '{2}'-'{3}'",
+                        "No Stretch Parameter for Atoms: '{0}'-'{1}'. Ambers: {2}-{3}",
                         () => new object[] {
-                            atomID0,
-                            atomID1,
-                            atom0.amber,
-                            atom1.amber
+                            nearbyAtomIDs[i],
+                            nearbyAtomIDs[j],
+                            stretchTypes[0],
+                            stretchTypes[1]
                         }
                     );
+                    hasStretch:;
                 }
 
+                stretchTime += Time.realtimeSinceStartup - startTime;
+                stretchTimeTot += stretchTime;
+                
+                int[] atom1Neighbours = connections[j];
+
                 //Bends
-                foreach ((AtomID atomID2, BT bondType12) in atom1.EnumerateConnections()) {
-                    if (atomID2 == atomID0) {continue;}
-                    Atom atom2 = geometry.GetAtom(atomID2);
-                    
-                    try { 
-                        //Check this hasn't been added in reverse
-                        (int, int, int) bendKey = (
-                            atomIDToIndex[atomID0], 
-                            atomIDToIndex[atomID1],
-                            atomIDToIndex[atomID2]
-                        );
-                        if (!bends.Select(
-                            x => x.index0 == bendKey.Item3 && 
-                                x.index1 == bendKey.Item2 && 
-                                x.index2 == bendKey.Item1
-                        ).Any(x => x)) {
-                            bends.Add(new BendCalculator(atom0, atom1, atom2, bendKey));
-                        }
-                    } catch {
-                        CustomLogger.LogFormat(
-                            EL.WARNING,
-                            "No Bend Parameter for Atoms: '{0}'-'{1}'-{2}'. Ambers: '{3}'-'{4}'-'{5}'",
-                            () => new object[] {
-                                atomID0,
-                                atomID1,
-                                atomID2,
-                                atom0.amber,
-                                atom1.amber,
-                                atom2.amber
+                foreach (int k in atom1Neighbours) {
+
+                    if (k == i) {continue;}
+                    //
+                    startTime = Time.realtimeSinceStartup;
+                    bendTypes[2] = dihedralTypes[2] = ambers[k];
+
+                    ijkl.z = k;
+                    if (k > i) {
+                        try { 
+                            //Check this hasn't been added in reverse
+                            //int3 bendKey = new int3(i, j, k);
+                            
+                            foreach (Bend bend in parameters.bends) {
+                                if (bend.TypeEquivalentOrWild(bendTypes)) {
+                                    bends.Add(new BendCalculator(
+                                        parameters,
+                                        bend, 
+                                        ijkl.xyz
+                                    ));
+                                    break;
+                                }
                             }
-                        );
+
+                            
+                        } catch {
+                            CustomLogger.LogFormat(
+                                EL.WARNING,
+                                "No Bend Parameter for Atoms: '{0}'-'{1}'-{2}'. Ambers: {3}-{4}-{5}",
+                                () => new object[] {
+                                    nearbyAtomIDs[i],
+                                    nearbyAtomIDs[j],
+                                    nearbyAtomIDs[k],
+                                    bendTypes[0],
+                                    bendTypes[1],
+                                    bendTypes[2]
+                                }
+                            );
+                        }
                     }
                     
                     
+
+                    bendTime += Time.realtimeSinceStartup - startTime;
+                    bendTimeTot += bendTime;
+                    
+                    int[] atom2Neighbours = connections[k];
+                    
+                    //
+                    startTime = Time.realtimeSinceStartup;
+                    
                     //Propers
-                    foreach ((AtomID atomID3, BT bondType23) in atom2.EnumerateConnections()) {
-                        if (atomID3 == atomID1) {continue;}
-                        Atom atom3 = geometry.GetAtom(atomID3);
+                    foreach (int l in atom2Neighbours) {
+                        if (l <= i || l == j) {continue;}
+                        dihedralTypes[3] = ambers[l];
+
 
                         try { 
                             //Check this hasn't been added in reverse
-                            (int, int, int, int) dihedralKey = (
-                                atomIDToIndex[atomID0], 
-                                atomIDToIndex[atomID1],
-                                atomIDToIndex[atomID2],
-                                atomIDToIndex[atomID3]
-                            );
-                            if (!torsions.Select(
-                                x => x.index0 == dihedralKey.Item4 && 
-                                    x.index1 == dihedralKey.Item3 && 
-                                    x.index2 == dihedralKey.Item2 && 
-                                    x.index3 == dihedralKey.Item1
-                            ).Any(x => x)) {
-                                torsions.Add(new DihedralCalculator(atom0, atom1, atom2, atom3, true, dihedralKey));
+                            //int4 dihedralKey = new int4(i, j, k, l);
+                            //if (!torsions.Any(x => IsReverse4(x.key, i, j, k, l))) {
+                            ijkl.w = l;
+                            
+                            foreach (Torsion torsion in parameters.torsions) {
+                                if (torsion.TypeEquivalentOrWild(dihedralTypes)) {
+                                    torsions.Add(new DihedralCalculator(
+                                        torsion, 
+                                        ijkl
+                                    ));
+                                    break;
+                                }
                             }
+                            //}
                         } catch {}
                     }
+                    
+                    torsionTime += Time.realtimeSinceStartup - startTime;
+                    torsionTimeTot += torsionTime;
                 }
 
             }
@@ -324,84 +458,200 @@ public class Graph {
                 );
                 yield return null;
             }
+
+            //CustomLogger.LogOutput(
+            //    "Processed Atom {0,4} {1,10:0.000000} {2,10:0.000000} {3,10:0.000000} {4,10:0.000000} {5,10:0.000000}",
+            //    i+1,
+            //    nonBonTime,
+            //    stretchTime,
+            //    bendTime,
+            //    impropersTime,
+            //    torsionTime
+            //);
         }
+        
+        CustomLogger.LogOutput(
+            "Finished            {0,10:0.000000} {1,10:0.000000} {2,10:0.000000} {3,10:0.000000} {4,10:0.000000}",
+            nonBonTimeTot,
+            stretchTimeTot,
+            bendTimeTot,
+            impropersTimeTot,
+            torsionTimeTot
+        );
+        
+        CustomLogger.LogOutput(
+            "Count               {0,10} {1,10} {2,10} {3,10} {4,10}",
+            nonBondings.Count,
+            stretches.Count,
+            bends.Count,
+            impropers.Count,
+            torsions.Count
+        );
 
         NotificationBar.ClearTask(TID.UPDATE_PARAMETERS);
 	}
 
-    public IEnumerable<(int, int, float[])> EnumerateBadStretches() {
+    public IEnumerable<(int2, float[])> EnumerateBadStretches() {
         foreach (StretchCalculator sc in stretches) {
             float[] energies = new float[3];
             sc.AddEnergies(energies, positions);
             if (energies.Any(x => float.IsNaN(x))) {
                 yield return (
-                    sc.index0, 
-                    sc.index1, 
+                    sc.key, 
                     energies
                 );
             }
         }
     }
 
-    public IEnumerable<(int, int, float[])> EnumerateBadNonBondings() {
+    public IEnumerable<(int2, float[])> EnumerateBadNonBondings() {
         foreach (PrecomputedNonBonding pcn in nonBondings) {
             float[] energies = new float[3];
             pcn.AddEnergies(energies, positions);
             if (energies.Any(x => float.IsNaN(x))) {
                 yield return (
-                    pcn.index0, 
-                    pcn.index1, 
+                    pcn.key, 
                     energies
                 );
             }
         }
     }
 
-    public IEnumerable<(int, int, int, float[])> EnumerateBadBends() {
+    public IEnumerable<(int3, float[])> EnumerateBadBends() {
         foreach (BendCalculator bc in bends) {
             float[] energies = new float[3];
             bc.AddEnergies(energies, positions);
             if (energies.Any(x => float.IsNaN(x))) {
                 yield return (
-                    bc.index0, 
-                    bc.index1, 
-                    bc.index2, 
+                    bc.key, 
                     energies
                 );
             }
         }
     }
 
-    public IEnumerable<(int, int, int, int, float[])> EnumerateBadTorsions() {
+    public IEnumerable<(int4, float[])> EnumerateBadTorsions() {
         foreach (DihedralCalculator dc in torsions) {
             float[] energies = new float[3];
             dc.AddEnergies(energies, positions);
             if (energies.Any(x => float.IsNaN(x))) {
                 yield return (
-                    dc.index0, 
-                    dc.index1, 
-                    dc.index2, 
-                    dc.index3, 
+                    dc.key, 
                     energies
                 );
             }
         }
     }
 
-    public IEnumerable<(int, int, int, int, float[])> EnumerateBadImpropers() {
+    public IEnumerable<(int4, float[])> EnumerateBadImpropers() {
         foreach (DihedralCalculator dc in impropers) {
             float[] energies = new float[3];
             dc.AddEnergies(energies, positions);
             if (energies.Any(x => float.IsNaN(x))) {
                 yield return (
-                    dc.index0, 
-                    dc.index1, 
-                    dc.index2, 
-                    dc.index3, 
+                    dc.key, 
                     energies
                 );
             }
         }
+    }
+
+    public IEnumerator ReportBadTerms() {
+        IEnumerable<(int, AtomID)> badIDs = forces
+            .Select((force,index)=>(force,index))
+            .Where(fi => math.any(math.isnan(fi.force)))
+            .Select(fi => (fi.index, mobileAtomIDs[fi.index]));
+
+        yield return null;
+
+        foreach ((int index, AtomID atomID) in badIDs) {
+            Atom badAtom = atomRefs[index];
+            CustomLogger.LogOutput(
+                string.Format(
+                    "Bad force on Atom ID: {0,10} (AMBER: {1,3}) Force: {2}",
+                    atomID,
+                    badAtom.amber,
+                    forces[index]
+                )
+            );
+        }
+        
+        yield return null;
+
+        foreach ((int2 key, float[] energies) in EnumerateBadStretches()) {
+            CustomLogger.LogOutput(
+                string.Format(
+                    "Bad Stretch ('{0}'-'{1}'). Energy: {2}. 1st Derivative: {3}",
+                    mobileAtomIDs[key.x],
+                    mobileAtomIDs[key.y],
+                    energies[0],
+                    energies[1]
+                )
+            );
+        }
+        
+        yield return null;
+
+        foreach ((int2 key, float[] energies) in EnumerateBadNonBondings()) {
+            CustomLogger.LogOutput(
+                string.Format(
+                    "Bad Non-Bonding ('{0}'-'{1}'). Energy: {2}. 1st Derivative: {3}",
+                    mobileAtomIDs[key.x],
+                    mobileAtomIDs[key.y],
+                    energies[0],
+                    energies[1]
+                )
+            );
+        }
+        
+        yield return null;
+
+        foreach ((int3 key, float[] energies) in EnumerateBadBends()) {
+            CustomLogger.LogOutput(
+                string.Format(
+                    "Bad Bend ('{0}'-'{1}'-'{2}'). Energy: {3}. 1st Derivative: {4}",
+                    mobileAtomIDs[key.x],
+                    mobileAtomIDs[key.y],
+                    mobileAtomIDs[key.z],
+                    energies[0],
+                    energies[1]
+                )
+            );
+        }
+        
+        yield return null;
+
+        foreach ((int4 key, float[] energies) in EnumerateBadTorsions()) {
+            CustomLogger.LogOutput(
+                string.Format(
+                    "Bad Torsion ('{0}'-'{1}'-'{2}'-'{3}'). Energy: {4}. 1st Derivative: {5}",
+                    mobileAtomIDs[key.x],
+                    mobileAtomIDs[key.y],
+                    mobileAtomIDs[key.z],
+                    mobileAtomIDs[key.w],
+                    energies[0],
+                    energies[1]
+                )
+            );
+        }
+        
+        yield return null;
+
+        foreach ((int4 key, float[] energies) in EnumerateBadImpropers()) {
+            CustomLogger.LogOutput(
+                string.Format(
+                    "Bad Improper ('{0}'-'{1}'-'{2}'-'{3}'). Energy: {4}. 1st Derivative: {5}",
+                    mobileAtomIDs[key.x],
+                    mobileAtomIDs[key.y],
+                    mobileAtomIDs[key.z],
+                    mobileAtomIDs[key.w],
+                    energies[0],
+                    energies[1]
+                )
+            );
+        }
+        
+        yield return null;
     }
 
     public float3[] ComputeForces(
@@ -412,20 +662,41 @@ public class Graph {
         bool computeNonBondings=true
     ) {
 
-        //for (int i=0; i<numNearbyAtoms; i++) {
-        //    forces[i] = new float3();
-        //}
+        for (int i=0; i<numNearbyAtoms; i++) {
+            forces[i] = new float3();
+        }
 
-        if (computeStretches)   stretches  .ForEach(x => x.AddForces(forces, positions, mobileMask));
-        if (computeBends)       bends      .ForEach(x => x.AddForces(forces, positions, mobileMask));
-        if (computeTorsions)    torsions  .ForEach(x => x.AddForces(forces, positions, mobileMask));
-        if (computeImpropers)   impropers  .ForEach(x => x.AddForces(forces, positions, mobileMask));
-        if (computeNonBondings) nonBondings.ForEach(x => x.AddForces(forces, positions, mobileMask));
-        
-        //if (computeStretches)   stretches  .AsParallel().ForAll(x => x.AddForces(forces));
-        //if (computeBends)       bends      .AsParallel().ForAll(x => x.AddForces(forces));
-        //if (computeDihedrals)   dihedrals  .AsParallel().ForAll(x => x.AddForces(forces));
-        //if (computeNonBondings) nonBondings.AsParallel().ForAll(x => x.AddForces(forces));
+        //float st = Time.realtimeSinceStartup;
+        //float s = Time.realtimeSinceStartup;
+        if (computeStretches)   stretches  .AsParallel().ForAll(x => x.AddForces(forces, positions, mobileMask));
+        //if (computeStretches)   stretches  .ForEach(x => x.AddForces(forces, positions, mobileMask));
+        //float d = Time.realtimeSinceStartup - s;
+        //CustomLogger.LogOutput("Stretches: {0,8:0.0000}", d);
+
+        //s = Time.realtimeSinceStartup;
+        if (computeBends)       bends      .AsParallel().ForAll(x => x.AddForces(forces, positions, mobileMask));
+        //if (computeBends)       bends      .ForEach(x => x.AddForces(forces, positions, mobileMask));
+        //d = Time.realtimeSinceStartup - s;
+        //CustomLogger.LogOutput("Bends    : {0,8:0.0000}", d);
+
+        //s = Time.realtimeSinceStartup;
+        if (computeTorsions)    torsions   .AsParallel().ForAll(x => x.AddForces(forces, positions, mobileMask));
+        //if (computeTorsions)    torsions   .ForEach(x => x.AddForces(forces, positions, mobileMask));
+        //d = Time.realtimeSinceStartup - s;
+        //CustomLogger.LogOutput("Torsions : {0,8:0.0000}", d);
+
+        //s = Time.realtimeSinceStartup;
+        if (computeImpropers)   impropers  .AsParallel().ForAll(x => x.AddForces(forces, positions, mobileMask));
+        //if (computeImpropers)   impropers  .ForEach(x => x.AddForces(forces, positions, mobileMask));
+        //d = Time.realtimeSinceStartup - s;
+        //CustomLogger.LogOutput("Improper : {0,8:0.0000}", d);
+
+        //s = Time.realtimeSinceStartup;
+        if (computeNonBondings) nonBondings.AsParallel().ForAll(x => x.AddForces(forces, positions, mobileMask));
+        //if (computeNonBondings) nonBondings.ForEach(x => x.AddForces(forces, positions, mobileMask));
+        //d = Time.realtimeSinceStartup - s;
+        //CustomLogger.LogOutput("NonBond  : {0,8:0.0000}", d);
+        //CustomLogger.LogOutput("Tot      : {0,8:0.0000}", Time.realtimeSinceStartup - st);
 
         return forces;
     }
@@ -468,8 +739,7 @@ public class Graph {
         }
 
         for (int i=0; i<numNearbyAtoms; i++) {
-            float3 position = positions[i] += forces[i] * stepSize;
-            atomRefs[i].position = position;
+            atomRefs[i].position = positions[i] += forces[i] * stepSize;
         }
         
     }
@@ -485,28 +755,18 @@ public class MMCalculator {
 
 public class StretchCalculator : MMCalculator{
 
-    public int index0;
-    public int index1;
+    public int2 key;
 
     public float req;
     public float keq;
     
 	public StretchCalculator(
-        Atom atom0, 
-        Atom atom1, 
-        (int, int) stretchKey
+        Parameters parameters,
+        Stretch stretch, 
+        int2 stretchKey
     ) {
 
-        (index0, index1) = stretchKey;
-        
-        string[] types = new string[] {atom0.amber, atom1.amber};
-        Stretch stretch = Graph.parameters.stretches
-            .Where(x => x.types.SequenceEqual(types) || x.types.Reverse().SequenceEqual(types))
-            .FirstOrDefault();
-
-        if (stretch.IsDefault()) {
-            throw new System.Exception();
-        }
+        key = stretchKey;
 
         keq = stretch.keq * Data.kcalToHartree;
         req = stretch.req;
@@ -514,75 +774,63 @@ public class StretchCalculator : MMCalculator{
     }
     
 	public override void AddEnergies(float[] energies, float3[] positions) {
-		CustomMathematics.EStretch(CustomMathematics.GetDistance(positions, index0, index1) - req, keq, energies);
+		CustomMathematics.EStretch(CustomMathematics.GetDistance(positions, key.x, key.y) - req, keq, energies);
 	}
 
     public override void AddForces(float3[] forces, float3[] positions, bool[] mobileMask) {
-        float3 v10 = positions[index1] - positions[index0];
+        float3 v10 = positions[key.y] - positions[key.x];
         float r10 = math.length(v10);
         
         float de = CustomMathematics.EStretch(r10 - req, keq, 1);
         v10 *= de / r10;
 
-        if (mobileMask[index0]) {
-            forces[index0] += v10;
+        if (mobileMask[key.x]) {
+            forces[key.x] += v10;
         }
-        if (mobileMask[index1]) {
-            forces[index1] -= v10;
+        if (mobileMask[key.y]) {
+            forces[key.y] -= v10;
         }
     }
 
     public override void AddForces(float3[] forces, float3[] positions, float[] forceMultiplier) {
-        float3 v10 = positions[index1] - positions[index0];
+        float3 v10 = positions[key.y] - positions[key.x];
         float r10 = math.length(v10);
         
         float de = CustomMathematics.EStretch(r10 - req, keq, 1);
         v10 *= de / r10;
 
-        forces[index0] += v10 * forceMultiplier[index0];
-        forces[index1] -= v10 * forceMultiplier[index1];
+        forces[key.x] += v10 * forceMultiplier[key.x];
+        forces[key.y] -= v10 * forceMultiplier[key.y];
 
     }
 }
 
 public class BendCalculator : MMCalculator {
     
-    public int index0;
-    public int index1;
-    public int index2;
+    public int3 key;
 
     public float aeq;
     public float keq;
 
 	public BendCalculator (
-        Atom atom0, 
-        Atom atom1, 
-        Atom atom2, 
-        (int, int, int) bendKey
+        Parameters parameters,
+        Bend bend,
+        int3 bendKey
     ) {
 
-        (index0, index1, index2) = bendKey;
-
-        string[] types = new string[] {atom0.amber, atom1.amber, atom2.amber};
-        Bend bend = Graph.parameters.bends
-            .Where(x => x.types.SequenceEqual(types) || x.types.Reverse().SequenceEqual(types))
-            .FirstOrDefault();
-
-        if (bend.IsDefault()) {
-            throw new System.Exception();
-        }
+        key = bendKey;
 
         keq = bend.keq * Data.kcalToHartree;
         aeq = bend.aeq * Mathf.Deg2Rad;
 	}
     
 	public override void AddEnergies(float[] energies, float3[] positions) {
-		CustomMathematics.EBend(CustomMathematics.GetAngle(positions, index0, index1, index2) - aeq, keq, energies);
+		CustomMathematics.EBend(CustomMathematics.GetAngle(positions, key.x, key.y, key.z) - aeq, keq, energies);
 	}
 
     public override void AddForces(float3[] forces, float3[] positions, bool[] mobileMask) {
-        float3 v10 = positions[index1] - positions[index0];
-        float3 v12 = positions[index1] - positions[index2];
+        float3 v10 = positions[key.y] - positions[key.x];
+        float3 v12 = positions[key.y] - positions[key.z];
 
         float r10 = math.length(v10);
         float r12 = math.length(v12);
@@ -598,20 +846,20 @@ public class BendCalculator : MMCalculator {
         float3 force10 = math.cross(v10, perp) * de;
         float3 force12 = math.cross(v12, perp) * - de;
 
-        if (mobileMask[index0]) {
-            forces[index0] += force10;
+        if (mobileMask[key.x]) {
+            forces[key.x] += force10;
         }
-        if (mobileMask[index1]) {
-            forces[index1] -= force10 + force12;
+        if (mobileMask[key.y]) {
+            forces[key.y] -= force10 + force12;
         }
-        if (mobileMask[index2]) {
-            forces[index2] += force12;
+        if (mobileMask[key.z]) {
+            forces[key.z] += force12;
         }
     }
 
     public override void AddForces(float3[] forces, float3[] positions, float[] forceMultiplier) {
-        float3 v10 = positions[index1] - positions[index0];
-        float3 v12 = positions[index1] - positions[index2];
+        float3 v10 = positions[key.y] - positions[key.x];
+        float3 v12 = positions[key.y] - positions[key.z];
 
         float r10 = math.length(v10);
         float r12 = math.length(v12);
@@ -627,18 +875,15 @@ public class BendCalculator : MMCalculator {
         float3 force10 = math.cross(v10, perp) * de;
         float3 force12 = math.cross(v12, perp) * - de;
 
-        forces[index0] += force10 * forceMultiplier[index0];
-        forces[index1] -= (force10 + force12) * forceMultiplier[index1];
-        forces[index2] += force12 * forceMultiplier[index2];
+        forces[key.x] += force10 * forceMultiplier[key.x];
+        forces[key.y] -= (force10 + force12) * forceMultiplier[key.y];
+        forces[key.z] += force12 * forceMultiplier[key.z];
     }
 }
 
 public class DihedralCalculator : MMCalculator {
     
-    public int index0;
-    public int index1;
-    public int index2;
-    public int index3;
+    public int4 key;
 
     public struct TorsionTerm {
         public float barrierHeight;
@@ -653,62 +898,46 @@ public class DihedralCalculator : MMCalculator {
         }
     }
     
-	public List<TorsionTerm> torsionTerms;
+	public List<TorsionTerm> torsionTerms = new List<TorsionTerm>();
 
 	public DihedralCalculator (
-        Atom atom0, 
-        Atom atom1, 
-        Atom atom2, 
-        Atom atom3, 
-        bool proper,
-        (int, int, int, int) dihedralKey
+        Torsion torsion, 
+        int4 dihedralKey
     ) {
+
         
-        (index0, index1, index2, index3) = dihedralKey;
+        key = dihedralKey;
 
-        string[] types = new string[] {atom0.amber, atom1.amber, atom2.amber, atom3.amber};
-        torsionTerms = new List<TorsionTerm>();
-        
-        if (proper) {
-            Torsion torsion = Graph.parameters.torsions
-                .Where(x => x.TypeEquivalent(types))
-                .FirstOrDefault();
-
-            if (torsion.IsDefault()) {
-                throw new System.Exception();
-            } 
-
-            for (int i=0; i<4; i++) {
-                float barrierHeight = torsion.barrierHeights[i];
-                if (barrierHeight == 0f) {continue;}
-                torsionTerms.Add(
-                    new TorsionTerm(
-                        barrierHeight * Data.kcalToHartree / torsion.npaths, 
-                        torsion.phaseOffsets[i] * Mathf.Deg2Rad, 
-                        i + 1
-                    )
-                );
-            }
-        } else {
-            ImproperTorsion improperTorsion = Graph.parameters.improperTorsions
-                .Where(x => x.TypeEquivalent(types))
-                .FirstOrDefault();
-            if (improperTorsion.IsDefault()) {
-                throw new System.Exception();
-            }
+        for (int i=0; i<4; i++) {
+            float barrierHeight = torsion.barrierHeights[i];
+            if (barrierHeight == 0f) {continue;}
             torsionTerms.Add(
                 new TorsionTerm(
-                    improperTorsion.barrierHeight * Data.kcalToHartree, 
-                    improperTorsion.phaseOffset * Mathf.Deg2Rad, 
-                    improperTorsion.periodicity
+                    barrierHeight * Data.kcalToHartree / torsion.npaths, 
+                    torsion.phaseOffsets[i] * Mathf.Deg2Rad, 
+                    i + 1
                 )
             );
-            
         }
 	}
+
+    public DihedralCalculator (
+        ImproperTorsion improperTorsion, 
+        int4 dihedralKey
+    ) {
+        
+        key = dihedralKey;
+        torsionTerms.Add(
+            new TorsionTerm(
+                improperTorsion.barrierHeight * Data.kcalToHartree, 
+                improperTorsion.phaseOffset * Mathf.Deg2Rad, 
+                improperTorsion.periodicity
+            )
+        );
+    }
     
 	public override void AddEnergies(float[] energies, float3[] positions) {
-        float dihedral = CustomMathematics.GetDihedral(positions, index0, index1, index2, index3);
+        float dihedral = CustomMathematics.GetDihedral(positions, key.x, key.y, key.z, key.w);
         foreach (TorsionTerm torsionTerm in torsionTerms) {
             CustomMathematics.EImproperTorsion(
                 dihedral, 
@@ -724,9 +953,9 @@ public class DihedralCalculator : MMCalculator {
         //https://hal-mines-paristech.archives-ouvertes.fr/hal-00924263/document
         //Bernard Monasse, Frédéric Boussinot. Determination of Forces from a Potential in Molecular Dynamics. 2014. ffhal-00924263
 
-        float3 v01 = positions[index0] - positions[index1];
-        float3 v12n = math.normalizesafe(positions[index1] - positions[index2]);
-        float3 v23 = positions[index2] - positions[index3];
+        float3 v01 = positions[key.x] - positions[key.y];
+        float3 v12n = math.normalizesafe(positions[key.y] - positions[key.z]);
+        float3 v23 = positions[key.z] - positions[key.w];
 
         float r01 = math.length(v01);
         float r23 = math.length(v23);
@@ -747,30 +976,31 @@ public class DihedralCalculator : MMCalculator {
         float3 force0 = w1 * da_dr01 * de * 0.5f;
         float3 force3 = w2 * da_dr23 * de * 0.5f;
 
-        float3 centre = (positions[index0] + positions[index1]) * 0.5f;
+        float3 centre = (positions[key.x] + positions[key.y]) * 0.5f;
 
-        float3 vc2 = positions[index2] - centre;
+        float3 vc2 = positions[key.z] - centre;
         float rc2 = math.length(vc2);
         
-        float3 force2 = math.cross((
-                    math.cross(vc2, force3) +
-                    math.cross(v23, force3) * 0.5f +
-                    math.cross(v12n, force0) * - 0.5f
-                ) / (- rc2 * rc2),
-                vc2
+        float3 force2 = math.cross(
+            (
+                math.cross(vc2, force3) +
+                math.cross(v23, force3) * 0.5f +
+                math.cross(v12n, force0) * - 0.5f
+            ) / (- rc2 * rc2),
+            vc2
         );
 
-        if (mobileMask[index0]) {
-            forces[index0] += force0;
+        if (mobileMask[key.x]) {
+            forces[key.x] += force0;
         }
-        if (mobileMask[index1]) {
-            forces[index1] -= (force0 + force2 + force3);
+        if (mobileMask[key.y]) {
+            forces[key.y] -= (force0 + force2 + force3);
         }
-        if (mobileMask[index2]) {
-            forces[index2] += force2;
+        if (mobileMask[key.z]) {
+            forces[key.z] += force2;
         }
-        if (mobileMask[index3]) {
-            forces[index3] += force3;
+        if (mobileMask[key.w]) {
+            forces[key.w] += force3;
         }
 
     }
@@ -779,9 +1009,9 @@ public class DihedralCalculator : MMCalculator {
         //https://hal-mines-paristech.archives-ouvertes.fr/hal-00924263/document
         //Bernard Monasse, Frédéric Boussinot. Determination of Forces from a Potential in Molecular Dynamics. 2014. ffhal-00924263
 
-        float3 v01 = positions[index0] - positions[index1];
-        float3 v12n = math.normalizesafe(positions[index1] - positions[index2]);
-        float3 v23 = positions[index2] - positions[index3];
+        float3 v01 = positions[key.x] - positions[key.y];
+        float3 v12n = math.normalizesafe(positions[key.y] - positions[key.z]);
+        float3 v23 = positions[key.z] - positions[key.w];
 
         float r01 = math.length(v01);
         float r23 = math.length(v23);
@@ -802,9 +1032,9 @@ public class DihedralCalculator : MMCalculator {
         float3 force0 = w1 * da_dr01 * de * 0.5f;
         float3 force3 = w2 * da_dr23 * de * 0.5f;
 
-        float3 centre = (positions[index0] + positions[index1]) * 0.5f;
+        float3 centre = (positions[key.x] + positions[key.y]) * 0.5f;
 
-        float3 vc2 = positions[index2] - centre;
+        float3 vc2 = positions[key.z] - centre;
         float rc2 = math.length(vc2);
         
         float3 force2 = math.cross((
@@ -815,10 +1045,10 @@ public class DihedralCalculator : MMCalculator {
                 vc2
         );
 
-        forces[index0] += force0 * forceMultiplier[index0];
-        forces[index1] -= (force0 + force2 + force3) * forceMultiplier[index1];
-        forces[index2] += force2 * forceMultiplier[index2];
-        forces[index3] += force3 * forceMultiplier[index3];
+        forces[key.x] += force0 * forceMultiplier[key.x];
+        forces[key.y] -= (force0 + force2 + force3) * forceMultiplier[key.y];
+        forces[key.z] += force2 * forceMultiplier[key.z];
+        forces[key.w] += force3 * forceMultiplier[key.w];
 
     }
 	
@@ -830,53 +1060,24 @@ public class PrecomputedNonBonding : MMCalculator {
 
 	public float coulombFactor;
     
-    public int index0;
-    public int index1;
+    public int2 key;
 
     public CT coulombType;
     public VT vdwType;
     float maxVdWGradient;
 
 	public PrecomputedNonBonding(
-        Atom atom0, 
-        Atom atom1, 
-        (int, int) nonBondKey,
-        int graphDistance
+        AtomicParameter atomicParameter0,
+        AtomicParameter atomicParameter1,
+        NonBonding nonBonding,
+        int2 nonBondKey,
+        int graphDistance,
+        float partialChargeProduct,
+        float dielectricConstant,
+        float averageRadius
     ) {
         
-        (index0, index1) = nonBondKey;
-
-        if (CustomMathematics.GetDistance(atom0, atom1) > Settings.maxNonBondingCutoff) {
-            throw new System.Exception();
-        }
-
-        AtomicParameter atomicParameter0 = Graph.parameters.atomicParameters
-            .Where(x => x.type == atom0.amber)
-            .FirstOrDefault();
-            
-        if (atomicParameter0 == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "No Atomic Parameter for Amber Type: {0}",
-                atom0.amber
-            );
-            throw new System.Exception();
-        }
-            
-        AtomicParameter atomicParameter1 = Graph.parameters.atomicParameters
-            .Where(x => x.type == atom1.amber)
-            .FirstOrDefault();
-            
-        if (atomicParameter1 == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "No Atomic Parameter for Amber Type: {0}",
-                atom1.amber
-            );
-            throw new System.Exception();
-        }
-
-        NonBonding nonBonding = Graph.parameters.nonbonding;
+        key = nonBondKey;
 
         float cScale = graphDistance == -1 
             ? nonBonding.cScales[0]
@@ -887,19 +1088,13 @@ public class PrecomputedNonBonding : MMCalculator {
             : nonBonding.vScales[graphDistance];
 
         if (cScale < 0) {
-            coulombFactor = ( atom0.partialCharge * atom0.partialCharge * Data.kcalToHartree) /  ( -cScale * Graph.parameters.dielectricConstant);
+            coulombFactor = ( partialChargeProduct * Data.kcalToHartree) /  ( -cScale * dielectricConstant);
         } else {
-		    coulombFactor = ( atom0.partialCharge * atom0.partialCharge * cScale * Data.kcalToHartree) / Graph.parameters.dielectricConstant;
+		    coulombFactor = ( partialChargeProduct * cScale * Data.kcalToHartree) / dielectricConstant;
         }
-
         
-        //vdwR = (
-        //    (atomID0.pdbID.element == "C" ? 1.5f : 1) * atomicParameter0.radius +
-        //    (atomID1.pdbID.element == "C" ? 1.5f : 1) * atomicParameter1.radius
-        //) * 0.5f;
-        
-        vdwR = (atomicParameter0.radius + atomicParameter1.radius) * 0.5f;
-
+        vdwR = averageRadius;
+ 
 		vdwV = Mathf.Sqrt ((atomicParameter0.wellDepth + atomicParameter1.wellDepth) * Data.kcalToHartree) * vScale;
 
         coulombType = nonBonding.coulombType;
@@ -913,13 +1108,13 @@ public class PrecomputedNonBonding : MMCalculator {
 
 
 	public override void AddEnergies(float[] energies, float3[] positions) {
-        float r = CustomMathematics.GetDistance(positions, index0, index1);
+        float r = CustomMathematics.GetDistance(positions, key.x, key.y);
 		CustomMathematics.EVdWAmber(r, vdwV, vdwR, energies);
 		CustomMathematics.EElectrostaticR1(r, coulombFactor, energies);
 	}
 
     public override void AddForces(float3[] forces, float3[] positions, bool[] mobileMask) {
-        float3 v10 = positions[index1] - positions[index0];
+        float3 v10 = positions[key.y] - positions[key.x];
         float r10 = math.length(v10);
 
         float de =  Mathf.Max(
@@ -928,16 +1123,16 @@ public class PrecomputedNonBonding : MMCalculator {
         );
 
         v10 *= de / r10;
-        if (mobileMask[index0]) {
-            forces[index0] += v10;
+        if (mobileMask[key.x]) {
+            forces[key.x] += v10;
         }
-        if (mobileMask[index1]) {
-            forces[index1] -= v10;
+        if (mobileMask[key.y]) {
+            forces[key.y] -= v10;
         }
     }
 
     public override void AddForces(float3[] forces, float3[] positions, float[] forceMultiplier) {
-        float3 v10 = positions[index1] - positions[index0];
+        float3 v10 = positions[key.y] - positions[key.x];
         float r10 = math.length(v10);
 
         float de =  Mathf.Max(
@@ -946,8 +1141,8 @@ public class PrecomputedNonBonding : MMCalculator {
         );
 
         v10 *= de / r10;
-        forces[index0] += v10 * forceMultiplier[index0];
-        forces[index1] -= v10 * forceMultiplier[index1];
+        forces[key.x] += v10 * forceMultiplier[key.x];
+        forces[key.y] -= v10 * forceMultiplier[key.y];
 
     }
 

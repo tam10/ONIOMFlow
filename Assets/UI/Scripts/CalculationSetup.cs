@@ -27,7 +27,7 @@ public class CalculationSetup : MonoBehaviour {
     public Canvas canvas;
     public Button closeButton;
     public Button confirmButton;
-    private GIID geometryInterfaceID;
+    private Geometry geometry;
     
     //Tabs at the top of the interface
     [Header("Tabs")]
@@ -158,11 +158,24 @@ public class CalculationSetup : MonoBehaviour {
         yield return task(geometryInterfaceID);
     }
 
+    public static IEnumerator SetupCalculation(Geometry geometry) {
+
+        NotificationBar.SetTaskProgress(TID.SETUP_CALCULATION, 0f);
+        main.geometry = geometry;
+
+        yield return main.Initialise();
+        while (!main.userResponded) {
+            yield return null;
+        }
+
+
+        NotificationBar.ClearTask(TID.SETUP_CALCULATION);
+    }
+
     public static IEnumerator SetupCalculation(GIID geometryInterfaceID) {
 
         NotificationBar.SetTaskProgress(TID.SETUP_CALCULATION, 0f);
-        main.geometryInterfaceID = geometryInterfaceID;
-        GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
+        main.geometry = Flow.GetGeometry(geometryInterfaceID);
 
         GIS status = Flow.GetGeometryInterface(geometryInterfaceID).status;
         if (status != GIS.OK && status != GIS.COMPLETED && status != GIS.WARNING) {
@@ -184,12 +197,42 @@ public class CalculationSetup : MonoBehaviour {
         NotificationBar.ClearTask(TID.SETUP_CALCULATION);
     }
 
+    public static IEnumerator MoveAllToLayer(GIID geometryInterfaceID, OLID oniomLayerID, TID taskID) {
+        
+        NotificationBar.SetTaskProgress(taskID, 0f);
+        GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
+        Geometry geometry = geometryInterface.geometry;
+        yield return null;
+
+        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+            atom.oniomLayer = oniomLayerID;
+        }
+        
+        NotificationBar.ClearTask(taskID);
+    }
+
+    public static IEnumerator MoveSelectionToLayer(GIID geometryInterfaceID, OLID oniomLayerID, TID taskID) {
+        
+        NotificationBar.SetTaskProgress(taskID, 0f);
+        GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
+        Geometry geometry = geometryInterface.geometry;
+        yield return null;
+
+        List<(AtomID AtomID, Atom atom)> selection = new List<(AtomID AtomID, Atom atom)>();
+        geometry.GetUserSelection(selection);
+        foreach ((AtomID atomID, Atom atom) in selection) {
+            atom.oniomLayer = oniomLayerID;
+        }
+        
+        NotificationBar.ClearTask(taskID);
+    }
+
     public static IEnumerator GetLayer(GIID geometryInterfaceID, OLID oniomLayerID, TID taskID) {
 
         NotificationBar.SetTaskProgress(taskID, 0f);
-        main.geometryInterfaceID = geometryInterfaceID;
         GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
         Geometry geometry = geometryInterface.geometry;
+        yield return null;
         
         IEnumerable<OLID> oniomLayerIDs = geometry.GetLayers();
         if (!oniomLayerIDs.Contains(oniomLayerID)) {
@@ -273,6 +316,30 @@ public class CalculationSetup : MonoBehaviour {
         yield return GetLayer(geometryInterfaceID, OLID.INTERMEDIATE, TID.GET_INTERMEDIATE_LAYER);
     }
 
+    public static IEnumerator MoveAllToModelLayer(GIID geometryInterfaceID) {
+        yield return MoveAllToLayer(geometryInterfaceID, OLID.MODEL, TID.MOVE_ALL_TO_MODEL_LAYER);
+    } 
+
+    public static IEnumerator MoveAllToIntermediateLayer(GIID geometryInterfaceID) {
+        yield return MoveAllToLayer(geometryInterfaceID, OLID.INTERMEDIATE, TID.MOVE_ALL_TO_INTERMEDIATE_LAYER);
+    } 
+
+    public static IEnumerator MoveAllToRealLayer(GIID geometryInterfaceID) {
+        yield return MoveAllToLayer(geometryInterfaceID, OLID.REAL, TID.MOVE_ALL_TO_REAL_LAYER);
+    } 
+
+    public static IEnumerator MoveSelectionToModelLayer(GIID geometryInterfaceID) {
+        yield return MoveSelectionToLayer(geometryInterfaceID, OLID.MODEL, TID.MOVE_SELECTION_TO_MODEL_LAYER);
+    } 
+
+    public static IEnumerator MoveSelectionToIntermediateLayer(GIID geometryInterfaceID) {
+        yield return MoveSelectionToLayer(geometryInterfaceID, OLID.INTERMEDIATE, TID.MOVE_SELECTION_TO_INTERMEDIATE_LAYER);
+    } 
+
+    public static IEnumerator MoveSelectionToRealLayer(GIID geometryInterfaceID) {
+        yield return MoveSelectionToLayer(geometryInterfaceID, OLID.REAL, TID.MOVE_SELECTION_TO_REAL_LAYER);
+    } 
+
     public static IEnumerator ValidateGeometry(GIID geometryInterfaceID) {
 
         Geometry geometry = Flow.GetGeometry(geometryInterfaceID);
@@ -325,13 +392,19 @@ public class CalculationSetup : MonoBehaviour {
     
     public IEnumerator Initialise() {
 
-        Geometry geometry = Flow.GetGeometry(geometryInterfaceID);
-
         oniomLayerIDs = geometry.GetLayers();
 
         RealLayerTab.interactable = oniomLayerIDs.Contains(OLID.REAL);
         IntermediateLayerTab.interactable = oniomLayerIDs.Contains(OLID.INTERMEDIATE);
         ModelLayerTab.interactable = oniomLayerIDs.Contains(OLID.MODEL);
+
+        if (!oniomLayerIDs.Contains(OLID.REAL)) {
+            if (oniomLayerIDs.Contains(OLID.INTERMEDIATE)) {
+                ShowIntermediateLayer();
+            } else if (oniomLayerIDs.Contains(OLID.MODEL)) {
+                ShowModelLayer();
+            }
+        }
 
         yield return GetLayerProperties(geometry);
 
@@ -560,7 +633,6 @@ public class CalculationSetup : MonoBehaviour {
 
     //LAYER OPTIONS/VALIDATION
     private Layer GetCurrentLayer() {
-        Geometry geometry = Flow.GetGeometry(geometryInterfaceID);
         return geometry.gaussianCalculator.layerDict[currentLayerID];
     }
 
@@ -633,7 +705,7 @@ public class CalculationSetup : MonoBehaviour {
     
     //OPTIMISATION OPTIONS/VALIDATION
     private GaussianCalculator GetGaussianCalculator() {
-        return Flow.GetGeometry(geometryInterfaceID).gaussianCalculator;
+        return geometry.gaussianCalculator;
     }
 
     private void ChangeGeometryOptimisationTarget(int index) {

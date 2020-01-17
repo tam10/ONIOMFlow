@@ -8,6 +8,7 @@ using RS = Constants.ResidueState;
 using BT = Constants.BondType;
 using EL = Constants.ErrorLevel;
 using OLID = Constants.OniomLayerID;
+using Amber = Constants.Amber;
 using Unity.Mathematics;
 
 /// <summary>Residue Class</summary>
@@ -70,13 +71,14 @@ public class Residue {
 	/// <summary>Returns true if this Residue's Name is 'HOH' or 'WAT'.</summary>
 	public bool isWater => (residueName == "HOH" || residueName == "WAT");
 
-	/// <summary>Returns true if this Residue's ResidueState is STANDARD, C_TERMINAL, N_TERMINAL or CAP.</summary>
+	/// <summary>Returns true if this Residue's ResidueState is STANDARD, C_TERMINAL, N_TERMINAL, CAP or ION.</summary>
 	public bool standard => (
 		state == RS.STANDARD || 
 		state == RS.C_TERMINAL || 
 		state == RS.N_TERMINAL ||
 		state == RS.STANDARD ||
-		state == RS.CAP
+		state == RS.CAP ||
+		state == RS.ION
 	);
 
 
@@ -318,7 +320,7 @@ public class Residue {
 
 		//Add atom with initial position
 		AtomID atomID = new AtomID(residueID, atomPDBID);
-        string amber = (atomPDBID.element == Element.H) ? Data.GetLinkType(host, hostPDBID) : "";
+        Amber amber = (atomPDBID.element == Element.H) ? Data.GetLinkType(host, hostPDBID) : Amber.X;
 		atoms[atomPDBID] = new Atom(position, residueID, amber, 0f, oniomLayer:host.oniomLayer);
 
 		//Connect the atom to the host

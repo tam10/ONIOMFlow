@@ -10,74 +10,12 @@ using BT = Constants.BondType;
 using OLID = Constants.OniomLayerID;
 using EL = Constants.ErrorLevel;
 
-public static class GaussianOutputReader {
+public class GaussianOutputReader : GeometryReader {
 
-
-	static string path;
-
-	static Dictionary<OLID, Layer> layerDict;
-
-	
-	public enum ParseDictKey {KEYWORDS, ONIOM, STANDARD_ORIENTATION, ENERGY, FORCES, E_DIP_MOM, EXCITED_STATE, ESP, FREQ}
-	delegate bool Condition();
-	static Dictionary<ParseDictKey, Condition> NormalParseDict = new Dictionary<ParseDictKey, Condition>();
-
-
-	static string line;
-	static string previousLine;
-	delegate void LineParser();
-
-	static LineParser activeParser;
-
-	static int lineNumber = 0;
-	static int linesToSkip = 0;
-	static int charNum = 0;
-
-	static bool failed;
-
-	static int size;
-	static int atomIndex;
-	static Map<AtomID, int> atomMap;
-
-	static List<string> keywordLines;
-	static List<string> keywords;
-
-	static bool atomInfoSet = false;
-	static int[] atomNumbers;
-	static string[] elements;
-	static float[] masses;
-
-	static List<float> energies;
-	static float3[] currentPositions;
-	static List<float3[]> standardPositions;
-
-	static float3[] currentForces;
-	static List<float3[]> allForces;
-
-	static VibrationalAnalysis vibrationalAnalysis;
-
-	static int currentStateIndex;
-	static List<ExcitedState> currentExcitedStates;
-	static List<float[]> currentTransitionDipoleMoments;
-	static List<List<ExcitedState>> allExcitedStates;
-
-	static float[] currentESPs;
-
-	static Geometry geometry;
-	static Geometry tempGeometry;
-
-	static bool readForce;
-	static bool readFreq;
-	static bool readTD;
-	static bool readESP;
-
-	static bool updating;
-	static bool oldMap;
-
-	static int currentMode;
-	static int modesPerLine;
-
-	public static void Reset() {
+	public GaussianOutputReader(Geometry geometry) {
+		
+		this.geometry = geometry;
+		
 		layerDict = new Dictionary<OLID, Layer>();
 
 		NormalParseDict.Clear();
@@ -86,34 +24,80 @@ public static class GaussianOutputReader {
 		energies = new List<float>();
 		standardPositions = new List<float3[]>();
 		allForces = new List<float3[]>();
-		atomMap = new Map<AtomID, int>();
-
-		updating = false;
-		oldMap = false;
 		
 		size = geometry.size;
 		if (size != 0) {
-			//Updating geometry
-			updating = true;
 		
 			//Set arrays to fit size
 			InitialiseAtomsInfo();
 
-			if (geometry.atomMap != null && geometry.atomMap.Count == size) {
-				oldMap = true;
+		}
+
+		activeParser = ParseNormal;
+	}
+
+	public override IEnumerator CleanUp() {
+
+		float3[] positions = standardPositions.Last();
+
+		foreach ((AtomID atomID, int atomNum) in geometry.atomMap) {
+			Atom atom;
+			if (geometry.TryGetAtom(atomID, out atom)) {
+				atom.position = positions[atomNum];
+				atom.partialCharge = currentESPs[atomNum];
+			}
+			if (Timer.yieldNow) {
+				yield return null;
 			}
 		}
-		
-		tempGeometry = PrefabManager.InstantiateGeometry(null);
 
 	}
 
-	public static void RemoveKey(ParseDictKey parseDictKey) {
+	Dictionary<OLID, Layer> layerDict;
+
+	
+	public enum ParseDictKey {KEYWORDS, ONIOM, STANDARD_ORIENTATION, ENERGY, FORCES, E_DIP_MOM, EXCITED_STATE, ESP, FREQ}
+	delegate bool Condition();
+	Dictionary<ParseDictKey, Condition> NormalParseDict = new Dictionary<ParseDictKey, Condition>();
+
+
+	int size;
+
+	List<string> keywordLines;
+	List<string> keywords;
+
+	bool atomInfoSet = false;
+	int[] atomNumbers;
+
+	List<float> energies;
+	float3[] currentPositions;
+	List<float3[]> standardPositions;
+
+	float3[] currentForces;
+	List<float3[]> allForces;
+
+	VibrationalAnalysis vibrationalAnalysis;
+
+	int currentStateIndex;
+	List<ExcitedState> currentExcitedStates;
+	List<float[]> currentTransitionDipoleMoments;
+
+	float[] currentESPs;
+
+	bool readForce;
+	bool readFreq;
+	bool readTD;
+	bool readESP;
+
+	int currentMode;
+	int modesPerLine;
+
+	public void RemoveKey(ParseDictKey parseDictKey) {
 		//Debug.LogFormat("Removing Keyword: {0}. Line: {1}", parseDictKey, lineNumber);
 		NormalParseDict.Remove(parseDictKey);
 	}
 
-	public static void AddKey(ParseDictKey parseDictKey) {
+	public void AddKey(ParseDictKey parseDictKey) {
 		//Debug.LogFormat("Adding Keyword: {0}. Line: {1}", parseDictKey, lineNumber);
 		switch (parseDictKey) {
 			case (ParseDictKey.KEYWORDS):
@@ -146,143 +130,13 @@ public static class GaussianOutputReader {
 		}
 	}
 
-	public static IEnumerator GeometryFromGaussianOutput(string filePath, Geometry geometry) {
-
-		// Previous geometry
-		// N: New geometry
-		// U: Updating geometry, no old map
-		// M: Updating geometry, old map
-
-		// File geometry
-		// O: Old style, no PDB info, no new map
-		// P: New stle, PDB info, new map
-
-		// Outcome table
-		//   N U M
-		// O 0 0 1
-		// P 2 3 4
-
-		// 0: Fails - close and don't change geometry
-		// 1: Trust map but check atomic numbers align
-		// 2: Read in as normal from scratch
-		// 3: Create new map and check atomic numbers align backwards
-		// 4: Create new map and check they are the same
-		
-
-
-		if (geometry == null) {
-			CustomLogger.Log(
-				EL.ERROR,
-				"Cannot load into Atoms - Atoms is null!"
-			);
-			yield break;
-		}
-		GaussianOutputReader.geometry = geometry;
-
-		Reset();
-
-		path = filePath;
-		tempGeometry.name = Path.GetFileName(path);
-
-		//Parse the file
-		activeParser = ParseNormal;
-		lineNumber = 0;
-		foreach (string logLine in FileIO.EnumerateLines(path)) {
-			if (failed) {
-				GameObject.Destroy(tempGeometry.gameObject);
-				yield break;
-			} 
-
-			
-			if (linesToSkip == 0) {
-				line = logLine;
-				try {
-					//Read the line
-					activeParser();
-				} catch (System.Exception e) {
-					//Pass error to user and close
-					FileReader.ThrowFileReaderError(
-						path,
-						lineNumber,
-						charNum,
-						activeParser.Method.Name,
-						line,
-						e
-					);
-					failed = true;
-					GameObject.Destroy(tempGeometry.gameObject);
-					yield break;
-				}
-			} else if (linesToSkip > 0) {
-				// Skip linesToSkip lines
-				linesToSkip--;
-			} else {
-				throw new System.Exception("'linesToSkip' must not be negative in Gaussian Output Reader!");
-			}
-
-			if (Timer.yieldNow) {
-				yield return null;
-			}
-			
-			lineNumber++;
-		}
-
-		if (standardPositions.Count == 0) {
-			CustomLogger.LogFormat(
-				EL.ERROR,
-				"No positional data found in file!"
-			);
-			yield break;
-		}
-		float3[] positions = standardPositions.Last();
-
-		if (!updating) {
-			tempGeometry.CopyTo(geometry);
-		}
-
-		if (updating && geometry.size != atomMap.Count) {
-			CustomLogger.LogFormat(
-				EL.ERROR,
-				"Size of Atoms ({0}) inconsistent with Atom Map ({1})!",
-				geometry.size,
-				atomMap.Count
-			);
-		}
-
-		if (positions.GetLength(0) != atomMap.Count) {
-			CustomLogger.LogFormat(
-				EL.ERROR,
-				"Size of Positions inconsistent with Atom Map!",
-				positions.GetLength(0),
-				atomMap.Count
-			);
-		}
-
-		foreach ((AtomID atomID, int atomIndex) in atomMap) {
-			Atom atom;
-			if (!geometry.TryGetAtom(atomID, out atom)) {
-				throw new System.Exception(string.Format(
-					"Couldn't find Atom ID '{0}' in geometry",
-					atomID
-				));
-			}
-			geometry.GetAtom(atomID).position = positions[atomIndex];
-		}
-
-		GameObject.Destroy(tempGeometry.gameObject);
-
-		yield return null;
-
-	}
-
-
 
 
 	//////////////////
 	// SUB-PARSERS  //
 	//////////////////
 
-	static void ParseNormal() {
+	void ParseNormal() {
 		foreach ((ParseDictKey key, Condition condition) in NormalParseDict) {
 			if (condition()) {
 				break;
@@ -290,7 +144,7 @@ public static class GaussianOutputReader {
 		}
 	}
 
-	static void ParseKeywords() {
+	void ParseKeywords() {
 		if (line.StartsWith(" --")) {
 			keywords = keywordLines.SelectMany(x => x.Split(new [] {' '})).ToList();
 			RemoveKey(ParseDictKey.KEYWORDS);
@@ -309,7 +163,10 @@ public static class GaussianOutputReader {
 					}
 					string[] splitKeyword = keyword.Split(new char[] {'='}, System.StringSplitOptions.RemoveEmptyEntries);
 
-					if (splitKeyword.Length > 1 && splitKeyword.Last().StartsWith("EMBED", StringComparison.OrdinalIgnoreCase)) {
+					if (
+						splitKeyword.Length > 1 && 
+						splitKeyword.Last().StartsWith("EMBED", StringComparison.OrdinalIgnoreCase)
+					) {
 						readESP = true;
 					}
 				}
@@ -323,20 +180,24 @@ public static class GaussianOutputReader {
 				if (keyword.StartsWith("TD", StringComparison.OrdinalIgnoreCase)) {
 					readTD = true;
 				}
-			}
-
-			if (!isONIOM) {
-				throw new System.Exception("File is not an ONIOM output");
+				if (
+					keyword.Contains("POP", StringComparison.OrdinalIgnoreCase) &&
+					keyword.Contains("MK", StringComparison.OrdinalIgnoreCase)
+				) {
+					readESP = true;
+				}
 			}
 
 			CustomLogger.LogFormat(
 				EL.VERBOSE,
-				"Reading ONIOM File (readFreq: {0}, readTD: {1}, readESP: {2}, readForce: {3})",
+				"Reading {4} File (readFreq: {0}, readTD: {1}, readESP: {2}, readForce: {3})",
 				readFreq,
 				readTD,
 				readESP,
-				readForce
+				readForce,
+				isONIOM ? "ONIOM" : "Single Layer"
 			);
+
 
 			AddKey(ParseDictKey.ONIOM);
 			activeParser = ParseNormal;
@@ -346,7 +207,7 @@ public static class GaussianOutputReader {
 	}
 
 	///<summary>Defines ONIOM layers</summary>
-	static void ParseONIOMLayers() {
+	void ParseONIOMLayers() {
 		if (line.StartsWith(" Charge = ") ) {
 			AddONIOMLayerFromLine();
 		} else if (line.StartsWith(" Redundant internal") || line.StartsWith(" Symbolic Z-Matrix:")) {
@@ -358,28 +219,32 @@ public static class GaussianOutputReader {
 		} 
 	}
 
-	static void ParseAtomInfo() {
+	void ParseAtomInfo() {
 		if (string.IsNullOrWhiteSpace(line)) {
 			size = atomIndex;
 			atomInfoSet = false;
 			InitialiseAtomsInfo();
 
-			if (atomMap == null) {
+			if (geometry.atomMap == null) {
 				throw new System.Exception(
 					"Atoms do not have an Atom Map! Try loading on top of the input file that generated this log file."
 				);
 			}
 
-			if (atomMap.Count != size) {
+			if (geometry.atomMap.Count != size) {
 				throw new System.Exception(string.Format(
 					"Atom Map ({0}) not the same size as Atoms ({1}).",
-					atomMap.Count,
+					geometry.atomMap.Count,
 					size
 				));
 			}
 
 			//Check atom maps are the same if there's an old map
-			if (oldMap && (atomMap.Count != geometry.atomMap.Count && atomMap.Except(geometry.atomMap).Any())) {
+			if (
+				atomMapSet && 
+				geometry.atomMap.Count != geometry.atomMap.Count && 
+				geometry.atomMap.Except(geometry.atomMap).Any()
+			) {
 				CustomLogger.LogFormat(
 					EL.WARNING,
 					"Old Atom Map is not the same as New Atom Map. It's possible that these geometries are not related or the order changed."
@@ -392,21 +257,15 @@ public static class GaussianOutputReader {
 			//Read the atom
 			AtomID atomID;
 			try {
-				atomID = GaussianPDBLineReader.ParseLine(tempGeometry, line);
+				atomID = GaussianPDBLineReader.ParseLine(geometry, line);
 			} catch {
 				charNum = GaussianPDBLineReader.charNum;
 				throw;
 			}
 			
 			if (GaussianPDBLineReader.failed) {
-				//Old style of geometry - can't validate on-the-fly
-				if (!updating) {
-					throw new System.Exception(
-						"Invalid Atoms Section and geometry object is empty! Try loading on top of an existing geometry."
-					);
-				}
 
-				if (!oldMap) {
+				if (!atomMapSet) {
 					throw new System.Exception(
 						"Atoms do not have an Atom Map! Try loading on top of the input file that generated this log file."
 					);
@@ -417,11 +276,10 @@ public static class GaussianOutputReader {
 					"Using old style Gaussian output (problematic if geometry do not map properly) - don't use 'geom=allcheck' to avoid this."
 				);
 
-				atomMap = geometry.atomMap;
 				activeParser = ParseNormal;
 				return;
 			} else {
-				if (updating && !geometry.ContainsAtom(atomID)) {
+				if (!geometry.ContainsAtom(atomID)) {
 					throw new System.Exception(string.Format(
 						"Geometries do not align by Atom ID! Atoms '{0}' does not contain '{1}'.",
 						geometry.name,
@@ -431,11 +289,11 @@ public static class GaussianOutputReader {
 			}
 
 			//Build new map
-			atomMap[atomIndex++] = atomID;
+			geometry.atomMap[atomIndex++] = atomID;
 		}
 	}
 
-	static void ParseStandardOrientation() {
+	void ParseStandardOrientation() {
 
 		if (line.StartsWith(" --")) {
 			standardPositions.Add((float3[])currentPositions.Clone());
@@ -468,13 +326,13 @@ public static class GaussianOutputReader {
 			}
 			atomNumbers[atomIndex] = atomicNumber;
 
-			if (atomMap[atomIndex].pdbID.atomicNumber != atomicNumber) {
+			if (geometry.atomMap[atomIndex].pdbID.atomicNumber != atomicNumber) {
 				throw new System.Exception(string.Format(
 					"Atoms do not align! Atomic number of index {0} ({1}) does not equal Atomic number of AtomID {2} ({3}) from Atom Map",
 					atomIndex,
 					atomicNumber,
-					atomMap[atomIndex],
-					atomMap[atomIndex].pdbID.atomicNumber
+					geometry.atomMap[atomIndex],
+					geometry.atomMap[atomIndex].pdbID.atomicNumber
 				));
 			}
 			
@@ -496,7 +354,7 @@ public static class GaussianOutputReader {
 		atomIndex++;
 	}
 
-	static void ParseForces() {
+	void ParseForces() {
 
 		if (line.StartsWith(" --")) {
 			allForces.Add((float3[])currentForces.Clone());
@@ -525,7 +383,7 @@ public static class GaussianOutputReader {
 		atomIndex++;
 	}
 
-	static void ParseElectricDipoleMoments() {
+	void ParseElectricDipoleMoments() {
 		string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
 		int stateIndex;
 		if (!int.TryParse(splitLine[0], out stateIndex)) {
@@ -551,7 +409,7 @@ public static class GaussianOutputReader {
 		currentTransitionDipoleMoments.Add((float[])dipoleMoment.Clone());
 	}
 
-	static void ParseExcitedState() {
+	void ParseExcitedState() {
 		string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
 
 		if (splitLine.Length == 0) {
@@ -598,7 +456,7 @@ public static class GaussianOutputReader {
 		currentExcitedState.composition.Add(composition);
 	}
 
-	static void ParseESPs() {
+	void ParseESPs() {
 		float esp;
 		string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
 		if (splitLine.Length != 3) {
@@ -624,7 +482,7 @@ public static class GaussianOutputReader {
 		currentESPs[atomIndex++] = esp;
 	}
 
-	static void ParseFrequencyInfo() {
+	void ParseFrequencyInfo() {
 		string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
 		
 		if (splitLine.Length == 0) {
@@ -664,7 +522,7 @@ public static class GaussianOutputReader {
 		}
 	}
 
-	static void ParseNormalModes() {
+	void ParseNormalModes() {
 		string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
 		int startIndex = 2;
 		for (int modeNum=currentMode; modeNum<currentMode+modesPerLine; modeNum++) {
@@ -678,7 +536,7 @@ public static class GaussianOutputReader {
 		}
 	}
 
-	static bool ExpectEnergy() {
+	bool ExpectEnergy() {
 
 		if (!line.StartsWith(" ONIOM: extrapolated")) {return false;}
 		float energy;
@@ -718,7 +576,7 @@ public static class GaussianOutputReader {
 	////////////////////
 
 
-	static bool ExpectKeywords() {
+	bool ExpectKeywords() {
 
 		if (!line.StartsWith(" #")) {return false;}
 
@@ -729,7 +587,7 @@ public static class GaussianOutputReader {
 		return true;
 	}
 
-	static bool ExpectLayerInfo() {
+	bool ExpectLayerInfo() {
 
 		if (!line.StartsWith(" Charge = ")) {return false;}
 
@@ -744,7 +602,7 @@ public static class GaussianOutputReader {
 		return true;
 	}
 
-	static bool ExpectStandardOrientation() {
+	bool ExpectStandardOrientation() {
 
 		if (!line.StartsWith("                         Standard orientation:")) {return false;}
 
@@ -752,14 +610,14 @@ public static class GaussianOutputReader {
 			EL.VERBOSE,
 			"Reading Standard Orientation block"
 		);
-		linesToSkip = 4;
+		skipLines = 4;
 		atomIndex = 0;
 		activeParser = ParseStandardOrientation;
 
 		return true;
 	}
 
-	static bool ExpectForces() {
+	bool ExpectForces() {
 
 		if (!line.StartsWith(" Center     Atomic") && line.Substring(42, 6) == "Forces") {return false;}
 		
@@ -767,24 +625,24 @@ public static class GaussianOutputReader {
 			EL.VERBOSE,
 			"Reading Forces block"
 		);
-		linesToSkip = 2;
+		skipLines = 2;
 		atomIndex = 0;
 		activeParser = ParseForces;
 
 		return true;
 	}
 
-	static bool ExpectElectricTDMs() {
+	bool ExpectElectricTDMs() {
 
 		if (!line.StartsWith(" Ground to excited state transition electric dipole moments (Au):")) {return false;}
-		linesToSkip = 1;
+		skipLines = 1;
 		currentTransitionDipoleMoments = new List<float[]>();
 		activeParser = ParseElectricDipoleMoments;
 
 		return true;
 	}
 
-	static bool ExpectExcitedStates() {
+	bool ExpectExcitedStates() {
 
 		if (!line.StartsWith(" Excited State ")) {return false;}
 		string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
@@ -864,7 +722,7 @@ public static class GaussianOutputReader {
 		return true;
 	}
 
-	static bool ExpectESPs() {
+	bool ExpectESPs() {
 
 		if (!line.StartsWith(" ESP charges:")) {return false;}
 
@@ -872,18 +730,18 @@ public static class GaussianOutputReader {
 			EL.VERBOSE,
 			"Reading ESPs"
 		);
-		linesToSkip = 1;
+		skipLines = 1;
 		atomIndex = 0;
 		activeParser = ParseESPs;
 
 		return true;
 	}
 
-	static bool ExpectFrequencies() {
+	bool ExpectFrequencies() {
 		
 		if (!line.StartsWith(" Harmonic frequencies ")) {return false;}
 
-		linesToSkip = 3;
+		skipLines = 3;
 		currentMode = 0;
 		activeParser = ParseFrequencyInfo;
 
@@ -894,14 +752,14 @@ public static class GaussianOutputReader {
 	// TOOLS //
 	///////////
 
-	static void AddFrequencyInfo(float[] array, string[] splitLine, int startIndex) {
+	void AddFrequencyInfo(float[] array, string[] splitLine, int startIndex) {
 		ArraySegment<float> segment = new ArraySegment<float>(array, currentMode, modesPerLine);
 		for (int i=2; i<2+modesPerLine; i++) {
 			segment.Array[i] = float.Parse(splitLine[startIndex++]);
 		}
 	}
 
-	static void InitialiseAtomsInfo() {
+	void InitialiseAtomsInfo() {
 
 		if (!atomInfoSet) {
 			CustomLogger.LogFormat(
@@ -919,7 +777,7 @@ public static class GaussianOutputReader {
 		}
 	}
 
-	static void AddONIOMLayerFromLine() {
+	void AddONIOMLayerFromLine() {
 		string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
 
 		OLID layerID;

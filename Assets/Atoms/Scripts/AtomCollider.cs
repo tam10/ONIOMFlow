@@ -41,7 +41,7 @@ public class AtomCollider : MonoBehaviour {
             }
         } else {
             if (other.tag == "Pointer") {
-                StartCoroutine(AtomsVisualiser.Exit());
+                StartCoroutine(AtomsVisualiser.ExitCoroutine());
             } else {
                 Color fadeTo = new Color(1f, 1f, 1f, 0f);
                 StartCoroutine(FadeAndDestroy(fadeTo, 1f));

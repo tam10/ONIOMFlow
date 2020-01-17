@@ -86,16 +86,10 @@ public static class ArrowFunctions {
                 return Cleaner.GetChain;
             case (TID.CHECK_GEOMETRY): 
                 return Cleaner.CheckGeometry;
-            case (TID.CALCULATE_AMBER_TYPES): 
-                return Cleaner.CalculateAMBERTypes;
-            case (TID.CALCULATE_AMBER_TYPES_ANTECHAMBER): 
-                return Cleaner.CalculateAMBERTypesAntechamber;
             case (TID.CALCULATE_CONNECTIVITY): 
                 return Cleaner.CalculateConnectivity;
             case (TID.CLEAR_CONNECTIVITY): 
                 return Cleaner.DisconnectAll;
-            case (TID.CALCULATE_PARAMETERS):
-                return Cleaner.CalculateAMBERParameters;
             case (TID.FILL_MISSING_RESIDUES):
                 return Cleaner.FillMissingResidues;
             case (TID.OPTIMISE_MISSING_RESIDUES):
@@ -113,6 +107,14 @@ public static class ArrowFunctions {
             case (TID.MERGE_GEOMETRIES):
                 return NonStandardResidueTools.MergeGeometries;
 
+            //AMBER
+            case (TID.CALCULATE_AMBER_TYPES): 
+                return AmberCalculator.CalculateAMBERTypes;
+            case (TID.CALCULATE_AMBER_TYPES_ANTECHAMBER): 
+                return AmberCalculator.CalculateAMBERTypesAntechamber;
+            case (TID.CALCULATE_PARAMETERS):
+                return AmberCalculator.CalculateAMBERParameters;
+
             // Protonator
             case (TID.PROTONATE_PDB2PQR): 
                 return Protonator.ProtonateWithPDB2PQR;
@@ -120,20 +122,38 @@ public static class ArrowFunctions {
                 return Protonator.ProtonateNonStandard;
 
             // Partial Charges Calculator
-            case (TID.CALCULATE_PARTIAL_CHARGES):
-                return PartialChargeCalculator.CalculatePartialCharges;
+            case (TID.CALCULATE_PARTIAL_CHARGES_RED):
+                return PartialChargeCalculator.CalculatePartialChargesRED;
+            case (TID.CALCULATE_PARTIAL_CHARGES_GAUSSIAN):
+                return PartialChargeCalculator.CalculatePartialChargesGaussian;
             case (TID.GET_PARTIAL_CHARGES_FROM_MOL2):
                 return PartialChargeCalculator.GetPartialChargesFromMol2;
 
-            // Gaussian Calculation
-            case (TID.SETUP_CALCULATION):
-                return CalculationSetup.SetupCalculation;
+            // Layers
+            case (TID.MOVE_ALL_TO_REAL_LAYER):
+                return CalculationSetup.MoveAllToRealLayer;
+            case (TID.MOVE_ALL_TO_INTERMEDIATE_LAYER):
+                return CalculationSetup.MoveAllToIntermediateLayer;
+            case (TID.MOVE_ALL_TO_MODEL_LAYER):
+                return CalculationSetup.MoveAllToModelLayer;
+            case (TID.MOVE_SELECTION_TO_REAL_LAYER):
+                return CalculationSetup.MoveSelectionToRealLayer;
+            case (TID.MOVE_SELECTION_TO_INTERMEDIATE_LAYER):
+                return CalculationSetup.MoveSelectionToIntermediateLayer;
+            case (TID.MOVE_SELECTION_TO_MODEL_LAYER):
+                return CalculationSetup.MoveSelectionToModelLayer;
             case (TID.VALIDATE_LAYERS):
                 return CalculationSetup.ValidateGeometry;
             case (TID.GET_MODEL_LAYER):
                 return CalculationSetup.GetModelLayer;
             case (TID.GET_INTERMEDIATE_LAYER):
                 return CalculationSetup.GetIntermediateLayer;
+
+            // Gaussian Calculation
+            case (TID.SETUP_CALCULATION):
+                return CalculationSetup.SetupCalculation;
+            case (TID.RUN_GAUSSIAN_RECIPE):
+                return GaussianRecipe.RunGaussianRecipe;
 
             default:
                 CustomLogger.LogFormat(

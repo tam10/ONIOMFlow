@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using System.Text;
-using System;
+using System.IO;
 using Element = Constants.Element;
 using TID = Constants.TaskID;
 using RCID = Constants.ResidueCheckerID;
@@ -14,6 +14,7 @@ using GIS = Constants.GeometryInterfaceStatus;
 using BT = Constants.BondType;
 using CT = Constants.ConnectionType;
 using EL = Constants.ErrorLevel;
+using Amber = Constants.Amber;
 using System.Diagnostics;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -79,13 +80,13 @@ public static class Cleaner {
         Geometry geometry = Flow.GetGeometry(geometryInterfaceID);
 
         // Look up standard water
-        AminoAcid standardWater = Data.heteroResidues[Settings.standardWaterResidueName];
+        AminoAcid standardWater = Data.waterResidues[Settings.standardWaterResidueName];
 
         // Get the PDBIDs of standard water
         PDBID[] standardWaterPDBIDs = standardWater.GetPDBIDs(RS.WATER);
 
         //Create a dictionary mapping PDBID to AMBER for standard water
-        Dictionary<PDBID, string> ambers = standardWaterPDBIDs
+        Dictionary<PDBID, Amber> ambers = standardWaterPDBIDs
             .Zip(standardWater.GetAmbersFromPDBs(RS.WATER, standardWaterPDBIDs), (k, v) => new {k, v})
             .ToDictionary(x => x.k, x => x.v);
 
@@ -124,12 +125,12 @@ public static class Cleaner {
                 () => {
                     //Using ContainsKey will make sure the user knows if there is a problematic Atom
                     //Otherwise it would just break here
-                    string oldAmber = (waterResidue.atoms.ContainsKey(oldPDBID)) 
+                    Amber oldAmber = (waterResidue.atoms.ContainsKey(oldPDBID)) 
                         ? waterResidue.atoms[oldPDBID].amber 
-                        : "?";
+                        : Amber.X;
                     string oldPartialCharge = (waterResidue.atoms.ContainsKey(oldPDBID)) 
                         ? waterResidue.atoms[oldPDBID].partialCharge.ToString()
-                        : "?";
+                        : "";
                     return new object[] {
                         waterResidue.residueName,
                         oldPDBID,
@@ -340,7 +341,7 @@ public static class Cleaner {
             //Skip the routine if there are no chainIDs
             CustomLogger.Log(
                 EL.INFO, 
-                "No chainIDs to select - cancelling"
+                "No chainIDs to select - cancelling GetChain"
             );
             NotificationBar.ClearTask(TID.GET_CHAIN); 
             yield break;
@@ -348,7 +349,7 @@ public static class Cleaner {
             //Skip the routine if there's only one chain
             CustomLogger.Log(
                 EL.INFO, 
-                "Already just one chain - cancelling"
+                "Already just one chain - cancelling GetChain"
             );
             NotificationBar.ClearTask(TID.GET_CHAIN); 
             yield break;
@@ -371,7 +372,7 @@ public static class Cleaner {
         if (chainSelection.cancelled) {
             CustomLogger.LogFormat(
                 EL.INFO, 
-                "Cancelled."
+                "Cancelled GetChain."
             );
             NotificationBar.ClearTask(TID.GET_CHAIN);
             yield break;
@@ -414,239 +415,6 @@ public static class Cleaner {
         geometry.SetResidueDict(geometry.residueDict);
         
         NotificationBar.ClearTask(TID.GET_CHAIN);
-        yield return null;
-    }
-
-    /// <summary>Use the standardResidues.xml library to set Residue Ambers for Standard and Cap Residues.</summary>
-	/// <param name="geometryInterfaceID">ID of Geometry Interface to Clean.</param>
-    public static IEnumerator CalculateAMBERTypes(GIID geometryInterfaceID) {
-
-        NotificationBar.SetTaskProgress(TID.CALCULATE_AMBER_TYPES, 0f);
-        CustomLogger.LogFormat(
-            EL.INFO, 
-            "Calculating AMBER Types internally for Geometry Interface: {0}.", 
-            geometryInterfaceID
-        );
-
-        GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
-        geometryInterface.activeTasks++;
-        yield return null;
-
-        Geometry geometry = geometryInterface.geometry;
-
-        //Loop through all residues
-        int numProcessedResidues = 0;
-        int totalResidues = geometry.residueDict.Count;
-        foreach (ResidueID residueID in geometry.residueDict.Keys) {
-            Residue residue = geometry.residueDict[residueID];
-            //Set their Amber types
-            Data.SetResidueAmbers(ref residue);
-
-            numProcessedResidues++;
-            if (Timer.yieldNow) {
-                NotificationBar.SetTaskProgress(TID.CALCULATE_AMBER_TYPES, (float)numProcessedResidues / totalResidues);
-                yield return null;
-            }
-        }
-
-        geometryInterface.activeTasks--;
-
-        NotificationBar.ClearTask(TID.CALCULATE_AMBER_TYPES);
-        yield return null;
-
-    }
-
-    /// <summary>Use Antechamber to set Residue Ambers for all Residues.</summary>
-	/// <param name="geometryInterfaceID">ID of Geometry Interface to Clean.</param>
-    public static IEnumerator CalculateAMBERTypesAntechamber(GIID geometryInterfaceID) {
-
-        NotificationBar.SetTaskProgress(TID.CALCULATE_AMBER_TYPES_ANTECHAMBER, 0f);
-        CustomLogger.LogFormat(
-            EL.INFO, 
-            "Calculating AMBER Types using Antechamber for Geometry Interface: {0}.", 
-            geometryInterfaceID
-        );
-        yield return null;
-
-        GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
-
-        //Remove water residues from the calculation
-        Geometry geometry = geometryInterface.geometry.TakeDry(geometryInterface.transform);
-
-        //Get the chainIDs
-        IEnumerable<string> chainIDs = geometry.GetChainIDs();
-
-        NotificationBar.SetTaskProgress(TID.CALCULATE_AMBER_TYPES_ANTECHAMBER, 0.1f);
-        yield return null;
-           
-        geometryInterface.activeTasks++;
-
-        //Check Antechamber exists
-        if (!Bash.CommandExists(Settings.antechamberCommand)) {
-            NotificationBar.SetTaskProgress(TID.CALCULATE_AMBER_TYPES_ANTECHAMBER, 1f);
-            GameObject.Destroy(geometry.gameObject);
-
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Command not found: {0}", 
-                Settings.antechamberCommand
-            );
-            NotificationBar.ClearTask(TID.CALCULATE_AMBER_TYPES_ANTECHAMBER);
-            geometryInterface.activeTasks--;
-            yield break;
-        }
-        yield return null;
-
-        //Loop through each chain
-        foreach (string chainID in chainIDs) {
-
-            CustomLogger.LogFormat(
-                EL.INFO, 
-                "Calculating AMBER Types for chainID: {0}.", 
-                chainID
-            );
-            //Isolate Chain
-            Geometry chainGeometry = geometry.TakeChain(chainID, null);
-
-            string filename = string.Format("{0}_{1}", Settings.antechamberCalcPath, chainID);
-            //Write PDB file for Antechamber
-            yield return FileWriter.WriteFile(chainGeometry, filename + ".pdb", true);
-            string command = string.Format(
-                "{0} {1} -fi pdb -i {2}.pdb -fo mol2 -o {2}.mol2",
-                Settings.antechamberCommand,
-                string.Join(" ", Settings.antechamberOptions),
-                filename
-            );
-
-            Process process = Bash.StartBashProcess(command);
-
-            CustomLogger.LogFormat(
-                EL.INFO, 
-                "Running command (PID: {0}): {1}.", 
-                process.Id,
-                command
-            );
-
-            float progress = 0.1f;
-            float waitTime = (float)geometry.size / 5000;
-            while (!process.HasExited) {
-                NotificationBar.SetTaskProgress(TID.CALCULATE_AMBER_TYPES_ANTECHAMBER, progress);
-                //Show that external command is running
-                progress = progress < 0.9f? progress + 0.01f : progress;
-                yield return new WaitForSeconds(waitTime);
-            }
-
-            CustomLogger.Log(
-                EL.INFO,
-                process.StandardOutput.ReadToEnd()
-            );
-
-            string stderr = process.StandardError.ReadToEnd();
-            if (stderr != "") {
-                System.IO.File.Copy(filename + ".pdb", filename + "_failed.pdb", true);
-                CustomLogger.LogFormat(
-                    EL.ERROR,
-                    "{0} failed with error message: {1}", 
-                    Settings.antechamberCommand, 
-                    stderr
-                );
-                geometryInterface.activeTasks--;
-                NotificationBar.ClearTask(TID.CALCULATE_AMBER_TYPES_ANTECHAMBER);
-                yield break;
-            } else {
-                CustomLogger.LogFormat(
-                    EL.INFO, 
-                    "Reading Amber types from: {0}.", 
-                    filename + ".mol2"
-                );
-                yield return new Mol2Reader(geometryInterface.geometry).SetAtomAmbersFromMol2File(
-                    filename + ".mol2", 
-                    geometryInterface.geometry, 
-                    chainID
-                );
-            }
-
-            GameObject.Destroy(chainGeometry.gameObject);
-        }
-        
-        NotificationBar.ClearTask(TID.CALCULATE_AMBER_TYPES_ANTECHAMBER);
-        geometryInterface.activeTasks--;
-
-        GameObject.Destroy(geometry.gameObject);
-    }
-
-    public static IEnumerator CalculateAMBERParameters(GIID geometryInterfaceID) {
-        GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
-
-        //Check AMBER types are ok
-        try {
-            geometryInterface.checker.SetGeometry(geometryInterface.geometry);
-        } catch (System.NullReferenceException e) {
-            CustomLogger.LogFormat(
-                EL.ERROR, 
-                "Trying to calculate AMBER Parameters with null Geometry on Geometry Interface ID: {0}. Error: {1}",
-                geometryInterfaceID,
-                e.StackTrace
-            );
-        }
-
-        //Get the original state of the AtomsChecker of this GeometryInterface
-        List<RCID> oldResidueCheckIDs = geometryInterface.checker.residueCheckerOrder.ToList();
-        List<ACID> oldAtomCheckIDs = geometryInterface.checker.atomCheckerOrder.ToList();
-        Dictionary<RCID, GIS> oldResidueChecks = geometryInterface.checker.residueErrorLevels.ToDictionary(x => x.Key, x => x.Value); 
-        Dictionary<ACID, GIS> oldAtomChecks = geometryInterface.checker.atomErrorLevels.ToDictionary(x => x.Key, x => x.Value); 
-
-        //Set a temporary AtomsChecker state to check for Ambers
-        List<RCID> tempResidueCheckIDs = new List<RCID>();
-        List<ACID> tempAtomCheckIDs = new List<ACID> {ACID.HAS_AMBER}; 
-        Dictionary<RCID, GIS> tempResidueChecks = new Dictionary<RCID, GIS>(); 
-        Dictionary<ACID, GIS> tempAtomChecks = new Dictionary<ACID, GIS>{{ACID.HAS_AMBER, GIS.ERROR}}; 
-        geometryInterface.checker.SetChecks(
-            tempResidueCheckIDs,
-            tempAtomCheckIDs,
-            tempResidueChecks,
-            tempAtomChecks
-        );
-
-        //Run the checker
-        yield return geometryInterface.checker.Check();
-
-        //Get the results
-        AtomChecker amberChecker;
-        geometryInterface.checker.atomCheckers.TryGetValue(ACID.HAS_AMBER, out amberChecker);
-        GIS amberCheckResult = geometryInterface.checker.errorLevel;
-
-        //Set the checker back to how it was
-        geometryInterface.checker.SetChecks(
-            oldResidueCheckIDs,
-            oldAtomCheckIDs,
-            oldResidueChecks,
-            oldAtomChecks
-        );
-
-        if (amberChecker == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Cannot compute AMBER parameters - Geometry Interface {0} is not checking for AMBER types",
-                geometryInterfaceID
-            );
-            yield break;
-        }
-
-        if (amberCheckResult != GIS.OK) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Cannot compute AMBER parameters - Geometry Interface {0} failed AMBER type check (error level: {1})",
-                geometryInterfaceID,
-                geometryInterface.checker.errorLevel
-            );
-            yield break;
-        }
-        
-        geometryInterface.activeTasks++;
-        //Geometry Interface is now properly conditioned to calculate Parameters
-        yield return geometryInterface.geometry.parameters.Calculate();
-        geometryInterface.activeTasks--;
         yield return null;
     }
 
@@ -753,6 +521,91 @@ public static class Cleaner {
         geometryInterface.activeTasks--;
         NotificationBar.ClearTask(TID.CALCULATE_CONNECTIVITY);
         yield return null;
+	}
+
+    /// <summary>Compute the connectivity of the Atoms of a Geometry Interface.</summary>
+	/// <param name="geometryInterfaceID">ID of Geometry Interface to compute connectivity of.</param>
+	public static IEnumerator CalculateConnectivity(Geometry geometry) {
+		//Calculate all the bonds in the system
+
+		//First connect all standard residues internally
+		//Standard residues have external connection points at N, C and SG (for CYX)
+		//If they were connected anywhere else, they wouldn't be standard
+		//Non-standard residues can be connected at any point
+
+		yield return DisconnectAll(geometry);
+
+        NotificationBar.SetTaskProgress(TID.CALCULATE_CONNECTIVITY, 0f);
+        yield return null;
+        Dictionary<ResidueID, Residue> residueDict = geometry.residueDict;
+
+		List<AtomID> connectionPoints = new List<AtomID>(); 
+
+        int numProcessedResidues = 0;
+        int totalResidues = residueDict.Count;
+		foreach (KeyValuePair<ResidueID, Residue> residueItem in residueDict) {
+
+			ResidueID residueID = residueItem.Key;
+			Residue residue = residueItem.Value;
+
+			if (residue.standard) { 
+				//Standard residue. Connect internally first
+				//External connection points are N, C and SG
+                ConnectStandard(residue, residueID, geometry, connectionPoints);
+
+			} else if (residue.state == RS.WATER) {
+                //Water residue. No external connections but connect H to O if H present
+				ConnectWaterResidue(residue, residueID, geometry);
+
+            } else {
+                //Non-standard residue
+                ConnectNonStandard(residue, residueID, geometry, connectionPoints);
+
+			}
+
+            numProcessedResidues++;
+            if (Timer.yieldNow) {
+                NotificationBar.SetTaskProgress(
+                    TID.CALCULATE_CONNECTIVITY, 
+                    CustomMathematics.Map((float)numProcessedResidues/totalResidues, 0f, 1f, 0f, 0.3f)
+                );
+                yield return null;
+            }
+        }
+
+        //Connections between residues
+		int numConnectionPoints = connectionPoints.Count;
+        
+        float3[] positions = new float3[numConnectionPoints];
+        Element[] elements = new Element[numConnectionPoints];
+        int index = 0;
+        foreach (AtomID atomID in connectionPoints) {
+            positions[index] = geometry.GetAtom(atomID).position;
+            elements[index++] = atomID.pdbID.element;
+        }
+
+		for (int i0=0; i0<numConnectionPoints - 1; i0++) {
+            Element atomicNumber0 = elements[i0];
+			for (int i1=i0+1; i1<numConnectionPoints; i1++) {
+
+				float distanceSquared = math.distancesq(positions[i0], positions[i1]);
+                
+				BT bondType = Data.GetBondOrderDistanceSquared(atomicNumber0, elements[i1], distanceSquared);
+
+                if (bondType != BT.NONE) {
+                    geometry.Connect(connectionPoints[i0], connectionPoints[i1], bondType);
+                }
+			}
+
+
+            if (Timer.yieldNow) {
+                NotificationBar.SetTaskProgress(
+                    TID.CALCULATE_CONNECTIVITY, 
+                    CustomMathematics.Map((float)i0/numConnectionPoints, 0f, 1f, 0.3f, 1f)
+                );
+                yield return null;
+            }
+		}
 	}
 
     private static void ConnectWaterResidue(Residue residue, ResidueID residueID, Geometry geometry) {
@@ -896,9 +749,32 @@ public static class Cleaner {
         NotificationBar.ClearTask(TID.CLEAR_CONNECTIVITY);
 	}
 
+	public static IEnumerator DisconnectAll(Geometry geometry) {
+        
+        int numProcessedResidues = 0;
+        int totalResidues = geometry.residueDict.Count;
+		foreach (KeyValuePair<ResidueID, Residue> residueItem in geometry.residueDict) {
+
+			List<PDBID> pdbIDs = residueItem.Value.pdbIDs.ToList();
+			foreach (PDBID pdbID0 in pdbIDs) {
+                Atom atom = geometry.residueDict[residueItem.Key].atoms[pdbID0];
+				atom.internalConnections.Clear();
+				atom.externalConnections.Clear();
+			}
+
+            if (Timer.yieldNow) {
+                NotificationBar.SetTaskProgress(
+                    TID.CLEAR_CONNECTIVITY, 
+                    (float)numProcessedResidues/totalResidues
+                );
+                yield return null;
+            }
+		}
+	}
+
     public static IEnumerator FillMissingResidues(GIID geometryInterfaceID) {
 
-        yield return(CalculateAMBERTypes(geometryInterfaceID));
+        yield return(AmberCalculator.CalculateAMBERTypes(geometryInterfaceID));
 
         NotificationBar.SetTaskProgress(TID.FILL_MISSING_RESIDUES, 0f);
 
@@ -1119,84 +995,9 @@ public static class Cleaner {
                     "Optimisation failed on forces! See Project Log for details."
                 );
 
-                IEnumerable<(int, AtomID)> badIDs = forces
-                    .Select((force,index)=>(force,index))
-                    .Where(fi => math.all(math.isnan(fi.force)))
-                    .Select(fi => (fi.index, graph.mobileAtomIDs[fi.index]));
+                graph.ReportBadTerms();
 
-                foreach ((int index, AtomID atomID) in badIDs) {
-                    CustomLogger.LogOutput(
-                        string.Format(
-                            "Bad force on Atom ID: {0}",
-                            graph.mobileAtomIDs[index]
-                        )
-                    );
-                }
-
-                foreach ((int index0, int index1, float[] energies) in graph.EnumerateBadStretches()) {
-                    CustomLogger.LogOutput(
-                        string.Format(
-                            "Bad Stretch ('{0}'-'{1}'). Energy: {2}. 1st Derivative: {3}",
-                            graph.mobileAtomIDs[index0],
-                            graph.mobileAtomIDs[index1],
-                            energies[0],
-                            energies[1]
-                        )
-                    );
-                }
-
-                foreach ((int index0, int index1, float[] energies) in graph.EnumerateBadNonBondings()) {
-                    CustomLogger.LogOutput(
-                        string.Format(
-                            "Bad Non-Bonding ('{0}'-'{1}'). Energy: {2}. 1st Derivative: {3}",
-                            graph.mobileAtomIDs[index0],
-                            graph.mobileAtomIDs[index1],
-                            energies[0],
-                            energies[1]
-                        )
-                    );
-                }
-
-                foreach ((int index0, int index1, int index2, float[] energies) in graph.EnumerateBadBends()) {
-                    CustomLogger.LogOutput(
-                        string.Format(
-                            "Bad Bend ('{0}'-'{1}'-'{2}'). Energy: {3}. 1st Derivative: {4}",
-                            graph.mobileAtomIDs[index0],
-                            graph.mobileAtomIDs[index1],
-                            graph.mobileAtomIDs[index2],
-                            energies[0],
-                            energies[1]
-                        )
-                    );
-                }
-
-                foreach ((int index0, int index1, int index2, int index3, float[] energies) in graph.EnumerateBadTorsions()) {
-                    CustomLogger.LogOutput(
-                        string.Format(
-                            "Bad Torsion ('{0}'-'{1}'-'{2}'-'{3}'). Energy: {4}. 1st Derivative: {5}",
-                            graph.mobileAtomIDs[index0],
-                            graph.mobileAtomIDs[index1],
-                            graph.mobileAtomIDs[index2],
-                            graph.mobileAtomIDs[index3],
-                            energies[0],
-                            energies[1]
-                        )
-                    );
-                }
-
-                foreach ((int index0, int index1, int index2, int index3, float[] energies) in graph.EnumerateBadImpropers()) {
-                    CustomLogger.LogOutput(
-                        string.Format(
-                            "Bad Improper ('{0}'-'{1}'-'{2}'-'{3}'). Energy: {4}. 1st Derivative: {5}",
-                            graph.mobileAtomIDs[index0],
-                            graph.mobileAtomIDs[index1],
-                            graph.mobileAtomIDs[index2],
-                            graph.mobileAtomIDs[index3],
-                            energies[0],
-                            energies[1]
-                        )
-                    );
-                }
+				break;
             }
 
             plotter.AddPoint(maxPlotNum, maxForce);

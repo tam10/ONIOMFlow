@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using TID = Constants.TaskID;
 using EL = Constants.ErrorLevel;
 using COL = Constants.Colour;
+using CS = Constants.ColourScheme;
 using TMPro;
 
 /// <summary>The Procedures Popup Singleton Class</summary>
@@ -149,7 +150,7 @@ public class ProceduresPopup : PopupWindow {
     public IEnumerator Initialise(List<TID> availableTasks, List<TID> defaultTasks) {
 
         yield return PopulateTasks(defaultTasks, currentTasksTransform);
-        yield return PopulateTasks(availableTasks, availableTasksTransform);
+        yield return PopulateAvailableTasks(availableTasks, availableTasksTransform);
 
         userResponded = false;
         cancelled = false;
@@ -170,6 +171,45 @@ public class ProceduresPopup : PopupWindow {
         foreach (TID taskID in tasks) {
             AddTask(taskID, tasksTransform);
             if (Timer.yieldNow) {yield return null;}
+        }
+    }
+    
+	/// <summary>Populates the Available Task Transform with a list of Task IDs.</summary>
+	/// <param name="tasks">The list of Task IDs.</param>
+	/// <param name="tasksTransform">The Transform to populate with ListItems (Task GameObjects).</param>
+    IEnumerator PopulateAvailableTasks(List<TID> tasks, Transform tasksTransform) {
+
+        //Make sure the Task Transform is cleared first
+        foreach (Transform child in tasksTransform) {
+            GameObject.Destroy(child.gameObject);
+        }
+
+        List<string> parentClasses = new List<string>();
+        Dictionary<string, List<TID>> taskGroups = new Dictionary<string, List<TID>>();
+
+        foreach (TID taskID in tasks) {
+            string taskParentClass;
+            if (!Settings.taskParentClasses.TryGetValue(taskID, out taskParentClass)) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Cannot add Task '{0}'! Task does not have a parent class",
+                    taskID
+                );
+            } else if (!parentClasses.Contains(taskParentClass)) {
+                parentClasses.Add(taskParentClass);
+                taskGroups[taskParentClass] = new List<TID>();
+            } else {
+                taskGroups[taskParentClass].Add(taskID);
+            }
+
+        }
+
+        foreach (string parentClass in parentClasses) {
+            AddGroupHeader(parentClass, tasksTransform);
+            foreach (TID taskID in taskGroups[parentClass]) {
+                AddTask(taskID, tasksTransform);
+                if (Timer.yieldNow) {yield return null;}
+            }
         }
     }
 
@@ -195,7 +235,7 @@ public class ProceduresPopup : PopupWindow {
 	/// <summary>Adds a ListItem to a Task Transform using a Task ID.</summary>
 	/// <param name="taskID">The Task ID to create the ListItem (Task GameObject) from.</param>
 	/// <param name="tasksTransform">The Transform to add the ListItem to.</param>
-    ListItem AddListItemToContentTransform(TID taskID, Transform tasksTransform) {
+    ListItem AddListItemToContentTransform(TID taskID, Transform tasksTransform, string text, bool enabled=true) {
         
         //Calculate the height of the ListItem
         float height = contentRect.rect.height / listItemHeightToWindowHeightRatio;
@@ -216,13 +256,19 @@ public class ProceduresPopup : PopupWindow {
         //Add a name for the Editor window (debug)
         listItem.name = taskID.ToString();
         
-        //Set the callback for the button
-        listItem.OnPointerEnterHandler = (pointerEventData) => ItemHovered(listItem);
+        if (enabled) {
+            //Set the callback for the button
+            listItem.OnPointerEnterHandler = (pointerEventData) => ItemHovered(listItem);
+        } else {
+            Button listItemButton = listItem.GetComponent<Button>();
+            listItemButton.interactable = enabled;
+            listItemButton.colors = ColorScheme.GetColorSchemeBlock(CS.MEDIUM);
 
-        listItem.draggable = true;
+        }
+        listItem.draggable = enabled;
         listItem.value = taskID;
         
-        SetTaskText(listItem, taskID);
+        listItem.text.text = text;
 
         return listItem;
     }
@@ -231,7 +277,23 @@ public class ProceduresPopup : PopupWindow {
 	/// <param name="taskID">The Task ID to create the ListItem (Task GameObject) from.</param>
 	/// <param name="tasksTransform">The Transform to add the ListItem to.</param>
     void AddTask(TID taskID, Transform tasksTransform) {
-        ListItem listItem = AddListItemToContentTransform(taskID, tasksTransform);
+        string text;
+        try {
+            text = Settings.GetTaskFullName(taskID); 
+        } catch {
+            CustomLogger.LogFormat(EL.ERROR, "Could not add task: {0}", taskID);
+            return;
+        }
+        ListItem listItem = AddListItemToContentTransform(taskID, tasksTransform, text, true);
+
+        listItem.gameObject.transform.SetAsLastSibling();
+    }
+    
+	/// <summary>Adds a ListItem to a Task Transform using a Task ID.</summary>
+	/// <param name="taskID">The Task ID to create the ListItem (Task GameObject) from.</param>
+	/// <param name="tasksTransform">The Transform to add the ListItem to.</param>
+    void AddGroupHeader(string text, Transform tasksTransform) {
+        ListItem listItem = AddListItemToContentTransform(TID.NONE, tasksTransform, text, false);
 
         listItem.gameObject.transform.SetAsLastSibling();
     }
@@ -240,7 +302,7 @@ public class ProceduresPopup : PopupWindow {
     IEnumerable<TID> GetFinalTasks() {
         foreach (Transform child in currentTasksTransform) {
             ListItem listItem = child.GetComponent<ListItem>();
-            if (listItem == null) {
+            if (listItem == null || listItem.value == null) {
                 continue;
             }
             TID taskID = (TID)listItem.value;

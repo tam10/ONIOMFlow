@@ -12,7 +12,7 @@ using Element = Constants.Element;
 using BT = Constants.BondType;
 using RS = Constants.ResidueState;
 using EL = Constants.ErrorLevel;
-using GIS = Constants.GeometryInterfaceStatus;
+using Amber = Constants.Amber;
 
 public static class Data {
 
@@ -21,9 +21,11 @@ public static class Data {
 	public static Dictionary<ElementPair, float[]> bondDistances;
 	public static Dictionary<ElementPair, float[]> bondDistancesSquared;
 	public static Dictionary<string, AminoAcid> aminoAcids;
-	public static Dictionary<string, AminoAcid> heteroResidues;
+	public static Dictionary<string, AminoAcid> waterResidues;
+	public static Dictionary<string, AminoAcid> ionResidues;
 	private static Dictionary<CNSCount, List<AminoAcidState>> atomCountFamilyDict;
 	public static Dictionary<string, Dictionary<RS, Residue>> standardResidues;
+
 
 	public static List<PDBID> backbonePDBs = new List<PDBID> {
 		new PDBID(Element.N, "", 0),
@@ -42,8 +44,11 @@ public static class Data {
 		Element.Cl
 	};
 
-	public static string waterAmberH = "HO";
-	public static string waterAmberO = "OH";
+	public static Dictionary<Amber, Dictionary<int, float>> formalChargesDict = new Dictionary<Amber, Dictionary<int, float>>();
+	public static Dictionary<Amber, float> aromaticAmbers = new Dictionary<Amber, float>();
+
+	public static Amber waterAmberH = Amber.HO;
+	public static Amber waterAmberO = Amber.OH;
 
 	public const float angstromToBohr = 1.8897259886f;
 	public const float kcalToHartree = 0.0015936011f;
@@ -111,7 +116,8 @@ public static class Data {
 		}
 
 		aminoAcids = new Dictionary<string, AminoAcid>();
-		heteroResidues = new Dictionary<string, AminoAcid>();
+		waterResidues = new Dictionary<string, AminoAcid>();
+		ionResidues = new Dictionary<string, AminoAcid>();
 		atomCountFamilyDict = new Dictionary<CNSCount, List<AminoAcidState>>();
 
 		XDocument xDocument = FileIO.ReadXML (standardResiduePath);
@@ -140,17 +146,33 @@ public static class Data {
 			if (Timer.yieldNow) {yield return null;}
 		}
 
-		foreach (XElement heteroResidueX in standardResiduesX.Elements("heteroResidue")) {
-			string residueName = FileIO.ParseXMLAttrString(heteroResidueX, "name");
-			string family = FileIO.ParseXMLAttrString(heteroResidueX, "family");
+		foreach (XElement waterResidueX in standardResiduesX.Elements("waterResidue")) {
+			string residueName = FileIO.ParseXMLAttrString(waterResidueX, "name");
+			string family = FileIO.ParseXMLAttrString(waterResidueX, "family");
 
-			heteroResidues[residueName] = new AminoAcid(family);
-			foreach (XElement atomsStateX in heteroResidueX.Elements("atoms")) {
+			waterResidues[residueName] = new AminoAcid(family);
+			foreach (XElement atomsStateX in waterResidueX.Elements("atoms")) {
 
 				string stateName = FileIO.ParseXMLAttrString(atomsStateX, "state");
 				RS state = Settings.GetResidueState(stateName);
 				AminoAcidState aminoAcidState = ParseAminoAcidState(atomsStateX, residueName, state, family);
-				heteroResidues[residueName].AddState(state, aminoAcidState);
+				waterResidues[residueName].AddState(state, aminoAcidState);
+			}
+
+			if (Timer.yieldNow) {yield return null;}
+		}
+
+		foreach (XElement ionResidueX in standardResiduesX.Elements("ionResidue")) {
+			string residueName = FileIO.ParseXMLAttrString(ionResidueX, "name");
+			string family = FileIO.ParseXMLAttrString(ionResidueX, "family");
+
+			ionResidues[residueName] = new AminoAcid(family);
+			foreach (XElement atomsStateX in ionResidueX.Elements("atoms")) {
+
+				string stateName = FileIO.ParseXMLAttrString(atomsStateX, "state");
+				RS state = Settings.GetResidueState(stateName);
+				AminoAcidState aminoAcidState = ParseAminoAcidState(atomsStateX, residueName, state, family);
+				ionResidues[residueName].AddState(state, aminoAcidState);
 			}
 
 			if (Timer.yieldNow) {yield return null;}
@@ -203,7 +225,7 @@ public static class Data {
 
 		List<string> pdbs = new List<string>();
 		List<string> altPdbs = new List<string>();
-		List<string> ambers = new List<string>();
+		List<Amber> ambers = new List<Amber>();
 		List<string> elements = new List<string>();
 		List<float> partialCharges = new List<float>();
 		List<float> radii = new List<float>();
@@ -221,7 +243,7 @@ public static class Data {
 			pdbs.Add(pdb);
 			altPdbs.Add(altPdb);
 
-			ambers.Add(amber);
+			ambers.Add(AmberCalculator.GetAmber(amber));
 			elements.Add(element);
 			partialCharges.Add(partialCharge);
 			radii.Add(radius);
@@ -369,30 +391,30 @@ public static class Data {
 
 	}
 
-	public static string GetLinkType(Atom connectionAtom, PDBID connectionPDBID) {
+	public static Amber GetLinkType(Atom connectionAtom, PDBID connectionPDBID) {
 		switch (connectionPDBID.element) {
 			case (Element.C):
 				int electronWithDrawingCount = connectionAtom.EnumerateConnections()
 					.Select(x => electronWithdrawingElements.Contains(x.Item1.pdbID.element))
 					.Count();
-				if (connectionAtom.amber == "CA") {
+				if (connectionAtom.amber == Amber.CA) {
 					//Aromatic H
-					if (electronWithDrawingCount == 0) {return "HA";}
-					if (electronWithDrawingCount == 1) {return "H4";}
-					if (electronWithDrawingCount == 2) {return "H5";}
+					if (electronWithDrawingCount == 0) {return Amber.HA;}
+					if (electronWithDrawingCount == 1) {return Amber.H4;}
+					if (electronWithDrawingCount == 2) {return Amber.H5;}
 				} else {
 					//Aliphatic H
-					if (electronWithDrawingCount == 1) {return "H1";}
-					if (electronWithDrawingCount == 2) {return "H2";}
-					if (electronWithDrawingCount == 2) {return "H3";}
+					if (electronWithDrawingCount == 1) {return Amber.H1;}
+					if (electronWithDrawingCount == 2) {return Amber.H2;}
+					if (electronWithDrawingCount == 2) {return Amber.H3;}
 				}
-				return "HC";
+				return Amber.HC;
 			case (Element.O):
-				return "HO";
+				return Amber.HO;
 			case (Element.S):
-				return "HS";
+				return Amber.HS;
 		}
-		return "H";
+		return Amber.H;
 	}
 
 	public static void SetResidueProperties(ref Residue residue) {
@@ -410,6 +432,13 @@ public static class Data {
 	}
 
 	public static void SetResidueAmbers(ref Residue residue) {
+
+		string residueName = residue.residueName;
+
+		if (residue.state == RS.ION) {
+			SetIonAmbers(ref residue);
+			return;
+		}
 
 		if (!(residue.standard || residue.state == RS.CAP)) return;
 		
@@ -465,6 +494,36 @@ public static class Data {
 		}
 	}
 
+	private static void SetIonAmbers(ref Residue residue) {
+
+		AminoAcid ionResidue;
+		if (ionResidues.TryGetValue(residue.residueName, out ionResidue)) {
+			PDBID[] pdbIDs = residue.pdbIDs.ToArray();
+			Amber amber = ionResidue.GetAmbersFromPDBs(RS.ION, pdbIDs).First();
+			residue.atoms.Values.First().amber = amber;
+		} else {
+			string element = residue.pdbIDs.First().element.ToString();
+			Amber amber;
+			if (!AmberCalculator.TryGetAmber(element, out amber)) {
+				amber = Amber.X;
+				CustomLogger.LogFormat(
+					EL.WARNING,
+					"Ion Residue {0} not recognised - using X as AMBER name", 
+					residue.residueName, 
+					element
+				);
+			} else {
+				CustomLogger.LogFormat(
+					EL.WARNING,
+					"Ion Residue {0} not recognised - using {1} as AMBER name", 
+					residue.residueName, 
+					element
+				);
+			}
+			residue.atoms.Values.First().amber = amber;
+		}
+	}
+
 	private static bool SetResidueAmbersWrongState(ref Residue residue, Dictionary<RS, Residue> family) {
 		// If the wrong state is declared for a residue, look up all residues with the same name.
 		// Set the correct Ambers for this state
@@ -486,7 +545,7 @@ public static class Data {
 
 
 		foreach (KeyValuePair<PDBID, Atom> atomKVP in residue.atoms) {
-			atomKVP.Value.amber = "";
+			atomKVP.Value.amber = Amber.X;
 		}
 		residue.state = RS.UNKNOWN;
 		return false;
@@ -522,13 +581,18 @@ public static class Data {
 				residue.residueName = Settings.standardWaterResidueName;
 				return;
 			} else {
-				foreach (KeyValuePair<string, AminoAcid> heteroResidueStates in heteroResidues) {
-					PDBID[] heteroPDBIDs = heteroResidueStates.Value.GetPDBIDs(RS.HETERO);
+				foreach (KeyValuePair<string, AminoAcid> ionResidueState in ionResidues) {
+					PDBID[] ionPDBIDs = ionResidueState.Value.GetPDBIDs(RS.ION);
 
-					if (heteroPDBIDs != null && heteroPDBIDs.First() == pdbID) {
-						residue.state = RS.HETERO;
+					if (ionPDBIDs != null && ionPDBIDs.First() == pdbID) {
+						residue.state = RS.ION;
 						residue.protonated = true;
-						residue.residueName = heteroResidueStates.Key;
+						residue.residueName = ionResidueState.Key;
+						float charge = ionResidueState
+							.Value
+							.GetPartialChargesFromPDBs(RS.ION, ionPDBIDs)
+							.Sum();
+						residue.atoms.Values.First().partialCharge = charge;
 					}
 				}
 				return;
@@ -590,7 +654,7 @@ public static class Data {
 		return RS.STANDARD;
 	}
 
-	public static string[] GetResidueAmbers(PDBID[] pdbIDs, string residueName, RS state) {
+	public static Amber[] GetResidueAmbers(PDBID[] pdbIDs, string residueName, RS state) {
 		return aminoAcids[residueName].GetAmbersFromPDBs(state, pdbIDs);
 	}
 
@@ -656,6 +720,33 @@ public static class Data {
 		return families;
 	}
 
+	public static (int, int) PredictChargeMultiplicity(Geometry geometry) {
+		float aromaticCount = 0;
+		float chargeContribution = 0f;
+		int electrons = 0;
+		foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+			Amber amber = atom.amber;
+			electrons += atomID.pdbID.atomicNumber;
+
+			float aromaticContribution;
+			if (aromaticAmbers.TryGetValue(amber, out aromaticContribution)) {
+				aromaticCount += aromaticContribution;
+			}
+
+			Dictionary<int, float> neighboursToCharge;
+			if (formalChargesDict.TryGetValue(amber, out neighboursToCharge)) {
+				
+				int numNeighbours = atom.internalConnections.Count + atom.externalConnections.Count;
+				if (neighboursToCharge.TryGetValue(numNeighbours, out chargeContribution)) {
+					chargeContribution += chargeContribution;
+				}
+			}
+		}
+		int predictedCharge = Mathf.RoundToInt(chargeContribution) + Mathf.RoundToInt(aromaticCount) % 2;
+		int predictedMultiplicity = ((electrons + predictedCharge) % 2)  + 1;
+		return (predictedCharge, predictedMultiplicity);
+
+	}
 
 }
 
@@ -678,11 +769,11 @@ public class AminoAcid
 		return stateDict.TryGetValue(residueState, out aminoAcidState) ? aminoAcidState.pdbIDs : null;
 	}
 	
-	public string[] GetAmbersFromPDBs(RS residueState, PDBID[] pdbIDs) {
+	public Amber[] GetAmbersFromPDBs(RS residueState, PDBID[] pdbIDs) {
 		AminoAcidState aminoAcidState = stateDict[residueState];
 		int size = pdbIDs.Length;
 
-		string[] ambers = new string[size];
+		Amber[] ambers = new Amber[size];
 		for (int i=0; i<size; i++){
 			ambers[i] = aminoAcidState.GetAmber(pdbIDs[i]);
 		}
@@ -719,7 +810,7 @@ public class AminoAcidState {
 	public readonly RS residueState;
 	public readonly string family;
 	public PDBID[] pdbIDs;
-	private string[] ambers;
+	private Amber[] ambers;
 	private float[] radii;
 	private float[] partialCharges;
 	public ResidueSignature signature;
@@ -731,7 +822,7 @@ public class AminoAcidState {
 		string family,
 		string[] elements,
 		string[] pdbs,
-		string[] ambers,
+		Amber[] ambers,
 		float[] partialCharges,
 		float[] radii
 	) {
@@ -769,7 +860,7 @@ public class AminoAcidState {
 		throw new ErrorHandler.PDBIDException(string.Format("PDBID '{0}' not found in Amino Acid State {1}({2})", pdbID, residueName, residueState), pdbID.ToString());
 	}
 
-	public string GetAmber(PDBID pdbID) {
+	public Amber GetAmber(PDBID pdbID) {
 		return ambers[IndexOf(pdbID)];
 	}
 	public float GetPartialCharge(PDBID pdbID) {

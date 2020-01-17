@@ -57,7 +57,7 @@ public class FileSelector : PopupWindow {
         AddBlurBackground();
 
         GameObject edge = AddBackground();
-        SetRect(edge, 0.4f, 0.4f, 0.6f, 0.6f, -100, -200, 100, 200);
+        SetRect(edge, 0.2f, 0.4f, 0.8f, 0.6f, 0, -200, 0, 200);
 
         RectTransform topBarRect = AddTopBar("");
 		titleText = topBarRect.GetComponentInChildren<TextMeshProUGUI>();
@@ -114,7 +114,7 @@ public class FileSelector : PopupWindow {
 		yield break;
 	}
 
-	public IEnumerator Initialise(bool saveMode, List<string> fileTypes) {
+	public IEnumerator Initialise(bool saveMode, List<string> fileTypes=null) {
 
 		if (isBusy) {yield return null;}
 
@@ -123,7 +123,7 @@ public class FileSelector : PopupWindow {
 		userResponded = false;
 		cancelled = false;
 
-		SetFileTypes(fileTypes);
+		SetFileTypes(fileTypes ?? new List<string>());
 		this.saveMode = saveMode;
 		if (saveMode) {
 			SetPromptText("Save File");
@@ -131,6 +131,26 @@ public class FileSelector : PopupWindow {
 			SetPromptText("Load File");
 			fileNameInput.gameObject.SetActive(false);
 		}
+
+		enabledFileColorBlock = ColorScheme.main.enabledFileCB;
+		disabledFileColorBlock = ColorScheme.main.disabledFileCB;
+		directoryColorBlock = ColorScheme.main.directoryCB;
+
+		yield return Populate();
+	}
+
+	public IEnumerator Initialise(string promptText, List<string> fileTypes=null) {
+
+		if (isBusy) {yield return null;}
+
+		fullPathText.text = Settings.projectPath;
+
+		userResponded = false;
+		cancelled = false;
+
+		SetFileTypes(fileTypes ?? new List<string>());
+		saveMode = false;
+		SetPromptText(promptText);
 
 		enabledFileColorBlock = ColorScheme.main.enabledFileCB;
 		disabledFileColorBlock = ColorScheme.main.disabledFileCB;
@@ -241,6 +261,7 @@ public class FileSelector : PopupWindow {
 	}
 
 	bool CheckExtension(string filename) {
+		if (filetypes.Length == 0) {return true;}
 		string extension = Path.GetExtension(filename).TrimStart('.');
 		return filetypes.Any(x => x == extension);
 	}

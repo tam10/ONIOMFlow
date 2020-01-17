@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Xml.Linq;
-using System.Xml;
 using System.IO;
 using Unity.Mathematics;
 using EL = Constants.ErrorLevel;
 using BT = Constants.BondType;
+using Amber = Constants.Amber;
 
 /// <summary>The static XAT Reader Class</summary>
 /// <remarks>Populates an Geometry object using the contents of a .xat file.</remarks>
@@ -108,7 +108,7 @@ public static class XATReader {
                 PDBID pdbID = PDBID.FromString(FileIO.ParseXMLAttrString(atomX, "ID"), residueName);
                 residue.AddAtom(pdbID, ReadAtom(geometry, atomX, residueID, pdbID));
             } catch (System.Exception e) {
-                ThrowError(atomX, path, "ReadAtom", e);
+                FileIO.ThrowXMLError(atomX, path, "ReadAtom", e);
             }
         }
 
@@ -131,11 +131,12 @@ public static class XATReader {
         );
 
         //Read AMBER type
-        string amber = FileIO.ParseXMLAttrString(atomX, "amber", "");
+        string amberString = FileIO.ParseXMLAttrString(atomX, "amber", "");
         
         //Read Partial Charge
         float partialCharge = FileIO.ParseXMLAttrFloat(atomX, "charge", 0f);
         
+        Amber amber = string.IsNullOrWhiteSpace(amberString) ? Amber.X : AmberCalculator.GetAmber(amberString);
         Atom atom = new Atom(position, residueID, amber, partialCharge);
 
         //Parse connections
@@ -186,7 +187,7 @@ public static class XATReader {
                 connection = Connection.FromString(bondString, residueID, residueNameDict);
             } catch (System.Exception e) {
                 //Syntax problem - report and skip
-                ThrowError(atomX, path, "ReadConnection", e);
+                FileIO.ThrowXMLError(atomX, path, "ReadConnection", e);
                 continue;
             }
 
@@ -194,7 +195,7 @@ public static class XATReader {
             (AtomID atomID, BT bondType) = connection;
 
             if (atomID.IsEmpty()) {
-                ThrowError(atomX, path, "ReadConnection");
+                FileIO.ThrowXMLError(atomX, path, "ReadConnection");
                 continue;
             }
 
@@ -221,6 +222,7 @@ public static class XATReader {
     private static void ReadParameters(Parameters parameters, XElement parametersX) {
         //Read each component
         ReadNonBonding(parameters.nonbonding, parametersX.Element("nonbonding"));
+        ReadAtomicParameters(parameters, parametersX.Element("atomicParameters"));
         ReadStretches(parameters, parametersX.Element("stretches"));
         ReadBends(parameters, parametersX.Element("bends"));
         ReadTorsions(parameters, parametersX.Element("torsions"));
@@ -255,58 +257,100 @@ public static class XATReader {
         nonbonding.cScales[3] = float.Parse(cScaleStrings[3]);
     }
 
+    /// <summary>Reads an Atomic Parameters XElement and populates a Parameters object from it.</summary>
+    /// <param name="parameters">The Parameters object to populate.</param>
+    /// <param name="atomicParametersX">The Atomic Parameters XElement to read.</param>
+    private static void ReadAtomicParameters(Parameters parameters, XElement atomicParametersX) {
+        if (atomicParametersX == null) {
+            return;
+        }
+        foreach (XElement atomicParameterX in atomicParametersX.Elements("atomicParameter")) {
+            Amber type = AmberCalculator.GetAmber(FileIO.ParseXMLAttrString(atomicParameterX, "type"));
+
+            //Well Depth
+            float depth = FileIO.ParseXMLAttrFloat(atomicParameterX, "depth", 0f);
+            //Atomic Radius
+            float radius = FileIO.ParseXMLAttrFloat(atomicParameterX, "radius", 0f);
+            //Atomic Mass
+            float mass = FileIO.ParseXMLAttrFloat(atomicParameterX, "mass", 0f);
+
+            parameters.AddAtomicParameter(new AtomicParameter(type, radius:radius, wellDepth:depth, mass:mass));
+        }
+    }
+
     /// <summary>Reads a Stretches XElement and populates a Parameters object from it.</summary>
     /// <param name="parameters">The Parameters object to populate.</param>
     /// <param name="stretchesX">The Stretches XElement to read.</param>
     private static void ReadStretches(Parameters parameters, XElement stretchesX) {
+        if (stretchesX == null) {
+            return;
+        }
         foreach (XElement stretchX in stretchesX.Elements("stretch")) {
-            //Atom 0 AMBER Type
-            string t0 = FileIO.ParseXMLAttrString(stretchX, "t0");
-            //Atom 1 AMBER Type
-            string t1 = FileIO.ParseXMLAttrString(stretchX, "t1");
+            Amber[] types = GetTypes(stretchX);
 
             //Equilibrium distance
             float req = FileIO.ParseXMLAttrFloat(stretchX, "req");
             //Force Constant
             float keq = FileIO.ParseXMLAttrFloat(stretchX, "keq");
 
-            parameters.AddStretch(new Stretch(t0, t1, req, keq));
+            Stretch stretch;
+            try {
+                stretch = new Stretch(types, req, keq);
+            } catch (System.Exception e) {
+                if (types.Length != 2) {
+                    FileIO.ThrowXMLError(stretchX, path, "ReadStretches", e);
+                }
+                continue;
+            }
+            parameters.AddStretch(stretch);
         }
     }
 
     private static void ReadBends(Parameters parameters, XElement bendsX) {
+        if (bendsX == null) {
+            return;
+        }
         foreach (XElement bendX in bendsX.Elements("bend")) {
-            //Atom 0 AMBER Type
-            string t0 = FileIO.ParseXMLAttrString(bendX, "t0");
-            //Atom 1 AMBER Type
-            string t1 = FileIO.ParseXMLAttrString(bendX, "t1");
-            //Atom 2 AMBER Type
-            string t2 = FileIO.ParseXMLAttrString(bendX, "t2");
+            Amber[] types = GetTypes(bendX);
 
             //Equilibrium Angle
             float aeq = FileIO.ParseXMLAttrFloat(bendX, "aeq");
             //Force Constant
             float keq = FileIO.ParseXMLAttrFloat(bendX, "keq");
 
-            parameters.AddBend(new Bend(t0, t1, t2, aeq, keq));
+            Bend bend;
+            try {
+                bend = new Bend(types, aeq, keq);
+            } catch (System.Exception e) {
+                if (types.Length != 3) {
+                    FileIO.ThrowXMLError(bendX, path, "ReadBends", e);
+                }
+                continue;
+            }
+            parameters.AddBend(bend);
         }
     }
 
     private static void ReadTorsions(Parameters parameters, XElement torsionsX) {
+        if (torsionsX == null) {
+            return;
+        }
         foreach (XElement torsionX in torsionsX.Elements("torsion")) {
-            //Atom 0 AMBER Type
-            string t0 = FileIO.ParseXMLAttrString(torsionX, "t0");
-            //Atom 1 AMBER Type
-            string t1 = FileIO.ParseXMLAttrString(torsionX, "t1");
-            //Atom 2 AMBER Type
-            string t2 = FileIO.ParseXMLAttrString(torsionX, "t2");
-            //Atom 3 AMBER Type
-            string t3 = FileIO.ParseXMLAttrString(torsionX, "t3");
+            Amber[] types = GetTypes(torsionX);
             
             //The number of dihedrals centred on this bond
             int nPaths = FileIO.ParseXMLAttrInt(torsionX, "nPaths");
             
-            Torsion torsion = new Torsion(t0, t1, t2, t3, new float[4], new float[4], nPaths);
+            Torsion torsion;
+            try {
+                torsion = new Torsion(types, new float[4], new float[4], nPaths);
+            } catch (System.Exception e) {
+                if (types.Length != 4) {
+                    FileIO.ThrowXMLError(torsionX, path, "ReadTorsions", e);
+                }
+                continue;
+            }
+
             foreach (XElement termX in torsionX.Elements("term")) {
 
                 //Periodicity of the term
@@ -321,15 +365,11 @@ public static class XATReader {
     }
 
     private static void ReadImproperTorsions(Parameters parameters, XElement improperTorsionsX) {
+        if (improperTorsionsX == null) {
+            return;
+        }
         foreach (XElement improperTorsionX in improperTorsionsX.Elements("improperTorsion")) {
-            //Atom 0 AMBER Type
-            string t0 = FileIO.ParseXMLAttrString(improperTorsionX, "t0");
-            //Atom 1 AMBER Type
-            string t1 = FileIO.ParseXMLAttrString(improperTorsionX, "t1");
-            //Atom 2 AMBER Type
-            string t2 = FileIO.ParseXMLAttrString(improperTorsionX, "t2");
-            //Atom 3 AMBER Type
-            string t3 = FileIO.ParseXMLAttrString(improperTorsionX, "t3");
+            Amber[] types = GetTypes(improperTorsionX);
             
             //Periodicity of the torsion
             int period = FileIO.ParseXMLAttrInt(improperTorsionX, "period");
@@ -338,42 +378,50 @@ public static class XATReader {
             //Barrier Height
             float barrierHeight = FileIO.ParseXMLAttrFloat(improperTorsionX, "barrier");
             
-            parameters.AddImproperTorsion(new ImproperTorsion(t0, t1, t2, t3, barrierHeight, phaseOffset, period));
+            ImproperTorsion improperTorsion;
+            try {
+                improperTorsion = new ImproperTorsion(types, barrierHeight, phaseOffset, period);
+            } catch (System.Exception e) {
+                if (types.Length != 4) {
+                    FileIO.ThrowXMLError(improperTorsionX, path, "ReadImproperTorsions", e);
+                }
+                continue;
+            }
+            parameters.AddImproperTorsion(improperTorsion);
         }
     }
 
-    private static void ThrowError(XElement element, string path, string methodName, System.Exception error) {
-        CustomLogger.LogFormat(
-            EL.ERROR,
-            "Failed to read {0}. Line: {1} (Failed on {2})",
-            path,
-            ((IXmlLineInfo)element).LineNumber,
-            methodName
-        );
-        CustomLogger.LogOutput(
-            "Failed to read {0}. Line: {1} (Failed on {2}){4} Trace:{4}{3}",
-            path,
-            ((IXmlLineInfo)element).LineNumber,
-            methodName,
-            error.ToString(),
-            FileIO.newLine
-        );
-    }
+    private static Amber[] GetTypes(XElement typesX) {
+        string typesString = FileIO.ParseXMLAttrString(typesX, "types", "");
+        if (!string.IsNullOrWhiteSpace(typesString)) {
+            return AmberCalculator.GetAmbers(typesString);
+        }
+        
+        string t0String = FileIO.ParseXMLAttrString(typesX, "t0", "");
+        if (string.IsNullOrWhiteSpace(t0String)) {
+            return null;
+        }
+        Amber t0 = AmberCalculator.GetAmber(t0String);
 
-    private static void ThrowError(XElement element, string path, string methodName) {
-        CustomLogger.LogFormat(
-            EL.ERROR,
-            "Failed to read {0}. Line: {1} (Failed on {2})",
-            path,
-            ((IXmlLineInfo)element).LineNumber,
-            methodName
-        );
-        CustomLogger.LogOutput(
-            "Failed to read {0}. Line: {1} (Failed on {2})",
-            path,
-            ((IXmlLineInfo)element).LineNumber,
-            methodName
-        );
+        string t1String = FileIO.ParseXMLAttrString(typesX, "t1", "");
+        if (string.IsNullOrWhiteSpace(t1String)) {
+            return new Amber[1] {t0};
+        }
+        Amber t1 = AmberCalculator.GetAmber(t1String);
+
+        string t2String = FileIO.ParseXMLAttrString(typesX, "t2", "");
+        if (string.IsNullOrWhiteSpace(t2String)) {
+            return new Amber[2] {t0, t1};
+        }
+        Amber t2 = AmberCalculator.GetAmber(t2String);
+
+        string t3String = FileIO.ParseXMLAttrString(typesX, "t3", "");
+        if (string.IsNullOrWhiteSpace(t3String)) {
+            return new Amber[3] {t0, t1, t2};
+        }
+        Amber t3 = AmberCalculator.GetAmber(t3String);
+        return new Amber[4] {t0, t1, t2, t3};
+
     }
 
 }

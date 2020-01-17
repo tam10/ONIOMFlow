@@ -1236,15 +1236,14 @@ public static class CustomMathematics {
 	/// <param name="atom0">Atom to measure Vector from.</param>
 	/// <param name="atom1">Atom to measure Vector to.</param>
 	public static float3 GetNormalisedVector(Atom atom0, Atom atom1) {
-		return math.normalizesafe(GetVector(atom0, atom1));
+		return math.normalizesafe(atom0.position - atom1.position);
 	}
-	
 
 	/// <summary>Get the distance between atom0 and atom1.</summary>
 	/// <param name="atom0">Atom to measure distance from.</param>
 	/// <param name="atom1">Atom to measure distance to.</param>
 	public static float GetDistance(Atom atom0, Atom atom1) {
-		return math.length(GetVector(atom0, atom1));
+		return math.distancesq(atom0.position, atom1.position);
 	}
 
 	/// <summary>Get the distance between atom0 and atom1.</summary>
@@ -1253,6 +1252,21 @@ public static class CustomMathematics {
 	/// <param name="index1">Index of atom1.</param>
 	public static float GetDistance(float3[] positions, int index0, int index1) {
 		return math.distance(positions[index0], positions[index1]);
+	}
+
+	/// <summary>Get the distance squared between atom0 and atom1.</summary>
+	/// <param name="atom0">Atom to measure distance from.</param>
+	/// <param name="atom1">Atom to measure distance to.</param>
+	public static float GetDistanceSquared(Atom atom0, Atom atom1) {
+		return math.distancesq(atom0.position, atom1.position);
+	}
+
+	/// <summary>Get the distance squared between atom0 and atom1.</summary>
+	/// <param name="positions">Positions array.</param>
+	/// <param name="index0">Index of atom0.</param>
+	/// <param name="index1">Index of atom1.</param>
+	public static float GetDistanceSquared(float3[] positions, int index0, int index1) {
+		return math.distancesq(positions[index0], positions[index1]);
 	}
 
 	/// <summary>Increase the distance between atom0 and atom1.</summary>

@@ -45,7 +45,7 @@ public static class MOL2Writer {
 						position.x,
 						position.y,
 						position.z,
-						atom.amber,
+						AmberCalculator.GetAmberString(atom.amber),
                         residueID.residueNumber,
                         residue.residueName,
                         atom.partialCharge

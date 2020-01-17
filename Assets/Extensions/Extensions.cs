@@ -15,6 +15,13 @@ public static class Extensions {
         return dictionary.TryGetValue(key, out value) ? value : null;
     }
 
+    public static string ToKVString<K,V>(this Dictionary<K,V> dictionary) {
+        return "{ {" + string.Join(
+            "}, {", 
+            dictionary.Select(kvp => kvp.Key.ToString() + ", " + kvp.Value.ToString())
+        ) + "} }";
+    }
+
     public static IEnumerable<(T,T)> UpperTriangle<T>(this IEnumerable<T> enumerable) {
         int i = 0;
         foreach (T item1 in enumerable) {

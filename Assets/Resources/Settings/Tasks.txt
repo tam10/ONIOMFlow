@@ -2,6 +2,46 @@
 
 <tasks>
 
+    <parentClass>
+        <name>geometryInterface</name>
+        <fullName>Geometry Interface</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>cleaner</name>
+        <fullName>Cleaning</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>nonStandardResidueTools</name>
+        <fullName>Non-Standard Residues</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>partialChargesCalculator</name>
+        <fullName>Partial Charges</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>protonator</name>
+        <fullName>Protonation</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>gaussian</name>
+        <fullName>Gaussian</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>layers</name>
+        <fullName>Layers</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>amberCalculator</name>
+        <fullName>AMBER</fullName>
+    </parentClass>
+
     <task>
         <name>loadAtoms</name>
         <parentClass>geometryInterface</parentClass>
@@ -62,23 +102,30 @@
     
     <task>
         <name>calculateAMBERTypes</name>
-        <parentClass>cleaner</parentClass>
+        <parentClass>amberCalculator</parentClass>
         <fullName>Look up AMBER Types</fullName>
         <description>Look up AMBER Types for atoms in Standard Residues</description>
     </task>
     
     <task>
         <name>calculateAMBERTypesWithAntechamber</name>
-        <parentClass>cleaner</parentClass>
+        <parentClass>amberCalculator</parentClass>
         <fullName>Calculate AMBER Types (Antechamber)</fullName>
         <description>Calculate AMBER Types using Antechamber</description>
     </task>
 
     <task>
         <name>calculateParameters</name>
-        <parentClass>cleaner</parentClass>
+        <parentClass>amberCalculator</parentClass>
         <fullName>Calculate AMBER Parameters (parmchk2)</fullName>
         <description>Use parmchk2 to calculate AMBER parameters</description>
+     </task>
+
+    <task>
+        <name>optimiseWithAmber</name>
+        <parentClass>cleaner</parentClass>
+        <fullName>Optimise with AMBER</fullName>
+        <description>Minimise the Geometry's potential energy with AMBER</description>
      </task>
 
     <task>
@@ -131,9 +178,16 @@
     </task>
 
     <task>
-        <name>calculatePartialCharges</name>
+        <name>calculatePartialChargesRED</name>
         <parentClass>partialChargesCalculator</parentClass>
         <fullName>Calculate Partial Charges (RED)</fullName>
+        <description>Compute partial charges for each residue</description>
+    </task>
+
+    <task>
+        <name>calculatePartialChargesGaussian</name>
+        <parentClass>partialChargesCalculator</parentClass>
+        <fullName>Calculate Partial Charges (Gaussian)</fullName>
         <description>Compute partial charges for each residue</description>
     </task>
 
@@ -166,29 +220,78 @@
     </task>
 
     <task>
+        <name>moveAllToModelLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move All to Model Layer</fullName>
+        <description>Move all Atoms to Model Layer</description>
+    </task>
+
+    <task>
+        <name>moveAllToIntermediateLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move All to Intermediate Layer</fullName>
+        <description>Move all Atoms to Intermediate Layer</description>
+    </task>
+
+    <task>
+        <name>moveAllToRealLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move All to Real Layer</fullName>
+        <description>Move all Atoms to Real Layer</description>
+    </task>
+
+    <task>
+        <name>moveSelectionToModelLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move Selection to Model Layer</fullName>
+        <description>Move selection to Model Layer</description>
+    </task>
+
+    <task>
+        <name>moveSelectionToIntermediateLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move Selection to Intermediate Layer</fullName>
+        <description>Move selection to Intermediate Layer</description>
+    </task>
+
+    <task>
+        <name>moveSelectionToRealLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move Selection to Real Layer</fullName>
+        <description>Move selection to Real Layer</description>
+    </task>
+
+    <task>
         <name>validateLayers</name>
-        <parentClass>calculationSetup</parentClass>
+        <parentClass>layers</parentClass>
         <fullName>Validate Layers</fullName>
         <description>Check this geometry has the correct number of ONIOM Layers for a Gaussian calculation</description>
     </task>
 
     <task>
         <name>setupCalculation</name>
-        <parentClass>calculationSetup</parentClass>
+        <parentClass>gaussian</parentClass>
         <fullName>Gaussian Calculation Setup</fullName>
         <description>Get information to initialise a Gaussian calculation</description>
     </task>
 
     <task>
+        <name>runGaussianRecipe</name>
+        <parentClass>gaussian</parentClass>
+        <fullName>Run Gaussian Recipe</fullName>
+        <description>Load an XML file containing a sequence of Gaussian Calculations and actions</description>
+    </task>
+
+    <task>
         <name>getModelLayer</name>
-        <parentClass>calculationSetup</parentClass>
+        <parentClass>layers</parentClass>
         <fullName>Get Model Layer</fullName>
         <description>Isolate the Model Layer for parameterisation</description>
     </task>
 
     <task>
         <name>getIntermediateLayer</name>
-        <parentClass>calculationSetup</parentClass>
+        <parentClass>layers</parentClass>
         <fullName>Get Intermediate Layer</fullName>
         <description>Isolate the Intermediate Layer for parameterisation</description>
     </task>

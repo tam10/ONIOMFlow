@@ -5,6 +5,107 @@
 	<projectDirectoryName>Flow</projectDirectoryName>
 	<projectPath></projectPath>
 
+	<externalCommands>
+
+		<externalCommand name="g09">
+			<command>g09</command>
+			<commandPath>/Applications/gaussian09/g09/</commandPath>
+			<commandFormat>{COMMAND} &lt; {IN} &gt; {OUT}</commandFormat>
+			<workingDirectory>Gaussian</workingDirectory>
+			<basename>gaussian</basename>
+			<inputFileFormat>gjf</inputFileFormat>
+			<outputFileFormat>log</outputFileFormat>
+			<environmentVariables>
+				<var key="SCRDIR">/Applications/gaussian09/g09/</var>
+				<var key="EXEDIR">~/Scratch</var>
+				<var key="PATH">$PATH:$EXEDIR</var>
+			</environmentVariables>
+		</externalCommand>
+	
+		<externalCommand name="g16">
+			<command>g16</command>
+			<commandPath>/Applications/g16/</commandPath>
+			<commandFormat>{COMMAND} &lt; {IN} &gt; {OUT}</commandFormat>
+			<workingDirectory>Gaussian</workingDirectory>
+			<basename>gaussian</basename>
+			<inputFileFormat>gjf</inputFileFormat>
+			<outputFileFormat>log</outputFileFormat>
+			<environmentVariables>
+				<var key="SCRDIR">/Applications/g16/</var>
+				<var key="EXEDIR">~/Scratch</var>
+				<var key="PATH">$PATH:$EXEDIR</var>
+			</environmentVariables>
+		</externalCommand>
+	
+		<externalCommand name="protonate_sr">
+			<command>pdb2pqr</command>
+			<commandPath>~/Utilities/pdb2pqr-osx-bin64-2.1.0/</commandPath>
+			<commandFormat>{COMMAND} {OPTIONS} {IN} {OUT}</commandFormat>
+			<workingDirectory>Protonation</workingDirectory>
+			<basename>SR_protonation</basename>
+			<inputFileFormat>pdb</inputFileFormat>
+			<outputFileFormat>pqr</outputFileFormat>
+			<options>
+				<option>--ph-calc-method=propka</option>
+				<option>--with-ph=7.8</option>
+				<option>--ff=amber</option>
+				<option>--ffout=amber</option>
+				<option>--chain</option>
+			</options>
+		</externalCommand>
+	
+		<externalCommand name="protonate_nsr">
+			<command>reduce</command>
+			<commandPath>/anaconda3/bin/</commandPath>
+			<commandFormat>{COMMAND} {OPTIONS} {IN} &gt; {OUT}</commandFormat>
+			<workingDirectory>Protonation</workingDirectory>
+			<basename>NSR_protonation</basename>
+			<inputSuffix>_in</inputSuffix>
+			<outputSuffix>_out</outputSuffix>
+			<inputFileFormat>pdb</inputFileFormat>
+			<outputFileFormat>pdb</outputFileFormat>
+			<options>
+				<option>-Quiet</option>
+			</options>
+		</externalCommand>
+	
+		<externalCommand name="parameters">
+			<command>parmchk2</command>
+			<commandPath>/anaconda3/bin/</commandPath>
+			<commandFormat>{COMMAND} {OPTIONS} -i {IN} -o {OUT}</commandFormat>
+			<workingDirectory>Parameters</workingDirectory>
+			<basename>params</basename>
+			<inputFileFormat>mol2</inputFileFormat>
+			<outputFileFormat>frcmod</outputFileFormat>
+			<options>
+				<option>-a Y</option>
+				<option>-f mol2</option>
+			</options>
+		</externalCommand>
+	
+		<externalCommand name="amber">
+			<command>antechamber</command>
+			<commandPath>/anaconda3/bin/</commandPath>
+			<commandFormat>{COMMAND} {OPTIONS} -i {IN} -o {OUT}</commandFormat>
+			<workingDirectory>Amber</workingDirectory>
+			<basename>amber</basename>
+			<inputFileFormat>pdb</inputFileFormat>
+			<outputFileFormat>mol2</outputFileFormat>
+			<options>
+				<option>-fi pdb</option>
+				<option>-fo mol2</option>
+				<option>-at amber</option>
+			</options>
+		</externalCommand>
+	
+		<externalCommand name="perl">
+			<command>perl</command>
+			<commandFormat>{COMMAND} {OPTIONS}</commandFormat>
+			<workingDirectory>Perl</workingDirectory>
+		</externalCommand>
+
+	</externalCommands>
+
 	<gaussian>
 		<version>g09</version>
 		<exeDir>/Applications/gaussian09/g09/</exeDir>
@@ -53,6 +154,7 @@
 	</amberParameterCalculation>
 
 	<partialCharges>
+		<chargesDirectory>Charges</chargesDirectory>
 		<redBaseName>Mol_red1</redBaseName><!-- DO NOT CHANGE - Chosen by R.E.D. -->
 		<redDirectory>Data-RED</redDirectory><!-- DO NOT CHANGE - Chosen by R.E.D. -->
 		<redChargeFilename>Mol_m1-o1-sm.mol2</redChargeFilename><!-- DO NOT CHANGE - Chosen by R.E.D. -->

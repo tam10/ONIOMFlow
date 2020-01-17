@@ -49,8 +49,7 @@
                 sampler2D _GrabTexture;
                 float4 _GrabTexture_TexelSize;
                 float _Radius;
-                half4 frag(v2f i) : COLOR
-                {
+                half4 frag(v2f i) : COLOR {
                     half4 sum = half4(0,0,0,0);
                     #define GRABXYPIXEL(kernelx, kernely) tex2Dproj( _GrabTexture, float4(i.grabPos.x + _GrabTexture_TexelSize.x * kernelx, i.grabPos.y + _GrabTexture_TexelSize.y * kernely, i.grabPos.z, i.grabPos.w))
 

@@ -5,6 +5,7 @@ using UnityEngine.EventSystems;
 using GIID = Constants.GeometryInterfaceID;
 using GIS = Constants.GeometryInterfaceStatus;
 using EL = Constants.ErrorLevel;
+using Unity.Mathematics;
 using System.Xml.Linq;
 
 /// <summary>The Flow Singleton Class</summary>

@@ -51,6 +51,24 @@ public class LineDrawer : MonoBehaviour {
         }
     }
 
+    public void SetColoursByCharge() {
+        foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
+            residueWireFrame.SetColoursByCharge();
+        }
+        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
+            linkerWireFrame.SetColoursByCharge();
+        }
+    }
+
+    public void SetColoursByElement() {
+        foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
+            residueWireFrame.SetColoursByElement();
+        }
+        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
+            linkerWireFrame.SetColoursByElement();
+        }
+    }
+
     public void Clear() {
         residueWireFrames.Clear();
         linkerWireFrames.Clear();
@@ -204,20 +222,25 @@ public class LineDrawer : MonoBehaviour {
 class ResidueWireFrame {
     Transform parentTransform;
     float3[] positions;
-    Color[] colours;
+    Color[] elementColours;
+    Color[] chargeColours;
     float[] radii;
     float[] widths;
 
     int numBonds;
     float3[] bondVertices;
-    Color[] bondColours;
+    Color[] bondElementColours;
+    Color[] bondChargeColours;
     float[] bondWidths;
     BT[] bondTypes;
     int[] bondPairs;
 
+    bool colourByCharge;
+
     int numNonBondedAtoms;
     float3[] nonBondedVertices;
-    Color[] nonBondedColours;
+    Color[] nonBondedElementColours;
+    Color[] nonBondedChargeColours;
     float[] nonBondedWidths;
     int[] nonBondedAtoms;
     PDBID[] pdbIDs;
@@ -228,9 +251,12 @@ class ResidueWireFrame {
         int numAtoms = pdbIDs.Length;
 
         positions = new float3[numAtoms];
-        colours = new Color[numAtoms];
+        elementColours = new Color[numAtoms];
+        chargeColours = new Color[numAtoms];
         radii = new float[numAtoms];
         widths = new float[numAtoms];
+
+        colourByCharge = false;
 
         int positionIndex = 0;
         numBonds = 0;
@@ -242,7 +268,8 @@ class ResidueWireFrame {
             Atom atom = residue.atoms[pdbID];
 
             positions[positionIndex++] = atom.position + offset;
-            colours[atomNum] = Settings.GetAtomColourFromElement(pdbID.element);
+            elementColours[atomNum] = Settings.GetAtomColourFromElement(pdbID.element);
+            chargeColours[atomNum] = Settings.GetAtomColourFromCharge(atom.partialCharge);
             radii[atomNum] = Settings.GetAtomRadiusFromElement(pdbID.element);
             widths[atomNum] = Settings.layerLineThicknesses[atom.oniomLayer] * parentTransform.lossyScale.x;
             
@@ -275,7 +302,8 @@ class ResidueWireFrame {
         this.nonBondedAtoms = nonBondedAtomList.ToArray();
 
         bondVertices = new float3[numBonds * 2];
-        bondColours = new Color[numBonds * 2];
+        bondElementColours = new Color[numBonds * 2];
+        bondChargeColours = new Color[numBonds * 2];
         bondWidths = new float[numBonds];
 
         int bondAtomIndex = 0;
@@ -286,13 +314,22 @@ class ResidueWireFrame {
         bondTypes = bondTypeList.ToArray();
 
         nonBondedVertices = new float3[numNonBondedAtoms * 6];
-        nonBondedColours = new Color[numNonBondedAtoms];
+        nonBondedElementColours = new Color[numNonBondedAtoms];
+        nonBondedChargeColours = new Color[numNonBondedAtoms];
         nonBondedWidths = new float[numNonBondedAtoms];
 
         int nonBondedVertexIndex = 0;
         for (int nonBondedAtomNum=0; nonBondedAtomNum<numNonBondedAtoms; nonBondedAtomNum++) {
             AddNonbondedWireframeGeometry(ref nonBondedVertexIndex, nonBondedAtomNum);
         }
+    }
+
+    public void SetColoursByCharge() {
+        colourByCharge = true;
+    }
+
+    public void SetColoursByElement() {
+        colourByCharge = false;
     }
 
     public void UpdatePosition(PDBID pdbID, float3 position) {
@@ -326,15 +363,16 @@ class ResidueWireFrame {
     ) {
         float width0 = widths[bondPairs[bondAtomIndex]];
 
-        bondColours[bondAtomIndex] = colours[bondPairs[bondAtomIndex]];
+        bondElementColours[bondAtomIndex] = elementColours[bondPairs[bondAtomIndex]];
+        bondChargeColours[bondAtomIndex] = chargeColours[bondPairs[bondAtomIndex]];
         int i0 = bondPairs[bondAtomIndex++];
         bondVertices[bondVertexIndex++] = positions[i0++];
         
 
         float width1 = widths[bondPairs[bondAtomIndex]];
 
-        //Get the vertex of second atom
-        bondColours[bondAtomIndex] = colours[bondPairs[bondAtomIndex]];
+        bondElementColours[bondAtomIndex] = elementColours[bondPairs[bondAtomIndex]];
+        bondChargeColours[bondAtomIndex] = chargeColours[bondPairs[bondAtomIndex]];
         
         int i1 = bondPairs[bondAtomIndex++];
         bondVertices[bondVertexIndex++] = positions[i1++];
@@ -348,7 +386,10 @@ class ResidueWireFrame {
     ) {
 
         int nonBondedAtomIndex = nonBondedAtoms[nonBondedAtomNum];
-        nonBondedColours[nonBondedAtomNum] = colours[nonBondedAtomIndex];
+
+        nonBondedElementColours[nonBondedAtomNum] = elementColours[nonBondedAtomIndex];
+        nonBondedChargeColours[nonBondedAtomNum] = chargeColours[nonBondedAtomIndex];
+
         nonBondedWidths[nonBondedAtomNum] = widths[nonBondedAtomIndex];
         float radius = radii[nonBondedAtomIndex] * 0.5f * Settings.atomicRadiusToSphereRatio;
 
@@ -393,6 +434,12 @@ class ResidueWireFrame {
         float3 mid = new float3();
         float3 end = new float3();
 
+        Color[] bondColorArray = colourByCharge 
+            ? bondChargeColours 
+            : bondElementColours;
+        Color[] nonbondedColorArray = colourByCharge 
+            ? nonBondedChargeColours 
+            : nonBondedElementColours;
 
         int bondVertexIndex = 0;
         int colourIndex = 0;
@@ -409,7 +456,7 @@ class ResidueWireFrame {
             float3 norm = math.normalizesafe(math.cross(start, end)) * width;
 
             yield return (
-                bondColours[colourIndex++], 
+                bondColorArray[colourIndex++], 
                 start + norm,
                 start - norm,
                 mid - norm,
@@ -417,7 +464,7 @@ class ResidueWireFrame {
             );
 
             yield return (
-                bondColours[colourIndex++], 
+                bondColorArray[colourIndex++], 
                 mid + norm,
                 mid - norm,
                 end - norm,
@@ -427,7 +474,7 @@ class ResidueWireFrame {
 
         int nonBondVertexIndex = 0;
         for (int nonBondNum=0; nonBondNum<numNonBondedAtoms; nonBondNum++) {
-            //GL.Color(nonBondedColours[nonBondNum]);
+            
             float width = 0;
             for (int coord=0; coord<3; coord++) {
                 start = nonBondedVertices[nonBondVertexIndex++];
@@ -448,7 +495,7 @@ class ResidueWireFrame {
                 float3 norm = math.normalizesafe(math.cross(start, end)) * width;
                 
                 yield return (
-                    nonBondedColours[nonBondNum], 
+                    nonbondedColorArray[nonBondNum], 
                     start + norm,
                     start - norm,
                     mid - norm,
@@ -456,7 +503,7 @@ class ResidueWireFrame {
                 );
 
                 yield return (
-                    nonBondedColours[nonBondNum], 
+                    nonbondedColorArray[nonBondNum], 
                     mid + norm,
                     mid - norm,
                     end - norm,
@@ -470,13 +517,17 @@ class ResidueWireFrame {
 
 class LinkerWireFrame {
     
-    Color startColour;
-    Color endColour;
+    Color startElementColour;
+    Color endElementColour;
+    Color startChargeColour;
+    Color endChargeColour;
     float3 linkerStart;
     float3 linkerEnd;
     AtomID linkerStartID;
     AtomID linkerEndID;
     float bondWidth;
+
+    bool colourByCharge;
 
     public LinkerWireFrame(Transform parentTransform, Atom atom0, Atom atom1, AtomID atomID0, AtomID atomID1, float3 offset) {
 
@@ -486,14 +537,18 @@ class LinkerWireFrame {
         this.linkerStartID = atomID0;
         this.linkerEndID = atomID1;
         
-        startColour = Settings.GetAtomColourFromElement(atomID0.pdbID.element); 
-        endColour = Settings.GetAtomColourFromElement(atomID1.pdbID.element);
+        startElementColour = Settings.GetAtomColourFromElement(atomID0.pdbID.element); 
+        endElementColour = Settings.GetAtomColourFromElement(atomID1.pdbID.element);
+
+        startChargeColour = Settings.GetAtomColourFromCharge(atom0.partialCharge);
+        endChargeColour = Settings.GetAtomColourFromCharge(atom1.partialCharge);
 
         bondWidth = math.min(
             Settings.layerLineThicknesses[atom0.oniomLayer],
             Settings.layerLineThicknesses[atom1.oniomLayer]
         ) * parentTransform.lossyScale.x; 
 
+        colourByCharge = false;
     }
     
     public IEnumerable<(Color, float3, float3, float3, float3)> EnumerateBondQuads(
@@ -514,7 +569,7 @@ class LinkerWireFrame {
         float3 norm = math.normalizesafe(math.cross(start, end)) * width;
         
         yield return (
-            startColour, 
+            colourByCharge ? startChargeColour : startElementColour, 
             start + norm,
             start - norm,
             mid - norm,
@@ -522,7 +577,7 @@ class LinkerWireFrame {
         );
 
         yield return (
-            endColour, 
+            colourByCharge ? endChargeColour : endElementColour, 
             mid + norm,
             mid - norm,
             end - norm,
@@ -539,6 +594,16 @@ class LinkerWireFrame {
             linkerEnd = position;
         }
     }
+    
+
+    public void SetColoursByCharge() {
+        colourByCharge = true;
+    }
+
+    public void SetColoursByElement() {
+        colourByCharge = false;
+    }
+
     
 }
 

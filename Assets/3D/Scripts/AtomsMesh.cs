@@ -30,8 +30,8 @@ public class AtomsMesh : MonoBehaviour {
 
 
     float[] radii;
-    Color[] atomColours;
-    //float[] positions;
+    Color[] elementColours;
+    Color[] chargeColours;
     float3[] positions;
 
     float3 offset;
@@ -63,16 +63,13 @@ public class AtomsMesh : MonoBehaviour {
         //positions = new float[numAtoms * 3];
         positions = new float3[numAtoms];
         radii = new float[numAtoms];
-        atomColours = new Color[numAtoms];
+        elementColours = new Color[numAtoms];
+        chargeColours = new Color[numAtoms];
         int positionIndex = 0;
         int atomNum = 0;
-        foreach (PDBID pdbID in residue.pdbIDs) {
-
-            
-            Atom atom = residue.atoms[pdbID];
+        foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
 
             positions[positionIndex++] = atom.position + offset;
-
 
             float radius = Settings.GetAtomRadiusFromElement(pdbID.element)  * radiusMultiplier;
             Color colour = Settings.GetAtomColourFromElement(pdbID.element);
@@ -81,12 +78,14 @@ public class AtomsMesh : MonoBehaviour {
             colour.a *= alphaMultiplier * (atom.oniomLayer == OLID.REAL ? 0.5f : 1f);
 
             if (atom.oniomLayer == OLID.MODEL) {
-                colour.r *= 2f;
-                colour.g *= 2f;
-                colour.b *= 2f;
+                colour.r *= 1.5f;
+                colour.g *= 1.5f;
+                colour.b *= 1.5f;
             }
 
-            atomColours[atomNum] = colour;
+            elementColours[atomNum] = colour;
+            chargeColours[atomNum] = Settings.GetAtomColourFromCharge(atom.partialCharge);
+
             atomNum++;
         }
     }
@@ -96,10 +95,26 @@ public class AtomsMesh : MonoBehaviour {
 			mesh, 
 			positions, 
 			radii,
-            atomColours
+            elementColours
         );
 
         meshCollider.sharedMesh = mesh;
+    }
+
+    public void SetColoursByCharge() {
+        Sphere.main.SetMeshColours(
+            mesh,
+            numAtoms,
+            chargeColours
+        );
+    }
+
+    public void SetColoursByElement() {
+        Sphere.main.SetMeshColours(
+            mesh,
+            numAtoms,
+            elementColours
+        );
     }
 
     void OnMouseDown() {

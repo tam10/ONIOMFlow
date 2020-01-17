@@ -635,6 +635,8 @@ public class GeometryInterface :
 		//Set FileSelector to Save mode
 		yield return savePrompt.Initialise(true, Flow.saveTypes);
 
+
+		bool overwrite = false;
 		string path;
 		//Continue prompting until there is a cancel or confirm
 		while (true) {
@@ -657,7 +659,6 @@ public class GeometryInterface :
 				break;
 			}
 
-			bool overwrite=false;
 
 			//Prompt to ask whether user wants to overwrite file
 			MultiPrompt multiPrompt = MultiPrompt.main;
@@ -679,6 +680,7 @@ public class GeometryInterface :
 
 			//multiPrompt was cancelled - User does not want to save
 			if (multiPrompt.cancelled) {
+				activeTasks--;
 				yield break;
 			} else if (overwrite) {
 				break;
@@ -687,8 +689,10 @@ public class GeometryInterface :
 				
 		}
 
-		//Log that a file will be overwritten
-		CustomLogger.LogFormat(EL.WARNING, "Overwriting File: {0}", path);
+		if (overwrite) {
+			//Log that a file will be overwritten
+			CustomLogger.LogFormat(EL.WARNING, "Overwriting File: {0}", path);
+		}
 
 		//Close the FileSelector
 		GameObject.Destroy(savePrompt.gameObject);

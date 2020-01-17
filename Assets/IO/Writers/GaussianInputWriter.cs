@@ -58,11 +58,15 @@ public static class GaussianInputWriter {
                         connectivitySB.AppendFormat("{0} ", atomNum++);
                         Atom atom = residue.atoms[pdbID];
                         foreach ((AtomID neighbourID, BT bondType) in atom.EnumerateConnections()) {
-                            connectivitySB.AppendFormat(
-                                "{0} {1} ", 
-                                geometry.atomMap[neighbourID], 
-                                Settings.GetBondGaussString(bondType)
-                            );
+                            int neighbourNum = geometry.atomMap[neighbourID];
+
+                            if (neighbourNum > atomNum) {
+                                connectivitySB.AppendFormat(
+                                    "{0} {1} ", 
+                                    geometry.atomMap[neighbourID], 
+                                    Settings.GetBondGaussString(bondType)
+                                );
+                            }
                         }
                         connectivitySB.Append(FileIO.newLine);
                     }
@@ -224,7 +228,7 @@ public static class GaussianInputWriter {
         string atomSpec = string.Format(
             "{0}-{1}-{2}(PDBName={3},ResName={4},ResNum={5})",
             pdbID.element,
-            atom.amber,
+            AmberCalculator.GetAmberString(atom.amber),
             atom.partialCharge,
             pdbID.ToString().Trim(),
             residue.residueName,

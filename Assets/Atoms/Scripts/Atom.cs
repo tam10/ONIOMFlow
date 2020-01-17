@@ -4,6 +4,7 @@ using UnityEngine;
 using System.Linq;
 using System;
 using Element = Constants.Element;
+using Amber = Constants.Amber;
 using CT = Constants.ConnectionType;
 using BT = Constants.BondType;
 using OLID = Constants.OniomLayerID;
@@ -21,7 +22,7 @@ public class Atom {
 	public ResidueID residueID;
 
 	/// <summary>The Amber type of this Atom.</summary>
-	public string amber = "";
+	public Amber amber;
 	/// <summary>The normalised Partial Charge of this Atom.</summary>
 	public float partialCharge = 0f;
 	/// <summary>The Connection Type of this Atom. Used for joining Residues and Caps.</summary>
@@ -111,7 +112,7 @@ public class Atom {
 	/// <param name="amber">The Amber type to give this Atom.</param>
 	/// <param name="partialCharge">The Partial Charge to give this Atom.</param>
 	/// <param name="oniomLayer">The ONIOM Layer give this Atom.</param>
-	public Atom(float3 position, ResidueID residueID, string amber="", float partialCharge=0f, OLID oniomLayer=OLID.REAL) {
+	public Atom(float3 position, ResidueID residueID, Amber amber, float partialCharge=0f, OLID oniomLayer=OLID.REAL) {
 		this.position = position;
 		this.amber = amber;
 		this.residueID = residueID;
@@ -166,12 +167,10 @@ public struct PDBID : IComparable<PDBID> {
 	///<param name="number">The number of this PDB ID. This is used when there are multiple elements in the same position (same identifier).</summary>
 	public PDBID(string element, string identifier="",int number=0) {
 		if (!Constants.ElementMap.TryGetValue(element, out this.element)) {
-			CustomLogger.LogFormat(
-				EL.ERROR,
+			throw new ErrorHandler.PDBIDException(string.Format(
 				"Couldn't convert string '{0}' to element!",
 				element
-			);
-			this = PDBID.Empty;
+			));
 		}
 
 		this.identifier = identifier;
@@ -284,7 +283,7 @@ public struct PDBID : IComparable<PDBID> {
 	///<summary>Creates a PDB ID structure from a 4-letter string.</summary>
 	///<param name="pdbName">The 4-letter string to read.</summary>
 	///<param name="residueName">The ID of the Residue containing this PDB ID. Used for special Residues such as metal ion.</summary>
-	public static PDBID FromString(string pdbName, string residueName) {
+	public static PDBID FromString(string pdbName, string residueName="") {
 		if (pdbName.Length != 4) {
 			throw new ErrorHandler.PDBIDException(
 				string.Format("Incorrect length of PDB String '{0}': {1}. Should be 4", pdbName, pdbName.Length),
@@ -296,7 +295,7 @@ public struct PDBID : IComparable<PDBID> {
 		string trimmed = pdbName.Trim();
 
 		//Metal ion
-		if (trimmed == residueName) {
+		if (string.Equals(trimmed, residueName, StringComparison.CurrentCultureIgnoreCase)) {
 			char[] lower = trimmed.ToLower().ToCharArray();
 			lower[0] = char.ToUpper(lower[0]);
 			return new PDBID(new string(lower));
@@ -351,20 +350,27 @@ public struct PDBID : IComparable<PDBID> {
 				//eg 'NA  ', 'NA1 ', 'NAB1'
 				if (char.IsDigit(pdbName[2])) {
 					//eg 'NA1 ' - unlikely
-					element = (char.ToUpper(pdbName[0]) + char.ToLower(pdbName[1])).ToString();
+					element = new string(new char[] {
+						char.ToUpper(pdbName[0]),
+						char.ToLower(pdbName[1])
+					});
 					number = int.Parse(pdbName.Substring(2,1));
 				} else if (char.IsDigit(pdbName[3])) {
-					//eg 'NAB1' - unlikely
-					element = (char.ToUpper(pdbName[0]) + char.ToLower(pdbName[1])).ToString();
-					identifier = pdbName.Substring(2,1);
+					//eg 'NAB1' - unlikely but could be a weird naming error in an external program
+					element = pdbName.Substring(0,1);
+					identifier = pdbName.Substring(1,2);
 					number = int.Parse(pdbName.Substring(3,1));
 				} else {
 					//eg 'NA  ' - most likely one ion per residue
-					element = (char.ToUpper(pdbName[0]) + char.ToLower(pdbName[1])).ToString();
+					element = new string(new char[] {
+						char.ToUpper(pdbName[0]),
+						char.ToLower(pdbName[1])
+					});
 				}
 			}
 		}
 
+		if (pdbName == "HOG1") CustomLogger.LogOutput(element);
 		return new PDBID(element, identifier, number);
 
 	}
@@ -496,6 +502,14 @@ public struct AtomID {
 	///<summary>Returns true if value is Empty or uninitialised</summary>
 	public static bool IsEmpty(AtomID value) {
 		return value.IsEmpty();
+	}
+
+	public static AtomID FromString(string atomIDString) {
+		int length = atomIDString.Length;
+		string residueIDString = atomIDString.Substring(0, length - 4);
+		string pdbIDString = atomIDString.Substring(length - 4);
+
+		return new AtomID(ResidueID.FromString(residueIDString), PDBID.FromString(pdbIDString));
 	}
 
 }

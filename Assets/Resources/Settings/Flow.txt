@@ -119,6 +119,15 @@
 
         <position><x>-100</x><y>-50</y></position>
 
+        <residueCheck>
+            <name>partialCharges</name>
+            <errorLevel>warning</errorLevel>
+        </residueCheck>
+        <residueCheck>
+            <name>integerCharge</name>
+            <errorLevel>warning</errorLevel>
+        </residueCheck>
+
         <atomCheck>
             <name>hasPDB</name>
             <errorLevel>error</errorLevel>
@@ -198,6 +207,15 @@
 
         <position><x>0</x><y>-50</y></position>
 
+        <residueCheck>
+            <name>partialCharges</name>
+            <errorLevel>warning</errorLevel>
+        </residueCheck>
+        <residueCheck>
+            <name>integerCharge</name>
+            <errorLevel>warning</errorLevel>
+        </residueCheck>
+
         <atomCheck>
             <name>hasPDB</name>
             <errorLevel>error</errorLevel>
@@ -225,6 +243,15 @@
         <errorDescription>Errors found - cannot proceed. Click status icon to view analysis results</errorDescription>
 
         <position><x>-100</x><y>-150</y></position>
+
+        <residueCheck>
+            <name>partialCharges</name>
+            <errorLevel>warning</errorLevel>
+        </residueCheck>
+        <residueCheck>
+            <name>integerCharge</name>
+            <errorLevel>warning</errorLevel>
+        </residueCheck>
 
         <atomCheck>
             <name>hasPDB</name>
@@ -384,8 +411,6 @@
             <task>standardiseWaters</task>
             <task>calculateConnectivity</task>
             <task>checkGeometry</task>
-            <task>fillMissingResidues</task>
-            <task>optimiseMissingResidues</task>
             <task>selectNonStandardResidues</task>
             <task>mergeNonStandardResidues</task>
             <task>checkGeometry</task>
@@ -438,7 +463,7 @@
         <endName>pcnsr</endName>
         <defaultTasks>
             <task>calculateParameters</task>
-            <task>getPartialChargesFromMol2</task>
+            <task>calculatePartialChargesGaussian</task>
             <task>checkGeometry</task>
         </defaultTasks>
     </connection>
@@ -477,6 +502,7 @@
         <startName>combined</startName>
         <endName>oneLayer</endName>
         <defaultTasks>
+            <task>moveAllToRealLayer</task>
             <task>validateLayers</task>
             <task>setupCalculation</task>
             <task>checkGeometry</task>

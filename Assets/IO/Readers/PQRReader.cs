@@ -5,49 +5,39 @@ using System.IO;
 using Unity.Mathematics;
 using EL = Constants.ErrorLevel;
 using OLID = Constants.OniomLayerID;
+using Amber = Constants.Amber;
 
 public class PQRReader : GeometryReader {
 	
-	static int[] positionStartChars = new int[] {30, 38, 46};
-	
 	public PQRReader(Geometry geometry) {
+		this.geometry = geometry;
+		atomIndex = 0;
 		commentString = "#";
+		activeParser = ParseAll;
 	}
 
-	public override bool ParseLine(Geometry geometry) {
+	public void ParseAll() {
 
-		int atomIndex = 0;
 		geometry.atomMap = new Map<AtomID, int>();
 
 		if ( line.StartsWith("ATOM") ) {
-
-			return ReadAtom(geometry, OLID.REAL, ref atomIndex);
-			
+			ReadAtom(geometry, OLID.REAL);
 		} else if ( line.StartsWith("HETATM") ) {
-
-			return ReadAtom(geometry, OLID.MODEL, ref atomIndex);
-			
+			ReadAtom(geometry, OLID.MODEL);
 		}
-
-		return true;
 	}
 
-	bool ReadAtom(Geometry geometry, OLID oniomLayerID, ref int atomIndex) {
+	void ReadAtom(Geometry geometry, OLID oniomLayerID) {
 
 		//PDB - use all 4 characters to distinguish "NA  " (Sodium) from " NA " (Nitrogen)
-		string pdbName;
-		if (!TryGetString(line, 12, 4, false, "ReadPDB", out pdbName)) {
-			return false;
-		}
+		string pdbName = line.Substring(12, 4);
 
 		//Use PDB to get Element
 		//If 12th column is a letter, it is a metal
 		string trimmedPDB = pdbName.TrimStart();
 		string element;
 		if (char.IsLetter (pdbName [0])) {
-			if (!TryGetString(trimmedPDB, 0, 2, true, "ReadElement", out element)) {
-				return false;
-			}
+			element = line.Substring(0, 2);
 		} else {
 			element = trimmedPDB[0].ToString();
 		}
@@ -57,61 +47,43 @@ public class PQRReader : GeometryReader {
 		}
 
 		//Residue
-		string residueName;
-		if (!TryGetString(line, 17, 3, false, "ReadResidueName", out residueName)) {
-			return false;
-		}
+		string residueName = line.Substring(17, 3);
 
 		//PDBID
 		PDBID pdbID = PDBID.FromString(pdbName, residueName);
 		if (pdbID.IsEmpty()) {
 			charNum = 12;
-			ThrowError("ReadPDBID");
-			return false;
+			throw new System.Exception(string.Format(
+				"PDBID is empty!"
+			));
 		}
 
 		//Chain ID is optional in PQR, but can also merge with residue number
-		string chainID;
-		if (!TryGetString(line, 21, 1, false, "ReadChainID", out chainID)) {
-			return false;
-		}
-		int residueNumber;
-		if (!TryGetInt(line, 22, 4, false, "ReadResidueNumber", out residueNumber)) {
-			return false;
-		}
+		string chainID = line.Substring(21, 1);
+		int residueNumber = int.Parse(line.Substring(22, 4));
 		ResidueID residueID = new ResidueID(chainID, residueNumber);
 
 		//Position
-		float3 position = new float3();
-		for (int positionIndex=0; positionIndex<3; positionIndex++) {
-			float p;
-			if (!TryGetFloat(line, positionStartChars[positionIndex], 8, false, "ReadPosition", out p)) {
-				return false;
-			}
-			position[positionIndex] = p;
-		}
+		float3 position = new float3 (
+			float.Parse(line.Substring(30, 8)),
+			float.Parse(line.Substring(38, 8)),
+			float.Parse(line.Substring(46, 8))
+		);
 
 		//Partial Charge
-		float partialCharge;
-		if (!TryGetFloat(line, 55, 7, false, "ReadPartialCharge", out partialCharge)) {
-			return false;
-		}
+		float partialCharge = float.Parse(line.Substring(55, 7));
 
 		//VdW Radius
-		float vdwRadius;
-		if (!TryGetFloat(line, 63, 6, false, "ReadVdWRadius", out vdwRadius)) {
-			return false;
-		}
+		float vdwRadius = float.Parse(line.Substring(63, 6));
 
 		//Add atom to residue
 		if (!geometry.residueDict.ContainsKey (residueID)) {
 			geometry.residueDict[residueID] = new Residue(residueID, residueName, geometry);
 		}
-		geometry.residueDict[residueID].AddAtom(pdbID, new Atom(position, residueID, "", partialCharge), false);
+		geometry.residueDict[residueID].AddAtom(pdbID, new Atom(position, residueID, Amber.X, partialCharge), false);
 
 		geometry.atomMap[atomIndex++] = new AtomID(residueID, pdbID);
 
-		return true;
 	}
 
 	public IEnumerator NonStandardResiduesFromPQRFile(string path, List<int> nonStandardResidueList) {

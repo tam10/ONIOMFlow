@@ -14,7 +14,7 @@ public static class FileWriter {
             case ".pdb":
                 return PDBWriter.WritePDBFile(geometry, path, writeConnectivity);
             case ".p2n":
-                return P2NWriter.WriteP2NFile(geometry, path, writeConnectivity);
+                return new P2NWriter(geometry).WriteToFile(path, writeConnectivity);
             case ".gjf":
             case ".com":
                 return GaussianInputWriter.WriteGaussianInput(geometry, path, writeConnectivity);

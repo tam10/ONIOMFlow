@@ -3,6 +3,8 @@ using System.IO;
 using UnityEngine;
 using VDWT = Constants.VanDerWaalsType;
 using CT = Constants.CoulombType;
+using EL = Constants.ErrorLevel;
+using Amber = Constants.Amber;
 
 public static class PRMReader {
 
@@ -79,7 +81,7 @@ public static class PRMReader {
 
 	static void ParseVDW(string[] splitLine, Parameters parameters) {
 		
-		string t0 = splitLine [1];
+		Amber t0 = AmberCalculator.GetAmber(splitLine [1]);
 		float req = float.Parse (splitLine [2]);
 		float v = float.Parse (splitLine [3]);
 
@@ -88,8 +90,8 @@ public static class PRMReader {
 	}
 	
 	static void ParseStretch(string[] splitLine, Parameters parameters) {
-		string t0 = splitLine [1];
-		string t1 = splitLine [2];
+		Amber t0 = AmberCalculator.GetAmber(splitLine [1]);
+		Amber t1 = AmberCalculator.GetAmber(splitLine [2]);
 		float keq = float.Parse (splitLine [3]);
 		float req = float.Parse (splitLine [4]);
 
@@ -98,9 +100,9 @@ public static class PRMReader {
 	}
 	
 	static void ParseBend(string[] splitLine, Parameters parameters) {
-		string t0 = splitLine [1];
-		string t1 = splitLine [2];
-		string t2 = splitLine [3];
+		Amber t0 = AmberCalculator.GetAmber(splitLine [1]);
+		Amber t1 = AmberCalculator.GetAmber(splitLine [2]);
+		Amber t2 = AmberCalculator.GetAmber(splitLine [3]);
 		float keq = float.Parse (splitLine [4]);
 		float req = float.Parse (splitLine [5]);
 
@@ -109,10 +111,10 @@ public static class PRMReader {
 	}
 	
 	static void ParseTorsion(string[] splitLine, Parameters parameters) {
-		string t0 = splitLine [1];
-		string t1 = splitLine [2];
-		string t2 = splitLine [3];
-		string t3 = splitLine [4];
+		Amber t0 = AmberCalculator.GetAmber(splitLine [1]);
+		Amber t1 = AmberCalculator.GetAmber(splitLine [2]);
+		Amber t2 = AmberCalculator.GetAmber(splitLine [3]);
+		Amber t3 = AmberCalculator.GetAmber(splitLine [4]);
 		float gamma0 = float.Parse (splitLine [5]);
 		float gamma1 = float.Parse (splitLine [6]);
 		float gamma2 = float.Parse (splitLine [7]);
@@ -128,10 +130,10 @@ public static class PRMReader {
 	}
 
 	static void ParseImproperTorsion(string[] splitLine, Parameters parameters) {
-		string t0 = splitLine [1];
-		string t1 = splitLine [2];
-		string t2 = splitLine [3];
-		string t3 = splitLine [4];
+		Amber t0 = AmberCalculator.GetAmber(splitLine [1]);
+		Amber t1 = AmberCalculator.GetAmber(splitLine [2]);
+		Amber t2 = AmberCalculator.GetAmber(splitLine [3]);
+		Amber t3 = AmberCalculator.GetAmber(splitLine [4]);
 		float v = float.Parse (splitLine [5]);;
 		float gamma = float.Parse (splitLine [6]);
 		int periodicity = (int)float.Parse (splitLine [7]);
@@ -140,4 +142,5 @@ public static class PRMReader {
 		parameters.AddImproperTorsion (improperTorsion);
 
 	}
+
 }

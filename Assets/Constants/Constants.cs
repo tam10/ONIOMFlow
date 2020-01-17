@@ -88,9 +88,12 @@ public static class Constants {
 	MERGE_NSRS_BY_CONNECTIVITY, GET_CHAIN, PROTONATE_PDB2PQR, PROTONATE_REDUCE, GET_SRS, 
 	GET_NSRS, CHECK_GEOMETRY, CALCULATE_AMBER_TYPES, CALCULATE_AMBER_TYPES_ANTECHAMBER, 
 	CALCULATE_CONNECTIVITY, CLEAR_CONNECTIVITY, SELECT_NONSTANDARD_RESIDUES, 
-	CALCULATE_PARTIAL_CHARGES, GET_PARTIAL_CHARGES_FROM_MOL2, FILL_MISSING_RESIDUES,
-	OPTIMISE_MISSING_RESIDUES, MERGE_GEOMETRIES, CALCULATE_PARAMETERS, VALIDATE_LAYERS, SETUP_CALCULATION, 
-	GET_MODEL_LAYER, GET_INTERMEDIATE_LAYER, LOAD_ATOMS, SAVE_ATOMS, 
+	CALCULATE_PARTIAL_CHARGES_RED, CALCULATE_PARTIAL_CHARGES_GAUSSIAN, GET_PARTIAL_CHARGES_FROM_MOL2, 
+	FILL_MISSING_RESIDUES, OPTIMISE_MISSING_RESIDUES, 
+	MERGE_GEOMETRIES, CALCULATE_PARAMETERS, OPTIMISE_AMBER, VALIDATE_LAYERS, SETUP_CALCULATION, 
+	MOVE_ALL_TO_MODEL_LAYER, MOVE_ALL_TO_INTERMEDIATE_LAYER, MOVE_ALL_TO_REAL_LAYER,
+	MOVE_SELECTION_TO_MODEL_LAYER, MOVE_SELECTION_TO_INTERMEDIATE_LAYER, MOVE_SELECTION_TO_REAL_LAYER,
+	GET_MODEL_LAYER, GET_INTERMEDIATE_LAYER, RUN_GAUSSIAN_RECIPE, LOAD_ATOMS, SAVE_ATOMS, 
 	COPY_GEOMETRY, COPY_POSITIONS, REPLACE_PARAMETERS, UPDATE_PARAMETERS, 
 	COPY_PARTIAL_CHARGES, COPY_AMBERS, ALIGN_GEOMETRIES }
 	public static Map<string, TaskID> TaskIDMap = new Map<string, TaskID> {
@@ -108,23 +111,33 @@ public static class Constants {
 		{"selectNonStandardResidues", TaskID.SELECT_NONSTANDARD_RESIDUES},
 		{"fillMissingResidues", TaskID.FILL_MISSING_RESIDUES},
 		{"optimiseMissingResidues", TaskID.OPTIMISE_MISSING_RESIDUES},
+		{"optimiseWithAmber", TaskID.OPTIMISE_AMBER},
 		//Protonator
 		{"protonateWithPDB2PQR", TaskID.PROTONATE_PDB2PQR},
 		{"protonateWithReduce", TaskID.PROTONATE_REDUCE},
 		{"getNSRs", TaskID.GET_NSRS},
 		{"getSRs", TaskID.GET_SRS},
 		//Partial Charges
-		{"calculatePartialCharges", TaskID.CALCULATE_PARTIAL_CHARGES},
+		{"calculatePartialChargesRED", TaskID.CALCULATE_PARTIAL_CHARGES_RED},
+		{"calculatePartialChargesGaussian", TaskID.CALCULATE_PARTIAL_CHARGES_GAUSSIAN},
 		{"getPartialChargesFromMol2", TaskID.GET_PARTIAL_CHARGES_FROM_MOL2},
 		//Geometry Merger
 		{"mergeGeometries", TaskID.MERGE_GEOMETRIES},
 		//Parameters
 		{"calculateParameters", TaskID.CALCULATE_PARAMETERS},
-		//Gaussian
+		//Layers
+		{"moveAllToModelLayer", TaskID.MOVE_ALL_TO_MODEL_LAYER},
+		{"moveAllToIntermediateLayer", TaskID.MOVE_ALL_TO_INTERMEDIATE_LAYER},
+		{"moveAllToRealLayer", TaskID.MOVE_ALL_TO_REAL_LAYER},
+		{"moveSelectionToModelLayer", TaskID.MOVE_SELECTION_TO_MODEL_LAYER},
+		{"moveSelectionToIntermediateLayer", TaskID.MOVE_SELECTION_TO_INTERMEDIATE_LAYER},
+		{"moveSelectionToRealLayer", TaskID.MOVE_SELECTION_TO_REAL_LAYER},
 		{"validateLayers", TaskID.VALIDATE_LAYERS},
-		{"setupCalculation", TaskID.SETUP_CALCULATION},
 		{"getModelLayer", TaskID.GET_MODEL_LAYER},
 		{"getIntermediateLayer", TaskID.GET_INTERMEDIATE_LAYER},
+		//Gaussian
+		{"setupCalculation", TaskID.SETUP_CALCULATION},
+		{"runGaussianRecipe", TaskID.RUN_GAUSSIAN_RECIPE},
 		//Geometry Interface
 		{"loadAtoms", TaskID.LOAD_ATOMS},
 		{"saveAtoms", TaskID.SAVE_ATOMS},
@@ -150,13 +163,15 @@ public static class Constants {
 	};
 
     //CHECKERS
-    public enum ResidueCheckerID : int { NONE, PROTONATED, PDBS_UNIQUE, STANDARD }
+    public enum ResidueCheckerID : int { NONE, PROTONATED, PDBS_UNIQUE, STANDARD, PARTIAL_CHARGES, INTEGER_CHARGE }
 
 	public static Map<string, ResidueCheckerID> ResidueCheckerIDMap = new Map<string, ResidueCheckerID> {
 		{"none", ResidueCheckerID.NONE},
 		{"protonated", ResidueCheckerID.PROTONATED},
 		{"pdbsUnique", ResidueCheckerID.PDBS_UNIQUE},
-		{"standard", ResidueCheckerID.STANDARD}
+		{"standard", ResidueCheckerID.STANDARD},
+		{"partialCharges", ResidueCheckerID.PARTIAL_CHARGES},
+		{"integerCharge", ResidueCheckerID.INTEGER_CHARGE}
 	};
 
 
@@ -335,6 +350,30 @@ public static class Constants {
 		Fr, Ra, Ac, Th, Pa, U , Np, Pu, Am, Cm, Bk, Cf, Es, Fm, Md, No, Lr, Rf, Db, Sg, Bh, Hs, Mt, Ds, Rg, Cn, Nh, Fl, Mc, Lv, Ts, Og
 	}
 
+
 	public static Map<string, Element> ElementMap = System.Enum.GetValues(typeof(Element)).Cast<Element>().ToMap(x => x.ToString(), x => x);
+
+	public enum Amber : int {
+
+		X, // Generic No Amber
+		_, // * - all Ambers
+		DU, // Unrecognised Amber
+		//Hydrogens
+		H, HA, HC, HO, HP, HS, HW, H1, H2, H3, H4, H5,
+		// Carbons
+		C, C_, CA, CB, CC, CD, CE, CF, CG, CH, CI, CJ, CK, CM, CN, CQ, CR, CP, CT, CV, CW, CX, CY, CZ, C2, C3, 
+		// Nitrogens
+		N, N_, NA, NB, NC, NO, NP, NT, N2, N3, 
+		// Oxygen
+		O, OH, OS, OW, O2, S, SH, 
+		// Phosphorus
+		P, 
+		// Other
+		CL, Cs, CS, CU, CO, F, FE, I, IB, IM, IP, K, Li, MG, QC, QK, QL, QN, QR, Rb, LP,
+
+	}
+	
+	public static Map<string, Amber> AmberMap = System.Enum.GetValues(typeof(Amber)).Cast<Amber>().ToMap(x => x.ToString().Replace("_", "*"), x => x);
+
 
 }

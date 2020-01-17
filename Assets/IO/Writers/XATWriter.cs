@@ -65,7 +65,7 @@ public static class XATWriter {
         x.WriteAttributeString("ID", pdbID.ToString());
         x.WriteAttributeString("layer", Constants.OniomLayerIDCharMap[atom.oniomLayer].ToString());
         x.WriteAttributeString("charge", string.Format("{0:0.0000}", atom.partialCharge));
-        if (atom.amber != "") x.WriteAttributeString("amber", atom.amber);
+        x.WriteAttributeString("amber", AmberCalculator.GetAmberString(atom.amber));
 
         string position = string.Format(
             "{0:0.0000},{1:0.0000},{2:0.0000}",
@@ -111,6 +111,7 @@ public static class XATWriter {
 
     static void WriteParameters(Parameters parameters) {
         WriteNonBonding(parameters.nonbonding);
+        WriteAtomicParameters(parameters.atomicParameters);
         WriteStretches(parameters.stretches);
         WriteBends(parameters.bends);
         WriteTorsions(parameters.torsions);
@@ -147,12 +148,24 @@ public static class XATWriter {
         x.WriteEndElement();
     }
 
+    static void WriteAtomicParameters(List<AtomicParameter> atomicParameters) {
+        x.WriteStartElement("atomicParameters");
+        foreach (AtomicParameter atomicParameter in atomicParameters) {
+            x.WriteStartElement("atomicParameter");
+            x.WriteAttributeString("type", AmberCalculator.GetAmberString(atomicParameter.type));
+            x.WriteAttributeString("depth", string.Format("{0:0.0000}", atomicParameter.wellDepth));
+            x.WriteAttributeString("mass", string.Format("{0:0.0000}", atomicParameter.mass));
+            x.WriteAttributeString("radius", string.Format("{0:0.0000}", atomicParameter.radius));
+            x.WriteEndElement();
+        }
+        x.WriteEndElement();
+    }
+
     static void WriteStretches(List<Stretch> stretches) {
         x.WriteStartElement("stretches");
         foreach (Stretch stretch in stretches) {
             x.WriteStartElement("stretch");
-            x.WriteAttributeString("t0", stretch.types[0]);
-            x.WriteAttributeString("t1", stretch.types[1]);
+            x.WriteAttributeString("types", stretch.GetTypesString());
             x.WriteAttributeString("req", stretch.req.ToString());
             x.WriteAttributeString("keq", stretch.keq.ToString());
             x.WriteEndElement();
@@ -164,9 +177,7 @@ public static class XATWriter {
         x.WriteStartElement("bends");
         foreach (Bend bend in bends) {
             x.WriteStartElement("bend");
-            x.WriteAttributeString("t0", bend.types[0]);
-            x.WriteAttributeString("t1", bend.types[1]);
-            x.WriteAttributeString("t2", bend.types[2]);
+            x.WriteAttributeString("types", bend.GetTypesString());
             x.WriteAttributeString("aeq", bend.aeq.ToString());
             x.WriteAttributeString("keq", bend.keq.ToString());
             x.WriteEndElement();
@@ -178,10 +189,7 @@ public static class XATWriter {
         x.WriteStartElement("torsions");
         foreach (Torsion torsion in torsions) {
             x.WriteStartElement("torsion");
-            x.WriteAttributeString("t0", torsion.types[0]);
-            x.WriteAttributeString("t1", torsion.types[1]);
-            x.WriteAttributeString("t2", torsion.types[2]);
-            x.WriteAttributeString("t3", torsion.types[3]);
+            x.WriteAttributeString("types", torsion.GetTypesString());
             x.WriteAttributeString("nPaths", torsion.npaths.ToString());
             for (int term=0; term<4; term++) {
                 float barrierHeight = torsion.barrierHeights[term];
@@ -202,10 +210,7 @@ public static class XATWriter {
         x.WriteStartElement("improperTorsions");
         foreach (ImproperTorsion improperTorsion in improperTorsions) {
             x.WriteStartElement("improperTorsion");
-            x.WriteAttributeString("t0", improperTorsion.types[0]);
-            x.WriteAttributeString("t1", improperTorsion.types[1]);
-            x.WriteAttributeString("t2", improperTorsion.types[2]);
-            x.WriteAttributeString("t3", improperTorsion.types[3]);
+            x.WriteAttributeString("types", improperTorsion.GetTypesString());
             x.WriteAttributeString("period", improperTorsion.periodicity.ToString());
             x.WriteAttributeString("barrier", improperTorsion.barrierHeight.ToString());
             x.WriteAttributeString("gamma", improperTorsion.phaseOffset.ToString());

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
 using System.Xml.Serialization;
+using System.Xml;
 using System.Xml.Linq;
 using System.Text;
 using System;
@@ -342,6 +343,26 @@ public static class FileIO {
 		return result;
 	}
 
+	public static Dictionary<string, string> ParseXMLStringDictionary(XElement xElement, string name, string itemName, string key) {
+
+		XElement dictionaryX = xElement.Element(name);
+		if (dictionaryX == null) {
+			throw new ErrorHandler.XMLParseError(string.Format(
+				"Failed to read {0}: Couldn't find Element List '{1}'. Element Trace: {2}", 
+				xElement.Document.BaseUri,
+				name,
+				ElementTrace(xElement)
+			));
+		}
+		Dictionary<string, string> result = new Dictionary<string, string>();
+		foreach (XElement itemX in dictionaryX.Elements(itemName)) {
+			string keyString = ParseXMLAttrString(itemX, key);
+			string valueString = itemX.Value;
+			result[keyString] = valueString;
+		}
+		return result;
+	}
+
 	public static string ElementTrace(XElement xElement) {
 		XElement parent = xElement;
 		StringBuilder traceSB = new StringBuilder(ElementXMLString(xElement));
@@ -392,5 +413,36 @@ public static class FileIO {
 		}
 		return constant;
 	}
+
+    public static void ThrowXMLError(XElement element, string path, string methodName, System.Exception error) {
+        CustomLogger.LogFormat(
+            EL.ERROR,
+            "Failed to read {0}. Line: {1} (Failed on {2})",
+            path,
+            ((IXmlLineInfo)element).LineNumber,
+            methodName
+        );
+        CustomLogger.LogOutput(
+            "XML Trace: {0}{2} Trace:{1}{2}",
+			ElementTrace(element),
+            error.ToString(),
+            FileIO.newLine
+        );
+    }
+
+    public static void ThrowXMLError(XElement element, string path, string methodName) {
+        CustomLogger.LogFormat(
+            EL.ERROR,
+            "Failed to read {0}. Line: {1} (Failed on {2})",
+            path,
+            ((IXmlLineInfo)element).LineNumber,
+            methodName
+        );
+        CustomLogger.LogOutput(
+            "XML Trace: {0}{1}",
+			ElementTrace(element),
+			FileIO.newLine
+        );
+    }
 
 }

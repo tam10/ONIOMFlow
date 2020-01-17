@@ -92,7 +92,7 @@ public static class NonStandardResidueTools {
 
         //Get all ResidueIDs whose Residues are marked as Non-Standard
         List<ResidueID> nsrIDs = geometryInterface.geometry
-            .EnumerateResidues(x => x.state == RS.NONSTANDARD)
+            .EnumerateResidues(x => !x.standard && !x.isWater)
             .Select(x => x.Item1)
             .ToList();
 
@@ -122,7 +122,7 @@ public static class NonStandardResidueTools {
 
         //Get all ResidueIDs whose Residues are marked as Standard
         List<ResidueID> srIDs = geometryInterface.geometry
-            .EnumerateResidues(x => x.standard)
+            .EnumerateResidues(x => x.standard || x.isWater)
             .Select(x => x.Item1)
             .ToList();
 
@@ -261,6 +261,62 @@ public static class NonStandardResidueTools {
 
     }
 
+    /// <summary>Caps dangling bonds of a Geometry.</summary>    
+    /// <param name="geometry">The Geometry to cap.</param>
+    /// <param name="parent">The Parent Geometry to get caps from.</param>
+    /// <param name="taskID">The ID of the current Task.</param>
+    public static IEnumerator CapAtoms(Geometry geometry, Geometry parent, TID taskID) {
+
+        List<ResidueID> residueIDs = geometry.residueDict.Keys.ToList();
+        Dictionary<ResidueID, Residue> newResidues = geometry.residueDict.ToDictionary(x => x.Key, x => x.Value);
+
+        //Keep track of progress 
+        int totalResidues = geometry.residueDict.Count;
+        int numProcessedResidues = 0;
+
+        foreach ((ResidueID residueID, Residue residue) in geometry.residueDict) {
+            
+            //Loop through each Atom
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+                //Get each Atom's External Connections
+                List<AtomID> neighbourIDs = atom
+                    .EnumerateExternalConnections()
+                    .Select(x => x.Item1)
+                    .ToList();
+
+                foreach (AtomID neighbourID in neighbourIDs) {
+
+                    //If the external connection is not in our original list, it is now a dangling bond
+                    if (!residueIDs.Contains(neighbourID.residueID)) {
+
+                        //Cap the dangling bond here
+                        if (!TryCapSite(
+                            parent, 
+                            new AtomID(residueID, pdbID), 
+                            neighbourID,
+                            newResidues 
+                        )) {
+                            yield break;
+                        }
+                    }
+                }
+            }
+
+            //Feed back progress
+            if (Timer.yieldNow) {
+                NotificationBar.SetTaskProgress(
+                    taskID, 
+                    CustomMathematics.Map( (float)numProcessedResidues / totalResidues, 0f, 1f, 0.1f, 1f)
+                );
+                yield return null;
+            }
+            numProcessedResidues++;
+        }
+        
+        geometry.SetResidueDict(newResidues);
+
+    }
+
     /// <summary>Attempt to Cap a dangling bond</summary>
 	/// <param name="geometryInterfaceID">The Geometry Interface ID of the Geometry to cap.</param>
 	/// <param name="siteID">The Atom ID of the Atom to Cap.</param>
@@ -299,6 +355,73 @@ public static class NonStandardResidueTools {
             return CapWithNME(geometryInterfaceID, siteID, neighbourID, siteResidueDict);
         } else if (neighbourID.pdbID.element == Element.C) {
             return CapWithACE(geometryInterfaceID, siteID, neighbourID, siteResidueDict);
+        } else {
+
+            CustomLogger.LogFormat(
+                EL.WARNING,
+                "Dangling bond '{0}'-'{1}' cannot be capped with ACE or NME! Using a Custom Cap (needs attention!).",
+                () => new object[] {
+                    new AtomID(siteResidueID, sitePDBID),
+                    neighbourID
+                }
+            );
+
+            Residue customCap;
+            if (!siteResidueDict.TryGetValue(neighbourID.residueID, out customCap)) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Couldn't find Custom Cap Residue!",
+                    neighbourID.residueID
+                );
+                return false;
+            } 
+
+            customCap.state = RS.CAP;
+            customCap.atoms[neighbourID.pdbID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
+            siteResidue.atoms[sitePDBID].Connect(neighbourID, BT.SINGLE);
+
+        }
+
+        return true;
+    }
+
+    /// <summary>Attempt to Cap a dangling bond</summary>
+	/// <param name="geometry">The Geometry to cap.</param>
+	/// <param name="siteID">The Atom ID of the Atom to Cap.</param>
+	/// <param name="neighbourID">The Atom ID of the external Neighbour of the Site to cap.</param>
+	/// <param name="siteResidueDict">The Residue Dict of the Site to cap.</param>
+    private static bool TryCapSite(
+        Geometry geometry, 
+        AtomID siteID, 
+        AtomID neighbourID,
+        Dictionary<ResidueID, Residue> siteResidueDict=null
+    ) {
+
+        if (siteResidueDict == null) {
+            siteResidueDict = geometry.residueDict;
+        }
+        Residue siteResidue = siteResidueDict[siteID.residueID];
+        //Disconnect - will be reconnected to Cap
+        Atom siteAtom = siteResidue.atoms[siteID.pdbID];
+
+        (ResidueID siteResidueID, PDBID sitePDBID) = siteID;
+
+        siteAtom.TryDisconnect(neighbourID);
+
+        CustomLogger.LogFormat(
+            EL.VERBOSE,
+            "Found a dangling bond from Non-Standard Atom {0} to Standard Atom {1}",
+            () => new object[] {
+                siteID,
+                neighbourID
+            }
+        );
+
+        //Cap site
+        if (neighbourID.pdbID.element == Element.N) {
+            return CapWithNME(geometry, siteID, neighbourID, siteResidueDict);
+        } else if (neighbourID.pdbID.element == Element.C) {
+            return CapWithACE(geometry, siteID, neighbourID, siteResidueDict);
         } else {
 
             CustomLogger.LogFormat(
@@ -379,6 +502,54 @@ public static class NonStandardResidueTools {
 
     }
 
+    /// <summary>Attempt to Cap a dangling bond with NME</summary>
+	/// <param name="geometry">The Geometry to cap.</param>
+	/// <param name="siteID">The Atom ID of the Atom to Cap.</param>
+	/// <param name="neighbourID">The Atom ID of the external Neighbour of the Site to cap.</param>
+	/// <param name="siteResidueDict">The Residue Dict of the Site to cap.</param>
+    public static bool CapWithNME(
+        Geometry geometry, 
+        AtomID siteID, 
+        AtomID neighbourID,
+        Dictionary<ResidueID, Residue> siteResidueDict
+    ) {
+        Residue siteResidue = siteResidueDict[siteID.residueID];
+        (ResidueID siteResidueID, PDBID sitePDBID) = siteID;
+
+        ResidueID newCapID = siteResidueDict.ContainsKey(neighbourID.residueID)
+            ?siteID.residueID.GetNextID()
+            :neighbourID.residueID;
+
+        Residue nme;
+        if (! geometry.residueDict.TryGetValue(neighbourID.residueID, out nme)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Couldn't find neighbouring residue: {0}",
+                neighbourID.residueID
+            );
+            return false;
+        }
+
+        CustomLogger.LogFormat(
+            EL.VERBOSE,
+            "Capping Residue {0} with NME Cap at {1}.",
+            () => new object[] {
+                siteResidueID,
+                sitePDBID
+            }
+        );
+
+        nme = geometry.residueDict[neighbourID.residueID].ConvertToNME(neighbourID.pdbID);
+        PDBID nmeNID = PDBID.N;
+        nme.atoms[nmeNID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
+        siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, nmeNID), BT.SINGLE);
+
+        nme.SetResidueID(newCapID);
+        siteResidueDict[newCapID] = nme;
+
+        return true;
+
+    }
 
     /// <summary>Attempt to Cap a dangling bond with ACE</summary>
 	/// <param name="geometryInterfaceID">The Geometry Interface ID of the Geometry to cap.</param>
@@ -427,6 +598,52 @@ public static class NonStandardResidueTools {
         return true;
     }
 
+    /// <summary>Attempt to Cap a dangling bond with ACE</summary>
+	/// <param name="geometry">The Geometry to cap.</param>
+	/// <param name="siteID">The Atom ID of the Atom to Cap.</param>
+	/// <param name="neighbourID">The Atom ID of the external Neighbour of the Site to cap.</param>
+	/// <param name="siteResidueDict">The Residue Dict of the Site to cap.</param>
+    public static bool CapWithACE(
+        Geometry geometry, 
+        AtomID siteID, 
+        AtomID neighbourID,
+        Dictionary<ResidueID, Residue> siteResidueDict
+    ) {
+        Residue siteResidue = siteResidueDict[siteID.residueID];
+        (ResidueID siteResidueID, PDBID sitePDBID) = siteID;
+        ResidueID newCapID = siteResidueDict.ContainsKey(neighbourID.residueID)
+            ?siteResidueID.GetPreviousID()
+            :neighbourID.residueID;
+
+        Residue ace;
+        if (!geometry.residueDict.TryGetValue(neighbourID.residueID, out ace)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Couldn't find neighbouring residue: {0}",
+                neighbourID.residueID
+            );
+            return false;
+        }
+
+        CustomLogger.LogFormat(
+            EL.VERBOSE,
+            "Capping Residue {0} with ACE Cap at {1}.",
+            () => new object[] {
+                siteResidueID,
+                sitePDBID
+            }
+        );
+
+        ace = geometry.residueDict[neighbourID.residueID].ConvertToACE(neighbourID.pdbID);
+        PDBID aceCID = PDBID.C;
+        ace.atoms[aceCID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
+        siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, aceCID), BT.SINGLE);
+            
+        ace.SetResidueID(newCapID);
+        siteResidueDict[newCapID] = ace;
+        return true;
+    }
+
     /// <summary>Joins all neighbouring Non-Standard Residues into groups to simplify later calculations.</summary>    
 	/// <param name="geometryInterfaceID">ID of Geometry Interface to Clean.</param>
     public static IEnumerator MergeNSRsByProximity(GIID geometryInterfaceID) {
@@ -440,7 +657,7 @@ public static class NonStandardResidueTools {
         Geometry geometry = Flow.GetGeometry(geometryInterfaceID);
 
         //Groups of connected non-standard ResidueID
-        List<IEnumerable<ResidueID>> groups = new List<IEnumerable<ResidueID>>();
+        List<List<ResidueID>> groups = new List<List<ResidueID>>();
 
         //Get list of NSRs
         IEnumerable<(ResidueID, Residue)> residues = geometry.EnumerateResidues(x => x.state == RS.NONSTANDARD);
@@ -453,9 +670,9 @@ public static class NonStandardResidueTools {
             if (groups.Any(x => x.Any(y => y == residueID))) {continue;}
 
             //Add new NSR group
-            IEnumerable<ResidueID> group = new List<ResidueID>{residueID};
+            HashSet<ResidueID> group = new HashSet<ResidueID>{residueID};
 
-            groups.Add(GetResidueGroup(geometry, group, RS.NONSTANDARD).ToList());
+            groups.Add(geometry.GetConnectedResidueIDs(group, RS.NONSTANDARD).Select(x => x.Item1).ToList());
 
             numProcessedResidues++;
             if (Timer.yieldNow) {
@@ -884,84 +1101,6 @@ public static class NonStandardResidueTools {
         geometryInterfaceLeft.activeTasks--;
         geometryInterfaceRight.activeTasks--;
         NotificationBar.ClearTask(TID.MERGE_GEOMETRIES);
-    }
-
-    ///<summary>Grow a Residue Group based on connectivity by linking up neighbouring Residues with a particular Residue State.</summary>
-    ///<param name="geometry">Geometry containing Residue Group.</param>
-    ///<param name="group">Group containing initial Residue</param>
-    ///<param name="state">Target Residue State of Residue Group</param>
-    ///<remarks>Recursive function</remarks>
-    private static IEnumerable<ResidueID> GetResidueGroupRecursive(Geometry geometry, IEnumerable<ResidueID> group, RS state) {
-
-        int oldSize = group.Count();
-
-        List<ResidueID> neighbours = new List<ResidueID>();
-        foreach (ResidueID residueID in group) {
-            foreach (ResidueID neighbourID in geometry.residueDict[residueID].NeighbouringResidues()) {
-                if (
-                    geometry.residueDict[neighbourID].state == state && 
-                    !group.Contains(neighbourID)
-                ) {
-                    //Add to group if they're connected and have the target state
-                    neighbours.Add(neighbourID);
-                }
-            }
-        }
-        group = group.Union(neighbours);
-
-        int newSize = group.Count();
-
-        if (oldSize != newSize) {
-            group = GetResidueGroupRecursive(geometry, group, state);
-        }
-
-        CustomLogger.LogFormat(
-            EL.INFO, 
-            "Joining Residue Group: {0}", 
-            string.Join(", ", group)
-        );
-        
-        return group;
-    }
-
-    ///<summary>Grow a Residue Group based on connectivity by linking up neighbouring Residues with a particular Residue State.</summary>
-    ///<param name="geometry">Geometry containing Residue Group.</param>
-    ///<param name="group">Group containing initial Residue</param>
-    ///<param name="state">Target Residue State of Residue Group</param>
-    ///<param name="excludeList">HashSet of Residue IDs to exclude from Group</param>
-    ///<param name="depth">Maximum depth of neighbouring Residues to add. A negative value will allow all Residues to be searched</param>
-    private static IEnumerable<ResidueID> GetResidueGroup(
-        Geometry geometry, 
-        IEnumerable<ResidueID> group, 
-        RS state, 
-        HashSet<ResidueID> excludeList=null, 
-        int depth=-1
-    ) {
-
-        Stack<(int, ResidueID)> stack = new Stack<(int, ResidueID)>();
-        foreach (ResidueID residueID in group) {
-            stack.Push((0, residueID));
-        }
-
-        if (excludeList == null) {
-            excludeList = new HashSet<ResidueID>();
-        }
-
-        while (stack.Count != 0) {
-            (int currentDepth, ResidueID residueID) = stack.Pop();
-
-            if (excludeList.Contains(residueID) || currentDepth == depth) {continue;}
-
-            excludeList.Add(residueID);
-
-            yield return residueID;
-
-            foreach (ResidueID neighbourResidueID in geometry.GetResidue(residueID).NeighbouringResidues()) {
-                if (geometry.GetResidue(neighbourResidueID).state == state) {
-                    stack.Push((currentDepth + 1, neighbourResidueID));
-                }
-            }
-        }
     }
 
 }

@@ -193,6 +193,19 @@ public class Geometry : MonoBehaviour {
 		return newGeometry;
 	}
 
+	public Geometry Take(
+		Transform transform, 
+		Func<(PDBID pdbID, Atom Atom), bool> atomCondition
+	) {
+		Geometry newGeometry = PrefabManager.InstantiateGeometry(transform);
+		Parameters.Copy(this, newGeometry);
+		newGeometry.SetResidueDict(
+			residueDict
+				.ToDictionary(x => x.Key, x => x.Value.Take(newGeometry, atomCondition))
+		);
+		return newGeometry;
+	}
+
 	public Geometry CopyTo(Geometry newGeometry) {
 		Parameters.Copy(this, newGeometry);
 		newGeometry.missingResidues = missingResidues
@@ -391,6 +404,31 @@ public class Geometry : MonoBehaviour {
 		return links;
 	}
 
+	public IEnumerator UpdateFrom(
+		Geometry other, 
+		bool updatePositions=false,
+		bool updateCharges=false,
+		bool updateAmbers=false
+	) {
+		foreach ((AtomID atomID, Atom otherAtom) in other.EnumerateAtoms()) {
+			Atom thisAtom;
+			if (TryGetAtom(atomID, out thisAtom)) {
+				if (updatePositions) {
+					thisAtom.position = otherAtom.position.xyz;
+				}
+				if (updateCharges) {
+					thisAtom.partialCharge = otherAtom.partialCharge;
+				}
+				if (updateCharges) {
+					thisAtom.amber = otherAtom.amber;
+				}
+			}
+			if (Timer.yieldNow) {
+				yield return null;
+			}
+		}
+	}
+
 	public IEnumerator FitAgainst(Geometry other, List<AtomID> atomsToFit=null) {
 		//Translate and rotate these Atoms' positions to fit against other
 		//Can provide a List of AtomIDs to use
@@ -570,7 +608,7 @@ public class Geometry : MonoBehaviour {
 
 	}
 
-	///<summary>Enumerates the Atom that are linked to startAtomID.</summary>
+	///<summary>Enumerates the Atoms that are linked to startAtomID.</summary>
 	///<remarks>Used for separating each side of a bond for transformations.</remarks>
 	///<param name="startAtomID">AtomID of Atom to start expansion from.</param>
 	///<param name="excludeList">(optional) HashSet containing AtomIDs to discard. Search will stop at these AtomIDs.</param>
@@ -611,7 +649,7 @@ public class Geometry : MonoBehaviour {
 		}
 	}
 
-	///<summary>Enumerates the Atom that are linked to startAtomID.</summary>
+	///<summary>Enumerates the Atoms that are linked to startAtomID.</summary>
 	///<remarks>Used for separating each side of a bond for transformations.</remarks>
 	///<param name="startAtomID">AtomID of Atom to start expansion from.</param>
 	///<param name="excludeList">(optional) HashSet containing AtomIDs to discard. Search will stop at these AtomIDs.</param>
@@ -650,6 +688,288 @@ public class Geometry : MonoBehaviour {
 				stack.Push(((currentDepth + 1, neighbourID)));
 			}
 		}
+	}
+	
+	///<summary>Enumerates Residues Atom that are linked to startResidueIDs.</summary>
+    ///<param name="startResidueIDs">Group containing initial Residue</param>
+    ///<param name="state">Target Residue State of Residue Group</param>
+    ///<param name="excludeList">HashSet of Residue IDs to exclude from Group</param>
+    ///<param name="depth">Maximum depth of neighbouring Residues to add. A negative value will allow all Residues to be searched</param>
+    public IEnumerable<(ResidueID, int)> GetConnectedResidueIDs(
+        HashSet<ResidueID> startResidueIDs, 
+        RS state, 
+        HashSet<ResidueID> excludeList=null, 
+        int depth=-1
+    ) {
+
+        Stack<(int, ResidueID)> stack = new Stack<(int, ResidueID)>();
+        foreach (ResidueID residueID in startResidueIDs) {
+            stack.Push((0, residueID));
+        }
+
+        if (excludeList == null) {
+            excludeList = new HashSet<ResidueID>();
+        }
+
+        while (stack.Count != 0) {
+            (int currentDepth, ResidueID residueID) = stack.Pop();
+
+            if (excludeList.Contains(residueID) || currentDepth == depth) {continue;}
+
+            excludeList.Add(residueID);
+
+            yield return (residueID, currentDepth);
+
+            foreach (ResidueID neighbourResidueID in GetResidue(residueID).NeighbouringResidues()) {
+                if (GetResidue(neighbourResidueID).state == state) {
+                    stack.Push((currentDepth + 1, neighbourResidueID));
+                }
+            }
+        }
+    }
+
+	///<summary>Enumerates Residues Atom that are linked to startResidueIDs.</summary>
+    ///<param name="startResidueIDs">Group containing initial Residue</param>
+    ///<param name="state">Target Residue State of Residue Group</param>
+    ///<param name="excludeList">HashSet of Residue IDs to exclude from Group</param>
+    ///<param name="depth">Maximum depth of neighbouring Residues to add. A negative value will allow all Residues to be searched</param>
+    public IEnumerable<(Residue, ResidueID, int)> GetConnectedResidues(
+        HashSet<ResidueID> startResidueIDs, 
+        RS state, 
+        HashSet<ResidueID> excludeList=null, 
+        int depth=-1
+    ) {
+
+        Stack<(int, ResidueID)> stack = new Stack<(int, ResidueID)>();
+        foreach (ResidueID residueID in startResidueIDs) {
+            stack.Push((0, residueID));
+        }
+
+        if (excludeList == null) {
+            excludeList = new HashSet<ResidueID>();
+        }
+
+        while (stack.Count != 0) {
+            (int currentDepth, ResidueID residueID) = stack.Pop();
+
+            if (excludeList.Contains(residueID) || currentDepth == depth) {continue;}
+
+            excludeList.Add(residueID);
+
+			Residue connectedResidue;
+			if (!TryGetResidue(residueID, out connectedResidue)) {
+				continue;
+			}
+
+            yield return (connectedResidue, residueID, currentDepth);
+
+            foreach (ResidueID neighbourResidueID in GetResidue(residueID).NeighbouringResidues()) {
+                if (GetResidue(neighbourResidueID).state == state) {
+                    stack.Push((currentDepth + 1, neighbourResidueID));
+                }
+            }
+        }
+    }
+
+	///<summary>Enumerates the Residues whose Atoms are linked to startResidueID</summary>
+	///<param name="startResidueID">ResidueID of Residue to start expansion from.</param>
+	///<param name="excludeList">(optional) HashSet containing ResidueIDs to discard. Search will stop at these ResidueIDs.</param>
+	///<param name="depth">(optional) maximum distance to expand mask by. A negative value will mean all connected Residues are selected.</param>
+	public IEnumerable<ResidueID> GetConnectedResidueIDs(ResidueID startResidueID, HashSet<ResidueID> excludeList=null, int depth=-1) {
+
+		//Create a Stack and add the first Atom along with a depth of 1
+		Stack<(int, ResidueID)> stack = new Stack<(int, ResidueID)>();
+		stack.Push(ValueTuple.Create(1, startResidueID));
+
+		if (excludeList == null) {
+			excludeList = new HashSet<ResidueID>();
+		}
+
+		//Grow the mask until no more Residues are available
+		while (stack.Count != 0) {
+			//Current ResidueID to look at
+			(int currentDepth, ResidueID residueID) = stack.Pop();
+
+			//Skip if it's been seen, should be excluded or depth has been reached
+			if (excludeList.Contains(residueID) || currentDepth == depth) {continue;}
+
+			//This ResidueID is now seen
+			excludeList.Add(residueID);
+
+			//Yield the ResidueID
+			yield return residueID;
+
+			//Add all the neighbouring AtomIDs to the Stack
+			foreach (ResidueID neighbourID in GetResidue(residueID).NeighbouringResidues()) {
+				stack.Push((currentDepth + 1, neighbourID));
+			}
+		}
+	}
+
+	public IEnumerable<List<ResidueID>> GetGroupedResidues() {
+		
+        List<List<ResidueID>> groups = new List<List<ResidueID>>();
+		
+        foreach (ResidueID residueID in residueDict.Keys) {
+            // Check if residueID is grouped already
+            if (groups.Any(x => x.Any(y => y == residueID))) {continue;}
+
+			List<ResidueID> group = GetConnectedResidueIDs(residueID).ToList();
+
+            yield return group;
+
+			groups.Add(group);
+		}
+	}
+
+	public IEnumerator GetUserSelection(List<(AtomID, Atom)> selection, string initialSelectionString="all") {
+
+		MultiPrompt multiPrompt = MultiPrompt.main;
+
+		string defaultDescription = "Input Atoms selection:";;
+
+		multiPrompt.Initialise(
+			"Select Atoms", 
+			defaultDescription,
+			new ButtonSetup(text:"Confirm", action:() => {}),
+			new ButtonSetup(text:"Cancel", action:() => multiPrompt.Cancel()),
+			input:true
+		);
+
+		bool validInput = false;
+		while (!validInput) {
+			while (!multiPrompt.userResponded) {
+				yield return null;
+			}
+
+			if (multiPrompt.cancelled) {
+				break;
+			}
+
+			yield return null;
+
+			try {
+				selection = GetSelection(multiPrompt.inputField.text).ToList();
+			} catch {
+				multiPrompt.description.text = "Invalid selection string!";
+				multiPrompt.userResponded = false;
+				
+				IEnumerator ResetText() {
+					yield return new WaitForSeconds(5);
+					multiPrompt.description.text = defaultDescription;
+				}
+
+				StartCoroutine(ResetText());
+
+				continue;
+			}
+			validInput = true;
+		}
+		
+		multiPrompt.Hide();
+		
+		if (multiPrompt.cancelled) {
+			selection = null;
+		}
+	}
+
+	public IEnumerable<(AtomID, Atom)> GetSelection(string selectionString) {
+
+
+		Func<(AtomID, Atom), bool> GetSelector(string str) {
+			if (str.StartsWith("[")) {
+				// Element
+				str = str.TrimStart(new char[] {'['}).TrimEnd(new char[] {']'});
+				Element element;
+				if (!Constants.ElementMap.TryGetValue(str, out element)) {
+					throw new SystemException(string.Format(
+						"Element '{0}' not found!",
+						str
+					));
+				}
+				return x => x.Item1.pdbID.element == element;
+			} else if (str.StartsWith("{")) {
+				// AtomID
+				str = str.TrimStart(new char[] {'{'}).TrimEnd(new char[] {'}'});
+				AtomID atomID = AtomID.FromString(str);
+				return x => x.Item1 == atomID;
+			} else {
+				// ResidueID
+
+				if (str.Contains('-')) {
+					string[] residueIDstrings = str.Split(new char[] {'-'}, System.StringSplitOptions.RemoveEmptyEntries);
+					if (residueIDstrings.Length != 2) {
+						throw new SystemException(string.Format(
+							"Invalid number of range tokens (-) in string '{0}'!",
+							str
+						));
+					}
+					ResidueID startResidueID = ResidueID.FromString(residueIDstrings[0]);
+					ResidueID endResidueID = ResidueID.FromString(residueIDstrings[1]);
+
+					if (startResidueID.chainID != endResidueID.chainID) {
+						throw new SystemException(string.Format(
+							"Chains must be identical in range: '{0}'!",
+							str
+						));
+					}
+
+					if (startResidueID.residueNumber >= endResidueID.residueNumber) {
+						throw new SystemException(string.Format(
+							"Start Residue Number must be less than end Residue Number: '{0}'!",
+							str
+						));
+					}
+
+					List<ResidueID> residueIDs = new List<ResidueID> {startResidueID};
+					while (startResidueID != endResidueID) {
+						startResidueID = startResidueID.GetNextID();
+						residueIDs.Add(startResidueID);
+					}
+
+					return x => residueIDs.Contains(x.Item1.residueID);
+
+				} else {
+					ResidueID residueID = ResidueID.FromString(str.Trim());
+					return x => x.Item1.residueID == residueID;
+				}
+
+
+			}
+		}
+
+		void Interpret(IEnumerable<(AtomID, Atom)> selection, string str) {
+			if (str.StartsWith("&")) {
+				str = str.TrimStart(new char[] {'&'}).Trim();
+				if (str.StartsWith("!")) {
+					str = str.TrimStart(new char[] {'!'}).Trim();
+					var selector = GetSelector(str);
+					selection = selection.Where(x => !selector(x));
+				} else {
+					var selector = GetSelector(str);
+					selection = selection.Where(x => selector(x));
+				}
+			} else {
+				var selector = GetSelector(str);
+				selection.Concat(EnumerateAtoms().Where(x => selector(x)));
+			}
+		}
+
+		IEnumerable<(AtomID, Atom)> currentSelection = EnumerateAtoms();
+
+		if (string.Equals(selectionString, "all", StringComparison.CurrentCultureIgnoreCase)) {
+			return currentSelection;
+		}
+
+		string[] stringArray = selectionString.Split(new char[] {','}, System.StringSplitOptions.RemoveEmptyEntries);
+
+		foreach (string str in stringArray) {
+			string newStr = str.Trim();
+			Interpret(currentSelection, newStr);
+		}
+
+		return currentSelection;
+
 	}
 
 	///<summary>Returns the number of edges between two Atoms.</summary>
@@ -691,41 +1011,6 @@ public class Geometry : MonoBehaviour {
 
 		//No more Atoms to search => -1
 		return -1;
-	}
-
-	///<summary>Enumerates the Residues whose Atoms are linked to startResidueID</summary>
-	///<param name="startResidueID">ResidueID of Residue to start expansion from.</param>
-	///<param name="excludeList">(optional) HashSet containing ResidueIDs to discard. Search will stop at these ResidueIDs.</param>
-	///<param name="depth">(optional) maximum distance to expand mask by. A negative value will mean all connected Residues are selected.</param>
-	public IEnumerable<ResidueID> GetConnectedResidues(ResidueID startResidueID, HashSet<ResidueID> excludeList=null, int depth=-1) {
-
-		//Create a Stack and add the first Atom along with a depth of 1
-		Stack<(int, ResidueID)> stack = new Stack<(int, ResidueID)>();
-		stack.Push(ValueTuple.Create(1, startResidueID));
-
-		if (excludeList == null) {
-			excludeList = new HashSet<ResidueID>();
-		}
-
-		//Grow the mask until no more Residues are available
-		while (stack.Count != 0) {
-			//Current ResidueID to look at
-			(int currentDepth, ResidueID residueID) = stack.Pop();
-
-			//Skip if it's been seen, should be excluded or depth has been reached
-			if (excludeList.Contains(residueID) || currentDepth == depth) {continue;}
-
-			//This ResidueID is now seen
-			excludeList.Add(residueID);
-
-			//Yield the ResidueID
-			yield return residueID;
-
-			//Add all the neighbouring AtomIDs to the Stack
-			foreach (ResidueID neighbourID in GetResidue(residueID).NeighbouringResidues()) {
-				stack.Push((currentDepth + 1, neighbourID));
-			}
-		}
 	}
 
 	/// <summary>Change the distance between two Atoms.</summary>

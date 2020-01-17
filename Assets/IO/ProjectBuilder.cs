@@ -56,6 +56,12 @@ public class ProjectBuilder : MonoBehaviour {
         CreateFile(dataDirectory, "amberToElement", dataPath, "amberToElement.csv");
         CreateFile(dataDirectory, "pdbToElement", dataPath, "pdbToElement.csv");
 
+        string recipeDirectory = "Recipes";
+        string recipePath = Path.Combine(projectPath, recipeDirectory);
+
+        CreateDirectory(recipePath);
+        CreateFile(recipeDirectory, "resp", recipePath, "resp.xml");
+
         yield return Settings.Initialise(projectPath);
         yield return Data.Initialise();
 
@@ -74,7 +80,7 @@ public class ProjectBuilder : MonoBehaviour {
         
         if (!Directory.Exists(path)) {
             Directory.CreateDirectory(path);
-            SettingsBuilder.AddProgressText(string.Format("Created Directory: {0}", path));
+            SettingsBuilder.AddProgressText(string.Format("Created Directory: {0}{1}", path, FileIO.newLine));
         }
 
         string resourcePath = Path.Combine(resourceDirectory, resourceName);
@@ -86,7 +92,7 @@ public class ProjectBuilder : MonoBehaviour {
                 throw new System.Exception(string.Format("Cannot find TextAsset: {0}", resourcePath));
             }
             File.WriteAllText(fullPath, textAsset.text);
-            SettingsBuilder.AddProgressText(string.Format("Built Settings file: {0}", fileName));
+            SettingsBuilder.AddProgressText(string.Format("Built Settings file: {0}{1}", fileName, FileIO.newLine));
         }
     }
 }

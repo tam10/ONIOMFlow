@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!-- 
+
+# RESP Recipe
+
+# Calculations:
+# 1: opt=loose PM6 
+# 2: HF/6-31g(d) SCF=Conver=8 opt=tight 
+# 3: HF/6-31g(d) SCF=Conver=8 Pop=MK IOp(6/41=$(ESP_LAYERS),6/42=$(ESP_DENSITY),6/77=$(RESP_RESTRAINT))
+
+-->
+
+<recipe>
+    <!-- Number of processors to use in all calculations -->
+    <var id="NPROC">4</var>
+
+    <!-- Number of ESP Layers to use in ESP Calculation -->
+    <var id="ESP_LAYERS">10</var>
+
+    <!-- Density of ESP Fitting Points to use per ESP Layer in ESP Calculation -->
+    <var id="ESP_DENSITY">17</var>
+
+    <!-- Restraint on charge in ESP Calculation (use 0 for ESP) -->
+    <var id="RESP_RESTRAINT">50</var>
+
+    <group type="connected" name="residueGroup" source="$(GEOMETRY)">
+         
+        <action id="MoveToLayer">$(REAL)</action>
+        <action id="EstimateChargeMultiplicity" confirm="true" />
+        <action id="GenerateAtomMap" />
+
+        <run path="$(PROJECT)$(CHARGES_DIR)$(RESIDUES)_opt1" source="residueGroup">
+            <nproc>$(NPROC)</nproc>
+            <opt threshold="$(LOOSE)" />
+            <title>First Optimisation</title>
+            <layer id="$(REAL)" method="PM6" />
+            <prompt />
+            <updatePositions destination="residueGroup" />
+        </run>
+
+        <run path="$(PROJECT)$(CHARGES_DIR)$(RESIDUES)_opt2" source="residueGroup">
+            <nproc>$(NPROC)</nproc>
+            <opt threshold="$(TIGHT)" />
+            <title>Second Optimisation</title>
+            <layer id="$(REAL)" method="HF" basis="6-31g(d)" />
+            <keywords>SCF=Conver=8</keywords>
+            <updatePositions destination="residueGroup" />
+        </run>
+
+        <run path="$(PROJECT)$(CHARGES_DIR)$(RESIDUES)_charge" source="residueGroup">
+            <nproc>$(NPROC)</nproc>
+            <title>Charge Derivation</title>
+            <layer id="$(REAL)" method="HF" basis="6-31g(d)" />
+            <keywords>SCF=Conver=8 Pop=MK IOp(6/41=$(ESP_LAYERS),6/42=$(ESP_DENSITY),6/77=$(RESP_RESTRAINT))</keywords>
+            <updateCharges destination="$(GEOMETRY)" />
+        </run>
+
+        <action id="RedistributeCharge">
+            <distribution>0.4 0.3 0.2 0.1</distribution>
+        </action>
+        <action id="RoundCharge" />
+
+    </group>
+</recipe>

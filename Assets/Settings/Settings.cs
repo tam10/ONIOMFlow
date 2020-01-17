@@ -11,14 +11,13 @@ using ACID = Constants.AtomCheckerID;
 using TID = Constants.TaskID;
 using BT = Constants.BondType;
 using RS = Constants.ResidueState;
-using GICB = Constants.GeometryInterfaceCallbackID;
 using PDT = Constants.PropertyDisplayType;
 using RP = Constants.ResidueProperty;
 using CT = Constants.ConnectionType;
 using EL = Constants.ErrorLevel;
 using SIZE = Constants.Size;
 using OLID = Constants.OniomLayerID;
-using GIS = Constants.GeometryInterfaceStatus;
+using Amber = Constants.Amber;
 using UnityEditor;
 
 public static class Settings {
@@ -75,12 +74,29 @@ public static class Settings {
 	public static Parameters defaultParameters;
 
 	//REPRESENTATIONS
-	private static Color unknownColour = new Color(1.0f, 0.0f, 1.0f);
+	private static Color unknownColour = new Color(1.0f, 0.0f, 1.0f, 1.0f);
 	private static Dictionary<Element, Color> atomColours = new Dictionary<Element, Color> ();
 	public static Color GetAtomColourFromElement(Element element) {
 		Color colour;
 		return atomColours.TryGetValue(element, out colour) ? colour : unknownColour;
 	}
+
+	public static Color GetAtomColourFromCharge(float charge) {
+		if (charge > Settings.noChargeThreshold) {
+			return Color.Lerp(Settings.neutralColour, Settings.positiveColour, charge);
+		} else if (charge < -Settings.noChargeThreshold) {
+			return Color.Lerp(Settings.neutralColour, Settings.negativeColour, -charge);
+		} else {
+			return Settings.nochargeColour;
+		}
+	}
+
+	public static Color negativeColour = new Color(0f, 0f, 1f, 1f);
+	public static Color neutralColour = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+	public static Color positiveColour = new Color(1f, 0f, 0f, 1f);
+	public static Color nochargeColour = new Color(0.7f, 0.7f, 0.5f, 1f);
+
+	public static List<float> chargeDistributions = new List<float> {0.4f, 0.3f, 0.2f, 0.1f};
 
 	private static float unknownRadius = 1f;
 	private static Dictionary<Element, float> atomRadii = new Dictionary<Element, float> ();
@@ -143,10 +159,21 @@ public static class Settings {
 	//Elements that can connect to other residues
 	public static List<Element> nonStandardConnections = new List<Element> ();
 
+	private static Dictionary<string, Bash.ExternalCommand> externalCommands = new Dictionary<string, Bash.ExternalCommand>();
+	public static Bash.ExternalCommand GetExternalCommand(string name) {
+		Bash.ExternalCommand externalCommand;
+		if (!externalCommands.TryGetValue(name, out externalCommand)) {
+			throw new KeyNotFoundException(string.Format(
+				"Could not find external command: {0}", name
+			));
+		}
+		return externalCommand;
+	}
+
 	//GAUSSIAN
-	public static string gaussianVersion;
-	public static string gaussianEXEDIR;
-	public static string gaussianSCRDIR;
+//	public static string gaussianVersion;
+//	public static string gaussianEXEDIR;
+//	public static string gaussianSCRDIR;
 
 	//PROTONATION
 	private static string _tempFolder;
@@ -158,27 +185,27 @@ public static class Settings {
 		}
 		set {_tempFolder = value;}
 	}
-	private static string srProtonationBaseName;
-	public static string srProtonationPath;
-	public static string pdb2pqrCommand = "pdb2pqr";
-	public static List<string> pdb2pqrOptions;
-	public static float pH = 7.0f;
-	private static string nsrProtonationBaseName;
-	public static string nsrProtonationPath;
-	public static string reduceCommand = "reduce";
-	public static List<string> reduceOptions;
+//	private static string srProtonationBaseName;
+//	public static string srProtonationPath;
+//	public static string pdb2pqrCommand = "pdb2pqr";
+//	public static List<string> pdb2pqrOptions;
+//	public static float pH = 7.0f;
+//	private static string nsrProtonationBaseName;
+//	public static string nsrProtonationPath;
+//	public static string reduceCommand = "reduce";
+//	public static List<string> reduceOptions;
 
 	//AMBER TYPE
-	private static string antechamberCalcBaseName;
-	public static string antechamberCalcPath;
-	public static string antechamberCommand = "antechamber";
-	public static List<string> antechamberOptions;
+//	private static string antechamberCalcBaseName;
+//	public static string antechamberCalcPath;
+//	public static string antechamberCommand = "antechamber";
+//	public static List<string> antechamberOptions;
 
 	//AMBER PARAMETERS
-	private static string parmchkCalcBaseName;
-	public static string parmchkCalcPath;
-	public static string parmchkCommand = "parmchk2";
-	public static List<string> parmchkOptions;
+//	private static string parmchkCalcBaseName;
+//	public static string parmchkCalcPath;
+//	public static string parmchkCommand = "parmchk2";
+//	public static List<string> parmchkOptions;
 
 	//INTERACTIONS
 	public static Dictionary<string, List<PDBID>> positiveChargeSites = new Dictionary<string, List<PDBID>>();
@@ -190,7 +217,12 @@ public static class Settings {
 	public static string redCalcPath;
 	public static string redCommandPath;
 	public static string redDirectory;
+	public static string chargesDirectory;
 	public static string redChargesPath;
+
+	public static float noChargeThreshold = 0.0001f;
+	public static float partialChargeThreshold = 0.1f;
+	public static float integerChargeThreshold = 0.1f;
 
 	//WATER
 	public static string standardWaterResidueName = "HOH";
@@ -338,52 +370,60 @@ public static class Settings {
 		defaultParameters = PrefabManager.InstantiateParameters(null);
 		yield return PRMReader.ParametersFromAsset(defaultParametersFilename, defaultParameters);
 
+		foreach (XElement externalCommandX in pX.Element("externalCommands").Elements("externalCommand")) {
+			yield return Bash.ExternalCommand.FromXML(externalCommandX, externalCommands);
+		}
+
+		sX.Save(projectSettingsPath);
+
 		//GAUSSIAN
-		XElement gaussianX = pX.Element("gaussian");
-		gaussianVersion = FileIO.ParseXMLString(gaussianX, "version");
-		gaussianEXEDIR = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(gaussianX, "exeDir"));
-		gaussianSCRDIR = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(gaussianX, "scrDir"));
+//		XElement gaussianX = pX.Element("gaussian");
+//		gaussianVersion = FileIO.ParseXMLString(gaussianX, "version");
+//		gaussianEXEDIR = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(gaussianX, "exeDir"));
+//		gaussianSCRDIR = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(gaussianX, "scrDir"));
 
 		//PROTONATION
-		XElement protonationX = pX.Element("protonation");
+//		XElement protonationX = pX.Element("protonation");
 
 		//Get paths to write protonation files
-		srProtonationBaseName = FileIO.ParseXMLString(protonationX, "srProtonationBaseName");
-		srProtonationPath = Path.Combine(projectPath, srProtonationBaseName);
+//		srProtonationBaseName = FileIO.ParseXMLString(protonationX, "srProtonationBaseName");
+//		srProtonationPath = Path.Combine(projectPath, srProtonationBaseName);
+//
+//		nsrProtonationBaseName = FileIO.ParseXMLString(protonationX, "nsrProtonationBaseName");
+//		nsrProtonationPath = Path.Combine(projectPath, nsrProtonationBaseName);
+//
+//		//Get command and options
+//		XElement pdb2pqrX = protonationX.Element ("pdb2pqr");
+//		pdb2pqrCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(pdb2pqrX, "command"));
+//		pH = FileIO.ParseXMLFloat(pdb2pqrX, "pH");
+//		pdb2pqrOptions = FileIO.ParseXMLStringList(pdb2pqrX, "options", "option");
 
-		nsrProtonationBaseName = FileIO.ParseXMLString(protonationX, "nsrProtonationBaseName");
-		nsrProtonationPath = Path.Combine(projectPath, nsrProtonationBaseName);
+//      CHANGE THIS NEXT ^ THEN GAUSSIAN
 
-		//Get command and options
-		XElement pdb2pqrX = protonationX.Element ("pdb2pqr");
-		pdb2pqrCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(pdb2pqrX, "command"));
-		pH = FileIO.ParseXMLFloat(pdb2pqrX, "pH");
-		pdb2pqrOptions = FileIO.ParseXMLStringList(pdb2pqrX, "options", "option");
-
-		//Get command and options
-		XElement reduceX = protonationX.Element ("reduce");
-		reduceCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(reduceX, "command"));
-		reduceOptions = FileIO.ParseXMLStringList(reduceX, "options", "option");
-		
+//		//Get command and options
+//		XElement reduceX = protonationX.Element ("reduce");
+//		reduceCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(reduceX, "command"));
+//		reduceOptions = FileIO.ParseXMLStringList(reduceX, "options", "option");
+//		
 		//AMBER CALCULATION
-		XElement amberX = pX.Element("amberCalculation");
-		//Get path to write AMBER calculation files
-		antechamberCalcBaseName = FileIO.ParseXMLString(amberX, "antechamberCalcBaseName");
-		antechamberCalcPath = FileIO.ExpandEnvironmentVariables(Path.Combine(projectPath, antechamberCalcBaseName));
-		//Get command and options
-		XElement antechamberX = amberX.Element("antechamber");
-		antechamberCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(antechamberX, "command"));
-		antechamberOptions = FileIO.ParseXMLStringList(antechamberX, "options", "option");
+//		XElement amberX = pX.Element("amberCalculation");
+//		//Get path to write AMBER calculation files
+//		antechamberCalcBaseName = FileIO.ParseXMLString(amberX, "antechamberCalcBaseName");
+//		antechamberCalcPath = FileIO.ExpandEnvironmentVariables(Path.Combine(projectPath, antechamberCalcBaseName));
+//		//Get command and options
+//		XElement antechamberX = amberX.Element("antechamber");
+//		antechamberCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(antechamberX, "command"));
+//		antechamberOptions = FileIO.ParseXMLStringList(antechamberX, "options", "option");
 
-		//AMBER PARAMETERS
-		XElement amberParamsX = pX.Element("amberParameterCalculation");
-		//Get path to write AMBER Parameters calculation files
-		parmchkCalcBaseName = FileIO.ParseXMLString(amberParamsX, "parmchkCalcBaseName");
-		parmchkCalcPath = FileIO.ExpandEnvironmentVariables(Path.Combine(projectPath, parmchkCalcBaseName));
-		//Get command and options
-		XElement parmchkX = amberParamsX.Element("parmchk");
-		parmchkCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(parmchkX, "command"));
-		parmchkOptions = FileIO.ParseXMLStringList(parmchkX, "options", "option");
+//		//AMBER PARAMETERS
+//		XElement amberParamsX = pX.Element("amberParameterCalculation");
+//		//Get path to write AMBER Parameters calculation files
+//		parmchkCalcBaseName = FileIO.ParseXMLString(amberParamsX, "parmchkCalcBaseName");
+//		parmchkCalcPath = FileIO.ExpandEnvironmentVariables(Path.Combine(projectPath, parmchkCalcBaseName));
+//		//Get command and options
+//		XElement parmchkX = amberParamsX.Element("parmchk");
+//		parmchkCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(parmchkX, "command"));
+//		parmchkOptions = FileIO.ParseXMLStringList(parmchkX, "options", "option");
 
 		//PARTIAL CHARGES
 		XElement partialChargesX = pX.Element("partialCharges");
@@ -391,6 +431,7 @@ public static class Settings {
 		redCalcBaseName = FileIO.ParseXMLString(partialChargesX, "redBaseName");
 		redCalcPath = FileIO.ExpandEnvironmentVariables(Path.Combine(projectPath, redCalcBaseName));
 		redDirectory = Path.Combine(projectPath, FileIO.ParseXMLString(partialChargesX, "redDirectory"));
+		chargesDirectory = Path.Combine(projectPath, FileIO.ParseXMLString(partialChargesX, "chargesDirectory"));
 		redChargesPath = FileIO.ExpandEnvironmentVariables(Path.Combine(redDirectory, FileIO.ParseXMLString(partialChargesX, "redChargeFilename")));
 
 	}
@@ -429,10 +470,10 @@ public static class Settings {
 			
 			Element element = FileIO.GetConstant(elementX, "ID", Constants.ElementMap, true);
 
-			float red = FileIO.ParseXMLFloat(elementX, "red", 0f);
+			float red = FileIO.ParseXMLFloat(elementX, "red", 1f);
 			float green = FileIO.ParseXMLFloat(elementX, "green", 0f);
-			float blue = FileIO.ParseXMLFloat(elementX, "blue", 0f);
-			float alpha = FileIO.ParseXMLFloat(elementX, "alpha", 0f);
+			float blue = FileIO.ParseXMLFloat(elementX, "blue", 1f);
+			float alpha = FileIO.ParseXMLFloat(elementX, "alpha", 0.6f);
 			Color colour = new Color(red, green, blue, alpha);
 
 			float mass = FileIO.ParseXMLFloat(elementX, "mass", 1.0f);
@@ -522,6 +563,28 @@ public static class Settings {
 			ringSites[residueName] = ringList;
 		}
 
+		foreach (XElement formalChargeAtomX in atomsX.Element("formalCharges").Elements("atom")) {
+			string amber = FileIO.ParseXMLAttrString(formalChargeAtomX, "amber");
+
+			Dictionary<int, float> neighboursToCharges = new Dictionary<int, float>();
+
+			foreach (XElement entryX in formalChargeAtomX.Elements("entry")) {
+				int numNeighbours = FileIO.ParseXMLAttrInt(entryX, "neighbours");
+				float formalCharge = float.Parse(entryX.Value);
+
+				neighboursToCharges[numNeighbours] = formalCharge;
+			}
+
+			Data.formalChargesDict[AmberCalculator.GetAmber(amber)] = neighboursToCharges;
+		}
+
+		foreach (XElement aromaticAmberX in atomsX.Element("aromaticAmbers").Elements("entry")) {
+			string amber = FileIO.ParseXMLAttrString(aromaticAmberX, "amber");
+			float count = float.Parse(aromaticAmberX.Value);
+
+			Data.aromaticAmbers[AmberCalculator.GetAmber(amber)] = count;
+		}
+
 	}
 
 	private static IEnumerator GetTasksSettings() {
@@ -533,13 +596,33 @@ public static class Settings {
 		XDocument sX = FileIO.ReadXML (tasksSettingsPath);
 		XElement tasksX = sX.Element ("tasks");
 
+		Dictionary<string, string> parentNameToFullName = tasksX.Elements("parentClass")
+			.ToDictionary(
+				x => FileIO.ParseXMLString(x, "name"),
+				x => FileIO.ParseXMLString(x, "fullName")
+			);
+
 		foreach (XElement taskX in tasksX.Elements("task")) {
 			string parentClass = FileIO.ParseXMLString(taskX, "parentClass");
 
-			TID taskID = GetConstant(taskX, "name", Constants.TaskIDMap);
 
-			taskFullNameDict[taskID] = FileIO.ParseXMLString(taskX, "fullName");
-			taskDescriptionDict[taskID] = FileIO.ParseXMLString(taskX, "description");
+			try {
+				TID taskID = GetConstant(taskX, "name", Constants.TaskIDMap);
+				taskFullNameDict[taskID] = FileIO.ParseXMLString(taskX, "fullName");
+				taskDescriptionDict[taskID] = FileIO.ParseXMLString(taskX, "description");
+				string parentClassFullName;
+				if (!parentNameToFullName.TryGetValue(parentClass, out parentClassFullName)) {
+					throw new SystemException(string.Format(
+						"Parent Class '{0}' not found! Cannot add Task '{1}'",
+						parentClass,
+						taskID
+					));
+				}
+				taskParentClasses[taskID] = parentNameToFullName[parentClass];
+			} catch (SystemException e) {
+				FileIO.ThrowXMLError(taskX, tasksSettingsPath, "GetTasksSettings", e);
+				throw e;
+			}
 
 			if (Timer.yieldNow) {yield return null;}
 		}
@@ -657,13 +740,24 @@ public static class Settings {
         return taskDescription;
     }
 
+	public static Dictionary<TID, string> taskParentClasses = new Dictionary<TID, string>();
+	public static string GetTaskParentClass(TID taskID) {
+		string taskParentClass;
+		if (!taskParentClasses.TryGetValue(taskID, out taskParentClass)) {
+			return taskID.ToString();
+		}
+		return taskParentClass;
+	}
+
 
 	//CHECKERS
 
 	private static Dictionary<RCID, string> residueCheckerTitles = new Dictionary<RCID, string> {
-		{RCID.PROTONATED, "Protonated Residue Count"},
-		{RCID.PDBS_UNIQUE, "No Repeated PDB Names"},
-		{RCID.STANDARD, "Standard Residue Check"}
+		{RCID.PROTONATED, "Is Protonated"},
+		{RCID.PDBS_UNIQUE, "Has No Repeated PDB Names"},
+		{RCID.STANDARD, "Is Standard"},
+		{RCID.PARTIAL_CHARGES, "Has Partial Charges"},
+		{RCID.INTEGER_CHARGE, "Has Integer Charge"}
 	};
 	public static string GetResidueCheckerTitle(RCID residueCheckerID) {
 		string residueCheckerTitle;
@@ -680,7 +774,7 @@ public static class Settings {
 	private static Dictionary<ACID, string> atomCheckerTitles = new Dictionary<ACID, string> {
 		{ACID.HAS_PDB, "Element has PDB Type"},
 		{ACID.HAS_AMBER, "Element has AMBER Type"},
-		{ACID.PDBS_ALPHANUM, "PBDs have no special characters"}
+		{ACID.PDBS_ALPHANUM, "PBD has no special characters"}
 	};
 	public static string GetAtomCheckerTitle(ACID atomCheckerID) {
 		string atomCheckerTitle;
@@ -696,7 +790,9 @@ public static class Settings {
 	private static Dictionary<RCID, string> residueCheckerDescriptions = new Dictionary<RCID, string> {
 		{RCID.PROTONATED, "Get the number of protonated residues"},
 		{RCID.PDBS_UNIQUE, "Check there are no repeated PDB names in residues"},
-		{RCID.STANDARD, "Check that each residue has the required Residue and PDB Names"}
+		{RCID.STANDARD, "Check that each residue has the required Residue and PDB Names"},
+		{RCID.PARTIAL_CHARGES, "Check that each residue has Partial Charges"},
+		{RCID.INTEGER_CHARGE, "Check that each residue has an integer Total Charge"}
 	};
 	public static string GetResidueCheckerDescription(RCID residueCheckerID) {
 		string residueCheckerDescription;

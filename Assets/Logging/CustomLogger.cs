@@ -11,12 +11,14 @@ public static class CustomLogger {
     
     private static StreamWriter logStream;
     private static string _logPath;
+    private static bool open = false;
     public static string logPath {
         get {return _logPath;}
         set {
             _logPath = value;
             File.Delete(_logPath);
             logStream = new StreamWriter(File.Open(_logPath, System.IO.FileMode.Create));
+            open = true;
             logStream.Write(string.Format("Initialised at [{0}]{1}", DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss"), FileIO.newLine));
             logStream.Flush();
         }
@@ -36,6 +38,7 @@ public static class CustomLogger {
             try {
                 logStream.Write(string.Format("Process closed{0}", FileIO.newLine));
             } catch {}
+            open = false;
             logStream.Flush();
             logStream.Close();
         }
@@ -43,10 +46,10 @@ public static class CustomLogger {
     #endif
 
     static void Close(object sender, EventArgs e) {
-        Debug.Log("STOP");
         try {
             logStream.Write(string.Format("Process closed{0}", FileIO.newLine));
         } catch {}
+        open = false;
         logStream.Flush();
         logStream.Close();
     }
@@ -63,6 +66,7 @@ public static class CustomLogger {
     };
 
     public static void Log(EL errorLevel, string message) {
+        if (!open) {return;}
         if (errorLevel <= logErrorLevel) {
             logStream.Write(
                 "[{0}]: [{1}] {2}{3}",
@@ -98,12 +102,14 @@ public static class CustomLogger {
     //Use the messageDelegate version of Log if evaluation is required.
     //This means it only evaluates if the error level is low enough
     public static void Log(EL errorLevel, Func<string> messageDelegate) {
+        if (!open) {return;}
         if (errorLevel <= logErrorLevel) {
             Log(errorLevel, messageDelegate());
         }
     }
 
     public static void LogFormat(EL errorLevel, string format, params object[] args) {
+        if (!open) {return;}
 
         string message = string.Format(format, args);
         if (errorLevel <= logErrorLevel) {
@@ -140,16 +146,25 @@ public static class CustomLogger {
     }
 
     public static void LogOutput(string message) {
+        if (!open) {return;}
         logStream.Write(message + FileIO.newLine);
+        logStream.Flush();
+    }
+
+    public static void LogOutput(object messageObj) {
+        if (!open) {return;}
+        logStream.Write(messageObj.ToString() + FileIO.newLine);
         logStream.Flush();
     }
     
     public static void LogOutput(string format, params object[] args) {
+        if (!open) {return;}
         logStream.Write(string.Format(format, args) + FileIO.newLine);
         logStream.Flush();
     }         
 
     public static void LogFormat(EL errorLevel, string format, Func<object[]> argsDelegate) {
+        if (!open) {return;}
         if (errorLevel <= logErrorLevel) {
             LogFormat(errorLevel, format, argsDelegate());
         }

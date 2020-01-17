@@ -244,7 +244,7 @@ public class Sphere : MonoBehaviour {
 		
         int numVertices = numVerticesPerAtom * numAtoms;
         int numTriangles = numTrianglesPerAtom * numAtoms;
-        int numTris = 3 *numTriangles;
+        int numTris = 3 * numTriangles;
 
 		//Do some checks
 		if (numAtoms != radiiArray.Length) {
@@ -307,6 +307,20 @@ public class Sphere : MonoBehaviour {
 		radii.Dispose();
 		atomColours.Dispose();
 
+	}
+
+	public void SetMeshColours(
+		Mesh mesh,
+		int numAtoms,
+		Color[] atomColoursArray
+	) {
+		Color[] meshColours = new Color[numAtoms * numVerticesPerAtom];
+		int vertexIndex = 0;
+		for (int atomNum = 0; atomNum < numAtoms; atomNum++) {
+			for (int vertexNum = 0; vertexNum < numVerticesPerAtom; vertexNum++) {
+				meshColours[vertexIndex++] = atomColoursArray[atomNum];
+			}
+		}
 	}
 
 	/// <summary>Job container to generate spheres</summary>

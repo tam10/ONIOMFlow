@@ -21,17 +21,17 @@ public static class FileReader {
 		switch (filetype) {
 		case ".com": 
 		case ".gjf":
-			return new GaussianInputReader(geometry).GeometryFromFile (path, geometry);
+			return new GaussianInputReader(geometry).GeometryFromFile (path);
 		case ".log":
-			return GaussianOutputReader.GeometryFromGaussianOutput (path, geometry);
+			return new GaussianOutputReader(geometry).GeometryFromFile (path);
 		case ".pdb":
-			return new PDBReader(geometry).GeometryFromFile (path, geometry);
+			return new PDBReader(geometry).GeometryFromFile (path);
 		case ".pqr":
-			return new PQRReader(geometry).GeometryFromFile (path, geometry);
+			return new PQRReader(geometry).GeometryFromFile (path);
 		case ".xat":
 			return XATReader.GeometryFromXATFile (path, geometry);
 		case ".mol2":
-			return new Mol2Reader(geometry).GeometryFromFile(path, geometry);
+			return new Mol2Reader(geometry).GeometryFromFile(path);
 		default:
 			throw new ErrorHandler.FileTypeNotRecognisedException (string.Format("Filetype {0} not recognised", filetype), filetype);
 		}
@@ -47,18 +47,53 @@ public static class FileReader {
 		switch (filetype) {
 		case ".com":
 		case ".gjf":
-			return new GaussianInputReader(geometry).GeometryFromAsset (asset, geometry);
+			return new GaussianInputReader(geometry).GeometryFromAsset (asset);
 		case ".pdb":
-			return new PDBReader(geometry).GeometryFromAsset (asset, geometry);
+			return new PDBReader(geometry).GeometryFromAsset (asset);
 		case ".pqr":
-			return new PQRReader(geometry).GeometryFromAsset (asset, geometry);
+			return new PQRReader(geometry).GeometryFromAsset (asset);
 		case ".xat":
 			return XATReader.GeometryFromAsset (asset, geometry);
 		case ".mol2":
-			return new Mol2Reader(geometry).GeometryFromAsset(asset, geometry);
+			return new Mol2Reader(geometry).GeometryFromAsset(asset);
 		default:
 			throw new ErrorHandler.FileTypeNotRecognisedException (string.Format("Filetype {0} not recognised", filetype), filetype);
 		}
+	}
+
+	public static IEnumerator UpdateGeometry(
+		Geometry geometry, 
+		string path,
+        bool updateAmbers=false, 
+        bool updateCharges=false, 
+        bool updatePositions=false, 
+        Map<AtomID, int> atomMap=null
+	) {
+		
+		Geometry tempGeometry = PrefabManager.InstantiateGeometry(null);
+
+		tempGeometry.atomMap = atomMap ?? geometry.atomMap;
+
+		yield return LoadGeometry(tempGeometry, path);
+
+        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+            Atom tempAtom;
+            if (tempGeometry.TryGetAtom(atomID, out tempAtom)) {
+                if (updateAmbers) {
+                    atom.amber = tempAtom.amber;
+                }
+                if (updateCharges) {
+                    atom.partialCharge = tempAtom.partialCharge;
+                }
+                if (updatePositions) {
+                    atom.position = tempAtom.position;
+                }
+            }
+			if (Timer.yieldNow) {
+				yield return null;
+			}
+        }
+
 	}
 
 	/// <summary>
@@ -69,7 +104,7 @@ public static class FileReader {
 	/// <param name="loaderName">(optional) the class that is using this method.</param>
 	/// <returns>IEnumerator</returns>
 	public static IEnumerator LoadGeometry(Geometry geometry, string path, string loaderName=null) {
-		
+
 		IEnumerator atomLoader = GetGeometryLoader(geometry, path);
 		
 		while (true) {

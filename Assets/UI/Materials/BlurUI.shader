@@ -55,12 +55,11 @@
                 sampler2D _GrabTexture;
                 float4 _GrabTexture_TexelSize;
                 float _Radius;
-                half4 frag(v2f i) : COLOR
-                {
+                half4 frag(v2f i) : COLOR {
                     half4 sum = half4(0,0,0,0);
                     #define GRABXYPIXEL(kernelx, kernely) tex2Dproj( _GrabTexture, UNITY_PROJ_COORD(float4(i.uvgrab.x + _GrabTexture_TexelSize.x * kernelx, i.uvgrab.y + _GrabTexture_TexelSize.y * kernely, i.uvgrab.z, i.uvgrab.w)))
                     sum += GRABXYPIXEL(0.0, 0.0);
-                    int measurments = 1;
+                    int measurements = 1;
                    
                     for (float range = 0.1f; range <= _Radius; range += 0.1f)
                     {
@@ -68,9 +67,9 @@
                         sum += GRABXYPIXEL(range, -range);
                         sum += GRABXYPIXEL(-range, range);
                         sum += GRABXYPIXEL(-range, -range);
-                        measurments += 4;
+                        measurements += 4;
                     }
-                    return sum / measurments * i.color;
+                    return sum / measurements * i.color;
                 }
                 ENDCG
             }

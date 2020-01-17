@@ -52,16 +52,14 @@ public class RedOptions : MonoBehaviour {
 
     public Dictionary<string, string> GetResults() {
 
-        Dictionary<string, string> results = new Dictionary<string, string>();
-
-        results[numProcRedName] = numProcInput.text;
-        results[optimiseRedName] = boolDict[optimiseToggle.isOn];
-        results[mepRedName] = boolDict[mepToggle.isOn];
-        results[qmSoftRedName] = qmSoftwareDict[qmSoftwareDropdown.options[qmSoftwareDropdown.value].text];
-        results[chrCorRedName] = chrCorDict[chargeCorrectionDropdown.options[chargeCorrectionDropdown.value].text];
-        results[chrTypeRedName] = chrTypeDict[chargeTypeDropdown.options[chargeTypeDropdown.value].text];
-
-        return results;
+        return new Dictionary<string, string> {
+            {numProcRedName, numProcInput.text},
+            {optimiseRedName, boolDict[optimiseToggle.isOn]},
+            {mepRedName, boolDict[mepToggle.isOn]},
+            {qmSoftRedName, qmSoftwareDict[qmSoftwareDropdown.options[qmSoftwareDropdown.value].text]},
+            {chrCorRedName, chrCorDict[chargeCorrectionDropdown.options[chargeCorrectionDropdown.value].text]},
+            {chrTypeRedName, chrTypeDict[chargeTypeDropdown.options[chargeTypeDropdown.value].text]}
+        };
     }
 
     public void SetDefaults() {

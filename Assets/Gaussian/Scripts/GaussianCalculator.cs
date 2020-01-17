@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Text;
 using System;
+using System.Linq;
 using OLID = Constants.OniomLayerID;
 using GPL = Constants.GaussianPrintLevel;
 using GOT = Constants.GaussianOptTarget;
@@ -116,8 +117,6 @@ public class GaussianCalculator : MonoBehaviour {
 		{
 			OLID.REAL, 
 			new Layer(
-				method:"AMBER",
-				options:new List<string>{"softfirst"},
 				oniomLayer:OLID.REAL
 			)
 		}
@@ -156,20 +155,6 @@ public class GaussianCalculator : MonoBehaviour {
 		parent = geometry;
 	}
 
-	public static void MakeGaussianAvailable() {
-		Environment.SetEnvironmentVariable("EXEDIR", Settings.gaussianEXEDIR);
-		Environment.SetEnvironmentVariable("SCRDIR", Settings.gaussianSCRDIR);
-
-		string path = Environment.GetEnvironmentVariable("PATH");
-		path = path != null ? path : "";
-		if (!path.Contains(Settings.gaussianEXEDIR)) {
-			Environment.SetEnvironmentVariable(
-				"PATH", 
-				string.Format("{0}:{1}", path, Settings.gaussianEXEDIR)
-			);
-		}
-	}
-
 	public void AddLayer(string method="", string basis="", List<string> options=null, OLID oniomLayer=OLID.REAL, int charge=0, int multiplicity=0 ) {
 		Layer layer = new Layer(method, basis, options, oniomLayer, charge, multiplicity);
 		layerDict[oniomLayer] = layer;
@@ -187,6 +172,133 @@ public class GaussianCalculator : MonoBehaviour {
 		oniomLayers.Reverse();
 		return oniomLayers;
 		
+	}
+
+	
+	
+    public IEnumerator EstimateChargeMultiplicity(bool getChargesFromUser) {
+
+		foreach ((OLID oniomLayerID, Layer layer) in layerDict) {
+			Geometry tempGeometry = layer.GenerateLayerGeometry(parent, null);
+
+			if (tempGeometry.size == 0) {
+				layer.charge = 0;
+				layer.multiplicity = 1;
+				continue;
+			}
+
+			int formalCharge;
+			int multiplicity;
+        	(formalCharge, multiplicity) = Data.PredictChargeMultiplicity(tempGeometry);
+			
+			//Very uncommon to have a doublet - increment or decrement the formal charge
+			if (multiplicity == 2) {
+
+				//Slightly more likely that the charge is overestimated to be 0
+				if (formalCharge < 0) {
+					formalCharge++;
+				} else {
+					formalCharge--;
+				}
+
+				//Set back to singlet multiplicity
+				multiplicity = 1;
+			}
+			
+			layer.charge = formalCharge;
+			layer.multiplicity = multiplicity;
+
+			if (getChargesFromUser) {
+				// Get user to confirm or edit charges
+				MultiPrompt multiPrompt = MultiPrompt.main;
+
+				multiPrompt.Initialise(
+					"Set Charge/Multiplicity", 
+					string.Format(
+						"Set the charge and multiplicity, separated by a space, for ({0}).",
+						tempGeometry.name
+					), 
+					new ButtonSetup(text:"Confirm", action:() => {}),
+					new ButtonSetup(text:"Skip", action:() => multiPrompt.Cancel()),
+					input:true
+				);
+
+				multiPrompt.inputField.text = string.Format(
+					"{0} {1}", 
+					layer.charge, 
+					layer.multiplicity 
+				);
+
+				// While loop until a valid input format is given
+				// Two integers separated by a space
+				// e.g. '0 1', '-1 2' e.t.c
+				bool validInput = false;
+				while (!validInput) {
+
+					//Wait for user response
+					while (!multiPrompt.userResponded) {
+						yield return null;
+					}
+
+					if (multiPrompt.cancelled) {
+						continue;
+					}
+
+					yield return null;
+
+					//Check input here
+					string input = multiPrompt.inputField.text;
+					string[] split = input.Split(new char[] {' '});
+					if (split.Count() != 2) {
+						multiPrompt.description.text = "Input must be two integers separated by a string!";
+						multiPrompt.userResponded = false;
+						continue;
+					}
+					if (!int.TryParse(split[0], out formalCharge)) {
+						multiPrompt.description.text = "Input must be two integers separated by a string!";
+						multiPrompt.userResponded = false;
+						continue;
+					}
+					if (!int.TryParse(split[1], out multiplicity)) {
+						multiPrompt.description.text = "Input must be two integers separated by a string!";
+						multiPrompt.userResponded = false;
+						continue;
+					}
+					validInput = true;
+				}
+
+				multiPrompt.Hide();
+
+				if (multiPrompt.cancelled) {
+					continue;
+				}
+			}
+			
+			layer.charge = formalCharge;
+			layer.multiplicity = multiplicity;
+
+		}
+    }
+
+	public static Bash.ExternalCommand GetGaussian() {
+		Bash.ExternalCommand gaussian;
+		foreach (string version in new List<string> {"g16", "g09", "g03"}) {
+			try {
+				CustomLogger.LogFormat(
+					EL.VERBOSE,
+					"Checking Gaussian version '{0}'",
+					version
+				);
+				gaussian = Settings.GetExternalCommand(version);
+				CustomLogger.LogFormat(
+					EL.VERBOSE,
+					"Gaussian version '{0}' available",
+					version
+				);
+				return gaussian;
+			} catch (KeyNotFoundException) {}
+		}
+		return null;
 	}
 }
 
@@ -239,6 +351,18 @@ public class Layer {
 		return sb.ToString();
 	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 //UNUSED
@@ -430,4 +554,7 @@ public class Layers {
 		}
 		return string.Format ("Layers: {0}", sb.ToString());
 	}
+
+
+
 }

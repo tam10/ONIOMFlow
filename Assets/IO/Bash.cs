@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
+using System.Xml.Linq;
 using EL = Constants.ErrorLevel;
+using TID = Constants.TaskID;
 using System.Threading.Tasks;
 using System.Text;
 
@@ -170,8 +171,6 @@ public static class Bash {
 		command = string.Format ("-c \'{0}\'", command);
 		directory = directory == "" ? Settings.tempFolder : directory;
 
-		CustomLogger.Log(EL.INFO, directory);
-
         using (Process process = new Process()) {
             process.StartInfo.FileName = "/bin/bash";
 			process.StartInfo.WorkingDirectory = directory;
@@ -292,7 +291,6 @@ public static class Bash {
 					
             }
         }
-
     }
 
 
@@ -301,4 +299,256 @@ public static class Bash {
         public int? ExitCode = -1;
         public string Output = "";
     }
+
+	public class ExternalCommand {
+
+		string name;
+		string command;
+		string commandFormat;
+		string commandPath;
+		string workingDirectory;
+		string basename;
+		string inputFileFormat;
+		string outputFileFormat;
+
+		string inputSuffix;
+		string outputSuffix;
+		string suffix;
+
+		List<string> options;
+		Dictionary<string, string> environmentVariables;
+
+
+		public string GetWorkingPath() => Path.Combine(Settings.projectPath, workingDirectory);
+		public string GetInputName() => basename + suffix + inputSuffix + inputFileFormat;
+		public string GetOutputName() => basename + suffix + outputSuffix + outputFileFormat;
+		public string GetFailedOutputName() => basename + suffix + outputSuffix + "_failed." + outputFileFormat;
+		public string GetInputPath() => Path.Combine(GetWorkingPath(), GetInputName());
+		public string GetOutputPath() => Path.Combine(GetWorkingPath(), GetOutputName());
+		public string GetFailedOutputPath() => Path.Combine(GetWorkingPath(), GetFailedOutputName());
+
+		public string GetExecutable() => Path.Combine(commandPath, command);
+		public string GetCommand(string inputPath=null, string outputPath=null) {
+			string OPTIONS = string.Join(" ", options);
+			string IN = inputPath ?? GetInputPath();
+			string OUT = outputPath ??  GetOutputPath();
+			return commandFormat
+				.Replace("{COMMAND}", GetExecutable())
+				.Replace("{OPTIONS}", string.Join(" ", options))
+				.Replace("{IN}", GetInputPath())
+				.Replace("{OUT}", GetOutputPath());
+		}
+		public bool succeeded => result.ExitCode == 0;
+		public ProcessResult result;
+
+		public ExternalCommand(
+			string name,
+			string command,
+			string commandPath,
+			string commandFormat,
+			string workingDirectory,
+			string basename,
+			string inputFileFormat,
+			string outputFileFormat,
+			string inputSuffix,
+			string outputSuffix,
+			List<string> options,
+			Dictionary<string, string> environmentVariables
+		) {
+
+			this.name = name;	
+			this.command = command;	
+			this.commandPath = commandPath;
+			this.commandFormat = commandFormat;	
+			this.workingDirectory = workingDirectory;	
+			this.basename = basename;	
+			this.inputFileFormat = inputFileFormat;	
+			this.outputFileFormat = outputFileFormat;
+			this.inputSuffix = inputSuffix;
+			this.outputSuffix = outputSuffix;
+			this.options = options;	
+			this.environmentVariables = environmentVariables;	
+		}
+
+		public static IEnumerator FromXML(XElement externalCommandX, Dictionary<string, ExternalCommand> externalCommands) {
+			
+			string ProcessFormat(string input) {
+				return string.IsNullOrWhiteSpace(input) 
+					? "" 
+					: input.StartsWith(".")
+						? input
+						: "." + input;
+			}
+
+			string name = FileIO.ParseXMLAttrString(externalCommandX, "name", "");
+			if (string.IsNullOrWhiteSpace(name)) {
+				throw new System.Exception("name attribute is missing in external command!");
+			}
+
+			string command = FileIO.ParseXMLString(externalCommandX, "command", "");
+			string commandPath = FileIO.ParseXMLString(externalCommandX, "commandPath", "");
+
+			string commandFormat = FileIO.ParseXMLString(externalCommandX, "commandFormat", "{COMMAND} {OPTIONS} {IN} {OUT}");
+			string workingDirectory = FileIO.ParseXMLString(externalCommandX, "workingDirectory", "");
+
+			string inputFileFormat = ProcessFormat(
+				FileIO.ParseXMLString(externalCommandX, "inputFileFormat", "")
+			);
+			string outputFileFormat = ProcessFormat(
+				FileIO.ParseXMLString(externalCommandX, "outputFileFormat", "")
+			);
+
+			string inputSuffix = FileIO.ParseXMLString(externalCommandX, "inputSuffix", "");
+			string outputSuffix = FileIO.ParseXMLString(externalCommandX, "outputSuffix", "");
+
+			string basename = FileIO.ParseXMLString(externalCommandX, "basename", "geo");
+
+			List<string> options;
+			try {
+				options = FileIO.ParseXMLStringList(externalCommandX, "options", "option");
+			} catch {
+				options = new List<string>();
+			}
+
+			Dictionary<string, string> environmentVariables;
+			try {
+				environmentVariables = FileIO.ParseXMLStringDictionary(externalCommandX, "environmentVariables", "var", "key");
+			} catch {
+				environmentVariables = new Dictionary<string, string>();
+			}
+
+			ExternalCommand externalCommand = new ExternalCommand(
+				name,
+				command,
+				commandPath,
+				commandFormat,
+				workingDirectory,
+				basename,
+				inputFileFormat,
+				outputFileFormat,
+				inputSuffix,
+				outputSuffix,
+				options,
+				environmentVariables
+			);
+
+			string workingPath = externalCommand.GetWorkingPath();
+			if (!Directory.Exists(workingPath)) {
+				Directory.CreateDirectory(workingPath);
+			}
+
+			if (string.IsNullOrWhiteSpace(command) || !CommandExists(externalCommand.GetExecutable())) {
+				yield return externalCommand.UserSetCommandPath();
+				if (command != "") {
+					externalCommandX.Add(new XElement("command", externalCommand.command));
+					externalCommandX.Add(new XElement("commandPath", externalCommand.commandPath));;
+				} else {
+					yield break;
+				}
+			}
+
+			externalCommands[name] = externalCommand;
+		}
+
+		public bool CheckCommand() {
+			if (string.IsNullOrWhiteSpace(command)) {return false;}
+			if (!CommandExists(GetExecutable())) {return false;}
+			return Bash.CommandExists(command);
+		}
+
+		IEnumerator UserSetCommandPath() {
+			FileSelector fileSelector = FileSelector.main;
+			
+			yield return fileSelector.Initialise(string.Format("Select executable file: {0}", name));
+			//Wait for user response
+
+			string path = "";
+			while (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) {
+				while (!fileSelector.userResponded) {
+					yield return null;
+				}
+
+				if (fileSelector.cancelled) {
+					command = "";
+					commandPath = "";
+					yield break;
+				}
+
+				//Got a non-cancelled response from the user
+				path = fileSelector.confirmedText;
+			}
+			GameObject.Destroy(fileSelector.gameObject);
+
+			command = Path.GetFileName(path);
+			commandPath = Path.GetDirectoryName(path);
+		}
+
+		public void SetSuffix(string suffix) {
+			this.suffix = suffix;
+		}
+
+		public void Initialise() {
+			foreach ((string key, string value) in environmentVariables) {
+				System.Environment.SetEnvironmentVariable(key, value);
+			}
+		}
+
+		public IEnumerator Execute(
+			TID taskID, 
+			bool writeConnectivity,
+			bool logOutput,
+			bool logError,
+			float waitTime,
+			string inputPath=null,
+			string outputPath=null
+		) {
+				
+        	NotificationBar.SetTaskProgress(taskID, 0f);
+			
+			result = new ProcessResult();
+
+			IEnumerator processEnumerator = ExecuteShellCommand(
+				GetCommand(inputPath, outputPath), 
+				result, 
+				GetWorkingPath(), 
+				logOutput, 
+				logError
+			);
+			
+			float progress = 0.1f;
+			while (processEnumerator.MoveNext()) {
+				//Show that external command is running
+				NotificationBar.SetTaskProgress(taskID, progress);
+				progress = progress < 0.9f? progress + 0.01f : progress;
+				yield return new WaitForSeconds(waitTime);
+			}
+
+
+			if (result.ExitCode != 0) {
+				CustomLogger.LogFormat(
+					EL.ERROR,
+					"{0} failed!", 
+					command
+				);
+			}
+			NotificationBar.ClearTask(taskID);
+
+		}
+
+		public IEnumerator WriteInputAndExecute(
+			Geometry geometry, 
+			TID taskID, 
+			bool writeConnectivity,
+			bool logOutput,
+			bool logError,
+			float waitTime,
+			string inputPath=null,
+			string outputPath=null
+		) {	
+
+			yield return FileWriter.WriteFile(geometry, GetInputPath(), writeConnectivity);
+			yield return Execute(taskID, writeConnectivity, logOutput, logError, waitTime, inputPath, outputPath);
+
+		}
+	}
 }

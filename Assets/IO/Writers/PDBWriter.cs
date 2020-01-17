@@ -73,11 +73,10 @@ public static class PDBWriter {
 				(ResidueID residueID, PDBID pdbID) = atomMap[atomNum];
 				Residue residue = geometry.GetResidue(residueID);
 				float3 position = residue.atoms[pdbID].position;
-				atomNum++;
 				sb.Append (
 					string.Format (
 						format,
-						atomNum,
+						atomNum + 1,
 						pdbID,
 						residue.residueName,
 						residue.chainID,

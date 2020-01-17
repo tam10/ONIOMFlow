@@ -39,10 +39,10 @@
             float4 frag (v2f i) : SV_Target {
                 float4 col;
                 half3 worldViewDir = normalize(UnityWorldSpaceViewDir(i.worldPos));
-                half a = 1 - abs(dot(normalize(i.worldNormal), worldViewDir));
+                half a = 1 - (dot(i.worldNormal, worldViewDir));
 
                 col = i.vertexColor;
-                col.a = col.a * a;
+                col.a = col.a * a * a;
                 return col;
 
             }

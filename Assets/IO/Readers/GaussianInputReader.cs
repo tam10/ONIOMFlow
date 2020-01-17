@@ -9,64 +9,27 @@ using Unity.Mathematics;
 using BT = Constants.BondType;
 using OLID = Constants.OniomLayerID;
 using EL = Constants.ErrorLevel;
+using Amber = Constants.Amber;
 
 public class GaussianInputReader : GeometryReader {
 
-	static bool readConnectivity = false;
-	
-	//Map the Gaussian index to AtomID for connectivity
-	static bool generateAtomMap;
-	static Map<AtomID, int> atomMap;
+	bool readConnectivity = false;
 
-	static int index;
-
-	delegate void LineParser(Geometry geometry);
-	LineParser activeParser;
-
-	static bool failed;
-
-	static List<string> keywordsList;
-	static List<string> titleLines;
+	List<string> keywordsList;
+	List<string> titleLines;
 
 	public GaussianInputReader(Geometry geometry) {
 
 		commentString = "!";
 
-		if (geometry == null) {
-			CustomLogger.Log(
-				EL.ERROR,
-				"Cannot load into Geometry - Geometry is null!"
-			);
-			return;
-		}
+		this.geometry = geometry;
 		
 		keywordsList = new List<string>();
 		failed = false;
+
 		geometry.gaussianCalculator.SetGeometry(geometry);
 
-		ExpectLink0();
-	}
-	
-	public override bool ParseLine(Geometry geometry) {
-		if (failed || activeParser == null) {
-			return false;
-		}
-
-		try {
-			activeParser(geometry);
-		} catch (System.Exception e) {
-			FileReader.ThrowFileReaderError(
-				path,
-				lineNumber,
-				charNum,
-				activeParser.Method.Name,
-				line,
-				e
-			);
-			failed = true;
-			return false;
-		}
-		return true;
+		activeParser = ParseLink0;
 	}
 
 	void ExpectLink0() {
@@ -87,16 +50,8 @@ public class GaussianInputReader : GeometryReader {
 		activeParser = ParseChargeMultiplicity;
 	}
 
-	void ExpectAtoms(Geometry geometry) {
-		if (geometry.atomMap == null || geometry.atomMap.Count != geometry.size) {
-			atomMap = new Map<AtomID, int>();
-			generateAtomMap = true;
-		} else {
-			atomMap = geometry.atomMap;
-			generateAtomMap = false;
-		}
-
-		index = 0;
+	void ExpectAtoms() {
+		atomIndex = 0;
 		activeParser = ParseAtoms;
 	}
 
@@ -110,11 +65,11 @@ public class GaussianInputReader : GeometryReader {
 		activeParser = ParseParameters;
 	}
 
-	void ParseLink0(Geometry geometry) {
+	void ParseLink0() {
 		string line = this.line.Trim();
 		if (line.StartsWith ("#")) {
 			ExpectKeywords();
-			ParseKeywords(geometry);
+			ParseKeywords();
 			return;
 
 		} else if (line.StartsWith ("%CHK", StringComparison.OrdinalIgnoreCase)) {
@@ -137,11 +92,11 @@ public class GaussianInputReader : GeometryReader {
 		}
 	}
 
-	void ParseKeywords(Geometry geometry) {
+	void ParseKeywords() {
 
 		string line = this.line.Trim();
 		if (line == "" && keywordsList.Count > 0) {
-			ProcessKeywords(geometry);
+			ProcessKeywords();
 			ExpectTitle();
 			return;
 		} 
@@ -153,7 +108,7 @@ public class GaussianInputReader : GeometryReader {
 		
 	}
 
-	void ParseTitle(Geometry geometry) {
+	void ParseTitle() {
 		
 		string line = this.line.Trim();
 		if (line == "" && titleLines.Count > 0) {
@@ -164,23 +119,22 @@ public class GaussianInputReader : GeometryReader {
 		titleLines.Add(line);
 	}
 
-	void ParseChargeMultiplicity(Geometry geometry) {
+	void ParseChargeMultiplicity() {
 		string line = this.line.Trim();
 		if (line == "") {
 			throw new System.Exception("Missing Charge/Multiplicity Section!");
 		}
 
-		ProcessChargeMultiplicity(geometry);
-		ExpectAtoms(geometry);
+		ProcessChargeMultiplicity();
+		ExpectAtoms();
 		
 	}
 
-	void ParseAtoms(Geometry geometry) {
+	void ParseAtoms() {
 
 		string line = this.line.Trim();
 
 		if (line == "") {
-			ProcessAtoms(geometry);
 			if (readConnectivity) {
 				ExpectConnectivity();
 				return;
@@ -207,13 +161,15 @@ public class GaussianInputReader : GeometryReader {
 		}
 		
 		//Build Atom map if reading connectivity
-		if (readConnectivity && generateAtomMap) {
-			atomMap[index++] = atomID;
+		if (readConnectivity && !atomMapSet) {
+			geometry.atomMap[atomIndex] = atomID;
 		}
+
+		atomIndex++;
 
 	}
 
-	void ParseConnectivity(Geometry geometry) {
+	void ParseConnectivity() {
 
 		string line = this.line.Trim();
 		if (line == "") {
@@ -230,7 +186,7 @@ public class GaussianInputReader : GeometryReader {
 		}
 		connectionIndex0 -= 1;
 
-		AtomID atomID0 = atomMap[connectionIndex0];
+		AtomID atomID0 = geometry.atomMap[connectionIndex0];
 
 		int numConnections = (splitConn.Length - 1) / 2;
 
@@ -243,7 +199,7 @@ public class GaussianInputReader : GeometryReader {
 			}
 			connectionIndex1 -= 1;
 			
-			AtomID atomID1 = atomMap[connectionIndex1];
+			AtomID atomID1 = geometry.atomMap[connectionIndex1];
 
 			float bondFloat;
 			if (! TryGetFloat(splitConn [i * 2 + 2], false, "GetBondType", out bondFloat)) {
@@ -266,7 +222,7 @@ public class GaussianInputReader : GeometryReader {
 		}
 	}
 
-	void ParseParameters(Geometry geometry) {
+	void ParseParameters() {
 		string line = this.line.Trim();
 		if (line == "") {
 			activeParser = null;
@@ -275,7 +231,7 @@ public class GaussianInputReader : GeometryReader {
 		PRMReader.UpdateParameterFromLine(line, geometry.parameters);
 	}
 
-	void ProcessKeywords(Geometry geometry) {
+	void ProcessKeywords() {
 		//Parse keywords - only one line so don't need to worry about optimisation
 		foreach (string keywordItem in keywordsList) {
 
@@ -337,7 +293,7 @@ public class GaussianInputReader : GeometryReader {
 		}
 	}
 
-	void ProcessChargeMultiplicity(Geometry geometry) {
+	void ProcessChargeMultiplicity() {
 		GaussianCalculator gc = geometry.gaussianCalculator;
 
 		string[] cmStr = line.Split (new []{ " " }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -360,10 +316,6 @@ public class GaussianInputReader : GeometryReader {
 				oniomLayers.RemoveAt(0);
 			}
 		}
-	}
-
-	void ProcessAtoms(Geometry geometry) {
-		geometry.atomMap = atomMap.ToMap(x => x.Key, x => x.Value);
 	}
 
 	static string GetValueFromPair (string inputStr, string delimiter = "=", bool checkEnclosed=false, char openChar='(', char closeChar=')') {
@@ -530,9 +482,16 @@ public static class GaussianPDBLineReader {
 		if (!geometry.residueDict.ContainsKey (residueID)) {
 			geometry.residueDict[residueID] = new Residue(residueID, residueName, geometry);
 		}
+
+		Amber amber;
+		if (string.IsNullOrWhiteSpace(amberName)) {
+			amber = Amber.X;
+		} else {
+			amber = AmberCalculator.GetAmber(amberName);
+		}
 		
 		PDBID pdbID = PDBID.FromGaussString(pdbName, element, residueName);
-		Atom newAtom = new Atom(position, residueID, amberName, partialCharge, oniomLayerID);
+		Atom newAtom = new Atom(position, residueID, amber, partialCharge, oniomLayerID);
 		newAtom.mobile = mobile;
 		geometry.residueDict[residueID].AddAtom(pdbID, newAtom, out pdbID);
 

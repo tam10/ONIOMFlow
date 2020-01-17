@@ -9358,7 +9358,7 @@
 			</atom>
 		</atoms>
 	</residue>
-	<heteroResidue name="WAT" family="HOH">
+	<waterResidue name="WAT" family="HOH">
 		<atoms state="WATER" charge="0.0">
 			<atom>
 				<pdb> HW1</pdb>
@@ -9382,8 +9382,8 @@
 				<radius>1.6612</radius>
 			</atom>
 		</atoms>
-	</heteroResidue>
-	<heteroResidue name="HOH" family="HOH">
+	</waterResidue>
+	<waterResidue name="HOH" family="HOH">
 		<atoms state="WATER" charge="0.0">
 			<atom>
 				<pdb> HW1</pdb>
@@ -9407,46 +9407,46 @@
 				<radius>1.6612</radius>
 			</atom>
 		</atoms>
-	</heteroResidue>
-    <heteroResidue name="CL" family="CL">
-        <atoms state="HETERO" charge="-1.0">
+	</waterResidue>
+    <ionResidue name="CL" family="CL">
+        <atoms state="ION" charge="-1.0">
             <atom><pdb>CL  </pdb><amber>CL</amber><element>Cl</element><partialCharge>-1.0</partialCharge><radius>1.81</radius></atom>
         </atoms>
-    </heteroResidue>
-    <heteroResidue name="LI" family="LI">
-        <atoms state="HETERO" charge="1.0">
+    </ionResidue>
+    <ionResidue name="LI" family="LI">
+        <atoms state="ION" charge="1.0">
             <atom><pdb>LI  </pdb><amber>QL</amber><element>Li</element><partialCharge>1.0</partialCharge><radius>0.72</radius></atom>
         </atoms>
-    </heteroResidue>
-    <heteroResidue name="NA" family="NA">
-        <atoms state="HETERO" charge="1.0">
+    </ionResidue>
+    <ionResidue name="NA" family="NA">
+        <atoms state="ION" charge="1.0">
             <atom><pdb>NA  </pdb><amber>QN</amber><element>Na</element><partialCharge>1.0</partialCharge><radius>1.02</radius></atom>
         </atoms>
-    </heteroResidue>
-    <heteroResidue name="K" family="K">
-        <atoms state="HETERO" charge="1.0">
+    </ionResidue>
+    <ionResidue name="K" family="K">
+        <atoms state="ION" charge="1.0">
             <atom><pdb>K   </pdb><amber>QK</amber><element>K</element><partialCharge>1.0</partialCharge><radius>1.38</radius></atom>
         </atoms>
-    </heteroResidue>
-    <heteroResidue name="MG" family="MG">
-        <atoms state="HETERO" charge="2.0">
+    </ionResidue>
+    <ionResidue name="MG" family="MG">
+        <atoms state="ION" charge="2.0">
             <atom><pdb>MG  </pdb><amber>MG</amber><element>Mg</element><partialCharge>2.0</partialCharge><radius>0.72</radius></atom>
         </atoms>
-    </heteroResidue>
-    <heteroResidue name="CU" family="CU">
-        <atoms state="HETERO" charge="2.0">
+    </ionResidue>
+    <ionResidue name="CU" family="CU">
+        <atoms state="ION" charge="2.0">
             <atom><pdb>CU  </pdb><amber>IM</amber><element>Cu</element><partialCharge>2.0</partialCharge><radius>0.73</radius></atom>
         </atoms>
-    </heteroResidue>
-    <heteroResidue name="FE" family="FE">
-        <atoms state="HETERO" charge="2.0">
+    </ionResidue>
+    <ionResidue name="FE" family="FE">
+        <atoms state="ION" charge="2.0">
             <atom><pdb>FE  </pdb><amber>FE</amber><element>Fe</element><partialCharge>2.0</partialCharge><radius>0.61</radius></atom>
         </atoms>
-    </heteroResidue>
-    <heteroResidue name="CD" family="CD">
-        <atoms state="HETERO" charge="2.0">
+    </ionResidue>
+    <ionResidue name="CD" family="CD">
+        <atoms state="ION" charge="2.0">
             <atom><pdb>CD  </pdb><amber>CD</amber><element>Cd</element><partialCharge>2.0</partialCharge><radius>0.95</radius></atom>
         </atoms>
-    </heteroResidue>
+    </ionResidue>
 
 </standardResidues>

@@ -14,44 +14,103 @@ public class GeometryReader {
     public int charNum;
     public int skipLines;
 
+	public bool failed;
+	
+	public delegate void LineParser();
+	public LineParser activeParser = () => {};
+
+	public Geometry geometry;
+	public int atomIndex;
+
+	public bool atomMapSet;
+
     static Regex ToAlphaRegex = new Regex(@"[^a-zA-Z -]", RegexOptions.Compiled);
     static Regex ToNumberRegex = new Regex(@"[^0-9 -]", RegexOptions.Compiled);
 
     public string commentString = "";
     
     
-    public IEnumerator GeometryFromFile(string filePath, Geometry geometry) {
+    public IEnumerator GeometryFromFile(string filePath) {
+
+		if (geometry == null) {
+			CustomLogger.Log(
+				EL.ERROR,
+				"Cannot load into Geometry - Geometry is null!"
+			);
+			yield break;
+		}
 
         path = filePath;
         geometry.name = Path.GetFileName (path);
 
-        return GeometryFromEnumerator(FileIO.EnumerateLines(path, commentString), geometry);
+		if (commentString == "") {
+        	yield return GeometryFromEnumerator(FileIO.EnumerateLines(path));
+		} else {
+        	yield return GeometryFromEnumerator(FileIO.EnumerateLines(path, commentString));
+		}
+		yield return CleanUp();		
     }
 
-	public IEnumerator GeometryFromAsset(TextAsset asset, Geometry geometry) {
+	public IEnumerator GeometryFromAsset(TextAsset asset) {
+
+		if (geometry == null) {
+			CustomLogger.Log(
+				EL.ERROR,
+				"Cannot load into Geometry - Geometry is null!"
+			);
+			yield break;
+		}
 
         path = asset.name;
         geometry.name = Path.GetFileName (path);
 
-        return GeometryFromEnumerator(FileIO.EnumerateAsset(asset, commentString), geometry);
+        yield return GeometryFromEnumerator(FileIO.EnumerateAsset(asset, commentString));
+		yield return CleanUp();
 	}
 
-    public IEnumerator GeometryFromEnumerator(IEnumerable<string> lineEnumerator, Geometry geometry) {
+    public IEnumerator GeometryFromEnumerator(IEnumerable<string> lineEnumerator) {
 
-        geometry.atomMap = new Map<AtomID, int>();
+		if (geometry.atomMap != null) {
+			atomMapSet = true;
+		} else {
+			atomMapSet = false;
+        	geometry.atomMap = new Map<AtomID, int>();
+		}
+
         lineNumber = 0;
         skipLines = 0;
 
         foreach (string line in lineEnumerator) {
-            if (skipLines > 0) {
+			
+			if (failed) {
+				GameObject.Destroy(geometry.gameObject);
+				yield break;
+			} 
+
+            if (skipLines == 0) {
+                this.line = line;
+				try {
+                	activeParser();
+				} catch (System.Exception e) {
+					//Pass error to user and close
+					FileReader.ThrowFileReaderError(
+						path,
+						lineNumber,
+						charNum,
+						activeParser.Method.Name,
+						line,
+						e
+					);
+					failed = true;
+					GameObject.Destroy(geometry.gameObject);
+					yield break;
+				}
+            } else if (skipLines > 0) {
+				// Skip linesToSkip lines
                 skipLines--;
             } else {
-                this.line = line;
-                if (!ParseLine(geometry)) {
-                    yield break;
-                }
-            }
-
+				throw new System.Exception("'linesToSkip' must not be negative in Gaussian Output Reader!");
+			}
 
             if (Timer.yieldNow) {
                 yield return null;
@@ -59,12 +118,11 @@ public class GeometryReader {
 
             lineNumber++;
         }
-
     }
 
-    public virtual bool ParseLine(Geometry geometry) {
-        return false;
-    }
+	public virtual IEnumerator CleanUp() {
+		yield break;
+	}
 
 	public static string ToAlpha(string inputStr) {
 		return ToAlphaRegex.Replace (inputStr, string.Empty);

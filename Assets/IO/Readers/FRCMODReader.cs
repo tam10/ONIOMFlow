@@ -6,6 +6,7 @@ using System.Text;
 using System;
 using System.Linq;
 using EL = Constants.ErrorLevel;
+using Amber = Constants.Amber;
 
 public static class FRCMODReader {
 
@@ -56,6 +57,7 @@ public static class FRCMODReader {
             paramTypeDict.TryGetValue(line, out paramType);
         } else {
             float penalty = GetPenalty();
+            bool needsRevision = NeedsRevision();
 
             switch (paramType) {
                 case (ParamType.NULL):
@@ -83,7 +85,13 @@ public static class FRCMODReader {
                     break;
                 case (ParamType.BOND):
                     Stretch stretch = ReadBond();
-                    if (penalty > 0f) {
+                    if (needsRevision) {
+                        CustomLogger.LogFormat(
+                            EL.WARNING,
+                            "Bad Stretch added! ({0})", 
+                            stretch
+                        );
+                    } else if (penalty > 0f) {
                         CustomLogger.LogFormat(
                             EL.WARNING,
                             "Adding Stretch with penalty={0} ({1})", 
@@ -95,7 +103,13 @@ public static class FRCMODReader {
                     break;
                 case (ParamType.ANGLE):
                     Bend bend = ReadAngle();
-                    if (penalty > 0f) {
+                    if (needsRevision) {
+                        CustomLogger.LogFormat(
+                            EL.WARNING,
+                            "Bad Bend added! ({0})", 
+                            bend
+                        );
+                    } else if (penalty > 0f) {
                         CustomLogger.LogFormat(
                             EL.WARNING,
                             "Adding Bend with penalty={0} ({1})", 
@@ -107,7 +121,13 @@ public static class FRCMODReader {
                     break;
                 case (ParamType.DIHEDRAL):
                     Torsion torsion = ReadDihedral();
-                    if (penalty > 0f) {
+                    if (needsRevision) {
+                        CustomLogger.LogFormat(
+                            EL.WARNING,
+                            "Bad Torsion added! ({0})", 
+                            torsion
+                        );
+                    } else if (penalty > 0f) {
                         CustomLogger.LogFormat(
                             EL.WARNING,
                             "Adding Torsion with penalty={0} ({1})", 
@@ -120,7 +140,13 @@ public static class FRCMODReader {
                     break;
                 case (ParamType.IMPROPER):
                     ImproperTorsion improper = ReadImproper();
-                    if (penalty > 0f) {
+                    if (needsRevision) {
+                        CustomLogger.LogFormat(
+                            EL.WARNING,
+                            "Bad Improper Torsion added! ({0})", 
+                            improper
+                        );
+                    } else if (penalty > 0f) {
                         CustomLogger.LogFormat(
                             EL.WARNING,
                             "Adding Improper Torsion with penalty={0} ({1})", 
@@ -145,13 +171,17 @@ public static class FRCMODReader {
         return penalty;
     }
 
+    private static bool NeedsRevision() {
+        return line.Contains("ATTN");
+    }
+
     private static AtomicParameter ReadMass() {
         //Read a mass (but ignore polarisability) for an element
         //Header: MASS
         //Example:
         //N  14.010        0.530               same as n 
         //type  mass  polarisability comment
-        string type = line.Substring(0, 2).Trim();
+        Amber type = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
         float mass = float.Parse(line.Substring(3, 7));
 
         AtomicParameter atomicParameter = new AtomicParameter(type);
@@ -168,7 +198,7 @@ public static class FRCMODReader {
         //type  radius  wellDepth  comment
         //Note 2 spaces at start of line - but GetNextLine() is Trimming it anyway
 
-        string type = line.Substring(0, 2).Trim();
+        Amber type = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
         float radius = float.Parse(line.Substring(11, 7));
         float wellDepth = float.Parse(line.Substring(19, 7));
 
@@ -185,11 +215,24 @@ public static class FRCMODReader {
         //CT-N   330.60   1.460       same as c3- n, penalty score=  0.0
         //type0-type1  keq  req  comment
 
-        string t0 = line.Substring(0, 2).Trim();
-        string t1 = line.Substring(3, 2).Trim();
+        Amber t0 = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
+        Amber t1 = AmberCalculator.GetAmber(line.Substring(3, 2).Trim());
 
         float keq = float.Parse(line.Substring(6,7));
         float req = float.Parse(line.Substring(15,6));
+
+        if (req == 0f) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Error in parameters - stretch has a length of 0! This could mean a parameter is missing in the force field. ({0}-{1}) on line {3}.",
+                () => {
+                    return new object[3] {
+                        t0, t1,
+                        lineNum
+                    };
+                }
+            );
+        }
 
         return new Stretch(t0, t1, req, keq);
     }
@@ -201,12 +244,25 @@ public static class FRCMODReader {
         //CK-CT-N    66.840     111.710   same as cc-c3-n , penalty score=  0.0
         //type0-type1-type2  keq  req  comment
 
-        string t0 = line.Substring(0, 2).Trim();
-        string t1 = line.Substring(3, 2).Trim();
-        string t2 = line.Substring(6, 2).Trim();
+        Amber t0 = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
+        Amber t1 = AmberCalculator.GetAmber(line.Substring(3, 2).Trim());
+        Amber t2 = AmberCalculator.GetAmber(line.Substring(6, 2).Trim());
 
         float keq = float.Parse(line.Substring(10,7));
         float aeq = float.Parse(line.Substring(22,7));
+
+        if (aeq == 0f) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Error in parameters - bend has an angle of 0! This could mean a parameter is missing in the force field. ({0}-{1}-{2}) on line {3}.",
+                () => {
+                    return new object[4] {
+                        t0, t1, t2,
+                        lineNum
+                    };
+                }
+            );
+        }
 
         return new Bend(t0, t1, t2, aeq, keq);
     }
@@ -224,10 +280,10 @@ public static class FRCMODReader {
         //type0-type1-type2-type3  numPaths  barrierHeight  phase  periodicity  comment
         //A negative value of periodicity indicates the next line is also part of this Torsion
 
-        string t0 = line.Substring(0, 2).Trim();
-        string t1 = line.Substring(3, 2).Trim();
-        string t2 = line.Substring(6, 2).Trim();
-        string t3 = line.Substring(9, 2).Trim();
+        Amber t0 = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
+        Amber t1 = AmberCalculator.GetAmber(line.Substring(3, 2).Trim());
+        Amber t2 = AmberCalculator.GetAmber(line.Substring(6, 2).Trim());
+        Amber t3 = AmberCalculator.GetAmber(line.Substring(9, 2).Trim());
         int numPaths = int.Parse(line.Substring(14, 1));
 
         bool readTorsion = true;
@@ -235,10 +291,10 @@ public static class FRCMODReader {
         torsion.npaths = numPaths;
 
         while (readTorsion) {
-            t0 = line.Substring(0, 2).Trim();
-            t1 = line.Substring(3, 2).Trim();
-            t2 = line.Substring(6, 2).Trim();
-            t3 = line.Substring(9, 2).Trim();
+            t0 = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
+            t1 = AmberCalculator.GetAmber(line.Substring(3, 2).Trim());
+            t2 = AmberCalculator.GetAmber(line.Substring(6, 2).Trim());
+            t3 = AmberCalculator.GetAmber(line.Substring(9, 2).Trim());
 
             if (t0 != torsion.types[0] || t1 != torsion.types[1] || t2 != torsion.types[2] || t3 != torsion.types[3]) {
                 CustomLogger.LogFormat(
@@ -261,6 +317,20 @@ public static class FRCMODReader {
 
             int absPeriodicity = Mathf.RoundToInt(Math.Abs(periodicity)) - 1;
 
+            if (absPeriodicity == -1) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Error in parameters - torsion has invalid periodicity! This could mean a parameter is missing in the force field. ({0}-{1}-{2}-{3}) on line {4}.",
+                    () => {
+                        return new object[5] {
+                            t0, t1, t2, t3,
+                            lineNum
+                        };
+                    }
+                );
+                return torsion;
+            }
+
             torsion.phaseOffsets[absPeriodicity] = phase;
             torsion.barrierHeights[absPeriodicity] = barrierHeight;
 
@@ -281,10 +351,10 @@ public static class FRCMODReader {
         //CC-N*-C -O          1.1          180.0         2.0          Using the default value
         //type0-type1-type2-type3  barrierHeight  phase  periodicity
 
-        string t0 = line.Substring(0, 2).Trim();
-        string t1 = line.Substring(3, 2).Trim();
-        string t2 = line.Substring(6, 2).Trim();
-        string t3 = line.Substring(9, 2).Trim();
+        Amber t0 = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
+        Amber t1 = AmberCalculator.GetAmber(line.Substring(3, 2).Trim());
+        Amber t2 = AmberCalculator.GetAmber(line.Substring(6, 2).Trim());
+        Amber t3 = AmberCalculator.GetAmber(line.Substring(9, 2).Trim());
         float barrierHeight = float.Parse(line.Substring(17, 7));
         float phase = float.Parse(line.Substring(31, 7));
         int periodicity = Mathf.RoundToInt(float.Parse(line.Substring(45, 7)));

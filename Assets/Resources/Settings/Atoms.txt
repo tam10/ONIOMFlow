@@ -136,6 +136,71 @@
         </bond>
     </bonds>
 
+    <!--Use this to predict total charge of a system-->
+    <formalCharges>
+        <atom amber="N">
+            <entry neighbours="2">-1</entry>
+            <entry neighbours="3">0</entry>
+            <entry neighbours="4">1</entry>
+        </atom>
+        <atom amber="NA">
+            <entry neighbours="2">-1</entry>
+            <entry neighbours="3">0</entry>
+            <entry neighbours="4">1</entry>
+        </atom>
+        <atom amber="NB">
+            <entry neighbours="2">0</entry>
+            <entry neighbours="3">1</entry>
+        </atom>
+        <atom amber="NC">
+            <entry neighbours="2">0</entry>
+            <entry neighbours="3">1</entry>
+        </atom>
+        <atom amber="N2">
+            <entry neighbours="2">-1</entry>
+            <entry neighbours="3">0</entry>
+            <entry neighbours="3">1</entry>
+        </atom>
+        <atom amber="N3">
+            <entry neighbours="2">-1</entry>
+            <entry neighbours="3">0</entry>
+            <entry neighbours="3">1</entry>
+        </atom>
+        <atom amber="O">
+            <entry neighbours="1">0</entry>
+            <entry neighbours="2">1</entry>
+        </atom>
+        <atom amber="OH">
+            <entry neighbours="1">-1</entry>
+            <entry neighbours="2">0</entry>
+        </atom>
+        <atom amber="O2">
+            <entry neighbours="1">-0.5</entry>
+            <entry neighbours="2">0.5</entry>
+        </atom>
+        <atom amber="SH">
+            <entry neighbours="1">-1</entry>
+            <entry neighbours="2">0</entry>
+        </atom>
+    </formalCharges>
+
+    <aromaticAmbers>
+        <entry amber="C">1</entry>
+        <entry amber="CA">1</entry>
+        <entry amber="CB">1</entry>
+        <entry amber="CC">1</entry>
+        <entry amber="CD">1</entry>
+        <entry amber="CK">1</entry>
+        <entry amber="CN">1</entry>
+        <entry amber="CR">1</entry>
+        <entry amber="CV">1</entry>
+        <entry amber="CW">1</entry>
+        <entry amber="C*"> 1</entry>
+        <entry amber="NB">1</entry>
+        <entry amber="O2">0.5</entry>
+        <entry amber="O">1</entry>
+    </aromaticAmbers>
+
     <!-- Element Data -->
     <elements>
         <element ID="X">

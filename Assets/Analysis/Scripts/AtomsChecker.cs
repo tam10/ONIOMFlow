@@ -9,6 +9,8 @@ using RCID = Constants.ResidueCheckerID;
 using ACID = Constants.AtomCheckerID;
 using GIS = Constants.GeometryInterfaceStatus;
 using EL = Constants.ErrorLevel;
+using RS = Constants.ResidueState;
+using Amber = Constants.Amber;
 
 public class AtomsChecker : MonoBehaviour {
     //Perform a series of checks on an Geometry object
@@ -126,6 +128,8 @@ public class ResidueChecker {
             case (RCID.PROTONATED): return Protonated;
             case (RCID.PDBS_UNIQUE): return NoRepeatedPDBS;
             case (RCID.STANDARD): return ResiduesAreStandard;
+            case (RCID.PARTIAL_CHARGES): return HasCharges;
+            case (RCID.INTEGER_CHARGE): return HasIntegerCharge;
         }
         throw new ErrorHandler.InvalidResidueCheckerID(
 			string.Format(
@@ -153,6 +157,41 @@ public class ResidueChecker {
             return GIS.OK;
         }
         Fail(string.Format("Residue {0} has repeated PDBIDs in Geometry {1}", residueID, geometry.name));
+        return errorLevel;
+    }
+
+    private GIS HasCharges(Geometry geometry, ResidueID residueID) {
+        Residue residue = geometry.GetResidue(residueID);
+
+        //Ignore Caps
+        if (residue.state == RS.CAP) {return GIS.OK;}
+
+        float absCharge = residue.EnumerateAtoms().Select(x => Mathf.Abs(x.Item2.partialCharge)).Sum();
+        if (absCharge > Settings.partialChargeThreshold) {
+            return GIS.OK;
+        }
+        Fail(string.Format("Residue {0} does not have partial charges in Geometry {1}", residueID, geometry.name));
+        return errorLevel;
+    }
+
+    private GIS HasIntegerCharge(Geometry geometry, ResidueID residueID) {
+        Residue residue = geometry.GetResidue(residueID);
+
+        //Ignore Caps
+        if (residue.state == RS.CAP) {return GIS.OK;}
+
+        float totalCharge = residue.GetCharge();
+        if (Mathf.Abs(totalCharge - Mathf.RoundToInt(totalCharge)) < Settings.integerChargeThreshold) {
+            return GIS.OK;
+        }
+        Fail(
+            string.Format(
+                "Residue {0} does not have an integer charge in Geometry {1} - ({2})", 
+                residueID, 
+                geometry.name,
+                totalCharge                
+            )
+        );
         return errorLevel;
     }
 
@@ -221,7 +260,8 @@ public class AtomChecker {
     }
 
     private GIS HasAmber(Geometry geometry, ResidueID residueID, PDBID pdbID) {
-        if (StringNotEmpty(geometry.residueDict[residueID].atoms[pdbID].amber)) {
+        Amber amber = geometry.residueDict[residueID].atoms[pdbID].amber;
+        if (amber != Amber._ && amber != Amber.X) {
             return GIS.OK;
         }
         Fail(string.Format("Atom {0} in Residue {1} has no Amber Type in Geometry {2}", pdbID, residueID, geometry));

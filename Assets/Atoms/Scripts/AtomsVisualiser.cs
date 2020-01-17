@@ -102,10 +102,6 @@ public class AtomsVisualiser : MonoBehaviour {
     int maxHistory=20;
     public int historyStep;
 
-    TextBox3D label;
-    float labelDelayTime = 1f;
-    float labelStartTime = 0f;
-
 
     void Awake() { 
         
@@ -219,6 +215,14 @@ public class AtomsVisualiser : MonoBehaviour {
 
         MakeInteractive(draggableInterface);
 
+    }
+
+    void SetColoursByCharge() {
+        lineDrawer.SetColoursByCharge();
+    }
+
+    void SetColoursByElement() {
+        lineDrawer.SetColoursByElement();
     }
 
     public void Clear() {
@@ -537,6 +541,13 @@ public class AtomsVisualiser : MonoBehaviour {
         }
 
 		//Add buttons and spacers
+        
+		contextMenu.AddButton(
+            () => {StartCoroutine(Redraw());}, 
+            "Refresh", 
+            true
+        );
+
 		contextMenu.AddButton(
             () => {StartCoroutine(CalculateConnectivity());}, 
             "Compute Connectivity", 
@@ -555,14 +566,17 @@ public class AtomsVisualiser : MonoBehaviour {
 
 		contextMenu.AddSpacer();
         
+        ContextButtonGroup colourGroup = contextMenu.AddButtonGroup("Colour Mode", true);
+        colourGroup.AddButton(() => {SetColoursByElement(); contextMenu.Hide();}, "Element", true);
+        colourGroup.AddButton(() => {SetColoursByCharge(); contextMenu.Hide();}, "Charge", true);
+
+		contextMenu.AddSpacer();
+
         ContextButtonGroup layerButtonGroup = contextMenu.AddButtonGroup("Add Selection to Layer", true);
 		layerButtonGroup.AddButton(() => AddSelectionToLayer(OLID.REAL), "Real", true);
 		layerButtonGroup.AddButton(() => AddSelectionToLayer(OLID.INTERMEDIATE), "Intermediate", true);
 		layerButtonGroup.AddButton(() => AddSelectionToLayer(OLID.MODEL), "Model", true);
-
-		contextMenu.AddSpacer();
-
-        contextMenu.AddButton(() => ClearSelectedAtoms(), "Clear Selection", true);
+        layerButtonGroup.AddButton(() => ClearSelectedAtoms(), "Clear Selection", true);
 
         contextMenu.AddSpacer();
 
@@ -663,31 +677,11 @@ public class AtomsVisualiser : MonoBehaviour {
                 }
             }
             
-
-            //if (Timer.yieldNow) {yield return null;}
         }
 
         if (bestAtomID.IsEmpty()) {
-            //label.text.text = "";
             closestAtom = null;
-        //} else if (bestAtomID == this.closestAtomID) {
-        //    if (Time.realtimeSinceStartup - labelStartTime > labelDelayTime) {
-        //        Atom closestAtom;
-        //        if (geometry.TryGetAtom(bestAtomID, out closestAtom)) {
-//
-        //            //label.transform.localPosition = (Vector3)(closestAtom.position - offset) + 4 * Vector3.up;
-        //            //label.text.text = string.Format(
-        //            //    "Res: {0}\nPDB: {1}\nAMBER: {2}\nCharge: {3}",
-        //            //    bestAtomID.residueID,
-        //            //    bestAtomID.pdbID,
-        //            //    closestAtom.amber,
-        //            //    closestAtom.partialCharge
-        //            //);
-        //        }
-        //        this.closestAtom = closestAtom;
-        //    }
         } else {
-            //labelStartTime = Time.realtimeSinceStartup;
             geometry.TryGetAtom(bestAtomID, out this.closestAtom);
         }
 
@@ -1732,260 +1726,248 @@ public class AtomsVisualiser : MonoBehaviour {
             yield break;
         }
 
-        AtomID optimiseAtomID = chainAtomIDs[0];
-
-
-        ResidueID optimiseResidueID = optimiseAtomID.residueID;
-        Residue optimiseResidue = geometry.GetResidue(optimiseResidueID);
-
-        if (optimiseResidue == null) {
-            yield break;
-        }
-
-        Atom optimiseAtom;
-        if (!optimiseResidue.atoms.TryGetValue(optimiseAtomID.pdbID, out optimiseAtom)) {
-            yield break;
-        }
-
-        float stepSize = 0.2f;
-        float maxStep = 0.4f;
-        float cutoffStart = 2f;
-        float cutoffEnd = 6f;
-
-        float cutoffStartSq = cutoffStart.Squared();
-        float cutoffEndSq = cutoffEnd.Squared();
-
-        int numNearbyAtoms = 0;
-        List<(AtomID, Atom)> optimiseAtoms = new List<(AtomID, Atom)>();
-        List<float> forceMultipliers = new List<float>();
-        List<float3> positionsList = new List<float3>();
-        Dictionary<AtomID, int> atomIDToIndex = new Dictionary<AtomID, int>();
-
-        foreach (ResidueID nearbyResidueID in optimiseResidue.ResiduesWithinDistance(Settings.maxNonBondingCutoff).Append(optimiseResidueID)) {
-            Residue nearbyResidue;
-            if (!geometry.TryGetResidue(nearbyResidueID, out nearbyResidue)) {
-                continue;
-            }
-            
-            Dictionary<RS, Residue> standardFamily;
-            if (! Data.standardResidues.TryGetValue(nearbyResidue.residueName, out standardFamily)) {
-                continue;
-            }
-            
-            Residue standardResidue;
-            if ( ! (
-                    standardFamily.TryGetValue(RS.STANDARD, out standardResidue)
-                    || standardFamily.TryGetValue(RS.WATER, out standardResidue)
-            ) ) {
-                continue;
-            }
-
-
-            foreach ((PDBID nearbyPDBID, Atom nearbyAtom) in nearbyResidue.EnumerateAtoms()) {
-                
-                Atom standardAtom;
-                if (standardResidue.atoms.TryGetValue(nearbyPDBID, out standardAtom)) {
-                    nearbyAtom.partialCharge = standardAtom.partialCharge;
-                }
-
-                float distanceSq = math.distancesq(optimiseAtom.position, nearbyAtom.position);
-                if (distanceSq > cutoffEndSq) {
-                    continue;
-                }
-
-                float forceScale;
-                if (distanceSq < cutoffStartSq) {
-                    forceScale = 1f;
-                } else {
-                    forceScale = CustomMathematics.Map(distanceSq, cutoffEndSq, cutoffStartSq, 0f, 1f);
-                }
-
-                AtomID nearbyAtomID = new AtomID(nearbyResidueID, nearbyPDBID);
-                optimiseAtoms.Add((nearbyAtomID, nearbyAtom));
-                forceMultipliers.Add(forceScale);
-                positionsList.Add(nearbyAtom.position);
-                atomIDToIndex[nearbyAtomID] = numNearbyAtoms++;
-            }
-        }
-        
-        int3[] improperCycles = new int3[] {
-            new int3(0, 1, 2), new int3(0, 2, 1),
-            new int3(1, 0, 2), new int3(1, 2, 0),
-            new int3(2, 0, 1), new int3(2, 1, 0)
-        };
-
-        List<PrecomputedNonBonding> nonBondings = new List<PrecomputedNonBonding>();
-        List<DihedralCalculator> impropers = new List<DihedralCalculator>();
-        List<DihedralCalculator> torsions = new List<DihedralCalculator>();
-        List<StretchCalculator> stretches = new List<StretchCalculator>();
-        List<BendCalculator> bends = new List<BendCalculator>();
-        
-
-
-        (AtomID, Atom)[] optimiseAtomArray = optimiseAtoms.ToArray();
-  
-        for (int i=0; i<numNearbyAtoms; i++) {
-
-            (AtomID atomID0, Atom atom0) = optimiseAtomArray[i];
-
-            //Non-bonding terms
-            for (int j=i+1; j<numNearbyAtoms; j++) {
-
-                (AtomID atom1ID, Atom atom1) = optimiseAtomArray[j];
-
-                PrecomputedNonBonding pnb;
-                try {
-                    pnb = new PrecomputedNonBonding(
-                        atom0, 
-                        atom1, 
-                        (i,j), 
-                        geometry.GetGraphDistance(atomID0, atom1ID, 3)
-                    );
-                } catch {
-                    continue;
-                } 
-                nonBondings.Add(pnb);
-            }
-
-            AtomID[] atom0Neighbours = atom0.EnumerateConnections()
-                .Select(x => x.Item1)
-                .ToArray();
-                
-            if (atom0Neighbours.Length == 3) {
-
-                //Cycle over the 6 possible improper combinations for this central Atom
-                foreach (int3 improperCycle in improperCycles) {
-                    AtomID atomID1 = atom0Neighbours[improperCycle.x];
-                    AtomID atomID2 = atom0Neighbours[improperCycle.y];
-                    AtomID atomID3 = atom0Neighbours[improperCycle.z];
-
-                    Atom atom1 = geometry.GetAtom(atomID1);
-                    Atom atom2 = geometry.GetAtom(atomID2);
-                    Atom atom3 = geometry.GetAtom(atomID3);
-
-                    try { 
-                        //Check this hasn't been added in reverse
-                        (int, int, int, int) dihedralKey = (
-                            atomIDToIndex[atomID1], 
-                            atomIDToIndex[atomID0],
-                            atomIDToIndex[atomID2],
-                            atomIDToIndex[atomID3]
-                        );
-                        if (!impropers.Select(
-                            x => x.index0 == dihedralKey.Item4 && 
-                                x.index1 == dihedralKey.Item3 && 
-                                x.index2 == dihedralKey.Item2 && 
-                                x.index3 == dihedralKey.Item1
-                        ).Any(x => x)) {
-                            impropers.Add(new DihedralCalculator(atom1, atom0, atom2, atom3, false, dihedralKey));
-                        }
-                    } catch {}
-                }
-                
-            }
-            
-            //Stretches
-            foreach (AtomID atomID1 in atom0Neighbours) {
-                Atom atom1 = geometry.GetAtom(atomID1);
-                
-                try { 
-                    //Check this hasn't been added in reverse
-                    (int, int) stretchKey = (
-                        atomIDToIndex[atomID0], 
-                        atomIDToIndex[atomID1]
-                    );
-                    if (!stretches.Select(
-                        x => x.index0 == stretchKey.Item2 && 
-                            x.index1 == stretchKey.Item1
-                    ).Any(x => x)) {
-                        stretches.Add(new StretchCalculator(atom0, atom1, stretchKey));
-                    }
-                } catch {}
-
-                //Bends
-                foreach ((AtomID atomID2, BT bondType12) in atom1.EnumerateConnections()) {
-                    if (atomID2 == atomID0) {continue;}
-                    Atom atom2 = geometry.GetAtom(atomID2);
-                    
-                    try { 
-                        //Check this hasn't been added in reverse
-                        (int, int, int) bendKey = (
-                            atomIDToIndex[atomID0], 
-                            atomIDToIndex[atomID1],
-                            atomIDToIndex[atomID2]
-                        );
-                        if (!bends.Select(
-                            x => x.index0 == bendKey.Item3 && 
-                                x.index1 == bendKey.Item2 && 
-                                x.index2 == bendKey.Item1
-                        ).Any(x => x)) {
-                            bends.Add(new BendCalculator(atom0, atom1, atom2, bendKey));
-                        }
-                    } catch {}
-                    
-                    
-                    //Propers
-                    foreach ((AtomID atomID3, BT bondType23) in atom2.EnumerateConnections()) {
-                        if (atomID3 == atomID1) {continue;}
-                        Atom atom3 = geometry.GetAtom(atomID3);
-
-                        try { 
-                            //Check this hasn't been added in reverse
-                            (int, int, int, int) dihedralKey = (
-                                atomIDToIndex[atomID0], 
-                                atomIDToIndex[atomID1],
-                                atomIDToIndex[atomID2],
-                                atomIDToIndex[atomID3]
-                            );
-                            if (!torsions.Select(
-                                x => x.index0 == dihedralKey.Item4 && 
-                                    x.index1 == dihedralKey.Item3 && 
-                                    x.index2 == dihedralKey.Item2 && 
-                                    x.index3 == dihedralKey.Item1
-                            ).Any(x => x)) {
-                                torsions.Add(new DihedralCalculator(atom0, atom1, atom2, atom3, true, dihedralKey));
-                            }
-                        } catch {}
-                    }
-                }
-            }
-        }
-
-        float3[] forces = new float3[numNearbyAtoms];
-        float3[] positions = positionsList.ToArray();
-        float[] forceMultiplierArray = forceMultipliers.ToArray();
-
-        while (pointerDown && chainAtomIDs[0] == optimiseAtomID) {
-
-            for (int i=0; i<numNearbyAtoms; i++) {
-                forces[i] = 0f;
-            }
-
-            stretches  .ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
-            bends      .ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
-            torsions   .ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
-            impropers  .ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
-            nonBondings.ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
-
-
-            float maxDis = forces.Select(x => math.length(x) * stepSize).Max();
-            if (maxDis > maxStep) {
-                stepSize *= maxStep / maxDis;
-            }
-
-            for (int i=0; i<numNearbyAtoms; i++) {
-                float3 position = positions[i] += forces[i] * stepSize;
-                (AtomID atomID, Atom atom) = optimiseAtomArray[i];
-                atom.position = position;
-                lineDrawer.UpdatePosition(atomID, position - offset);
-
-            }
-
-            yield return null;
-        }
-
-
-
+//        AtomID optimiseAtomID = chainAtomIDs[0];
+//
+//
+//        ResidueID optimiseResidueID = optimiseAtomID.residueID;
+//        Residue optimiseResidue = geometry.GetResidue(optimiseResidueID);
+//
+//        if (optimiseResidue == null) {
+//            yield break;
+//        }
+//
+//        Atom optimiseAtom;
+//        if (!optimiseResidue.atoms.TryGetValue(optimiseAtomID.pdbID, out optimiseAtom)) {
+//            yield break;
+//        }
+//
+//        float stepSize = 0.2f;
+//        float maxStep = 0.4f;
+//        float cutoffStart = 2f;
+//        float cutoffEnd = 6f;
+//
+//        float cutoffStartSq = cutoffStart.Squared();
+//        float cutoffEndSq = cutoffEnd.Squared();
+//
+//        int numNearbyAtoms = 0;
+//        List<(AtomID, Atom)> optimiseAtoms = new List<(AtomID, Atom)>();
+//        List<float> forceMultipliers = new List<float>();
+//        List<float3> positionsList = new List<float3>();
+//        Dictionary<AtomID, int> atomIDToIndex = new Dictionary<AtomID, int>();
+//
+//        foreach (ResidueID nearbyResidueID in optimiseResidue.ResiduesWithinDistance(Settings.maxNonBondingCutoff).Append(optimiseResidueID)) {
+//            Residue nearbyResidue;
+//            if (!geometry.TryGetResidue(nearbyResidueID, out nearbyResidue)) {
+//                continue;
+//            }
+//            
+//            Dictionary<RS, Residue> standardFamily;
+//            if (! Data.standardResidues.TryGetValue(nearbyResidue.residueName, out standardFamily)) {
+//                continue;
+//            }
+//            
+//            Residue standardResidue;
+//            if ( ! (
+//                    standardFamily.TryGetValue(RS.STANDARD, out standardResidue)
+//                    || standardFamily.TryGetValue(RS.WATER, out standardResidue)
+//            ) ) {
+//                continue;
+//            }
+//
+//
+//            foreach ((PDBID nearbyPDBID, Atom nearbyAtom) in nearbyResidue.EnumerateAtoms()) {
+//                
+//                Atom standardAtom;
+//                if (standardResidue.atoms.TryGetValue(nearbyPDBID, out standardAtom)) {
+//                    nearbyAtom.partialCharge = standardAtom.partialCharge;
+//                }
+//
+//                float distanceSq = math.distancesq(optimiseAtom.position, nearbyAtom.position);
+//                if (distanceSq > cutoffEndSq) {
+//                    continue;
+//                }
+//
+//                float forceScale;
+//                if (distanceSq < cutoffStartSq) {
+//                    forceScale = 1f;
+//                } else {
+//                    forceScale = CustomMathematics.Map(distanceSq, cutoffEndSq, cutoffStartSq, 0f, 1f);
+//                }
+//
+//                AtomID nearbyAtomID = new AtomID(nearbyResidueID, nearbyPDBID);
+//                optimiseAtoms.Add((nearbyAtomID, nearbyAtom));
+//                forceMultipliers.Add(forceScale);
+//                positionsList.Add(nearbyAtom.position);
+//                atomIDToIndex[nearbyAtomID] = numNearbyAtoms++;
+//            }
+//        }
+//        
+//        int3[] improperCycles = new int3[] {
+//            new int3(0, 1, 2), new int3(0, 2, 1),
+//            new int3(1, 0, 2), new int3(1, 2, 0),
+//            new int3(2, 0, 1), new int3(2, 1, 0)
+//        };
+//
+//        List<PrecomputedNonBonding> nonBondings = new List<PrecomputedNonBonding>();
+//        List<DihedralCalculator> impropers = new List<DihedralCalculator>();
+//        List<DihedralCalculator> torsions = new List<DihedralCalculator>();
+//        List<StretchCalculator> stretches = new List<StretchCalculator>();
+//        List<BendCalculator> bends = new List<BendCalculator>();
+//        
+//
+//
+//        (AtomID, Atom)[] optimiseAtomArray = optimiseAtoms.ToArray();
+//  
+//        for (int i=0; i<numNearbyAtoms; i++) {
+//
+//            (AtomID atomID0, Atom atom0) = optimiseAtomArray[i];
+//
+//            //Non-bonding terms
+//            for (int j=i+1; j<numNearbyAtoms; j++) {
+//
+//                (AtomID atom1ID, Atom atom1) = optimiseAtomArray[j];
+//
+//                PrecomputedNonBonding pnb;
+//                try {
+//                    pnb = new PrecomputedNonBonding(
+//                        atom0, 
+//                        atom1, 
+//                        new int2(i,j), 
+//                        geometry.GetGraphDistance(atomID0, atom1ID, 3)
+//                    );
+//                } catch {
+//                    continue;
+//                } 
+//                nonBondings.Add(pnb);
+//            }
+//
+//            AtomID[] atom0Neighbours = atom0.EnumerateConnections()
+//                .Select(x => x.Item1)
+//                .ToArray();
+//                
+//            if (atom0Neighbours.Length == 3) {
+//
+//                //Cycle over the 6 possible improper combinations for this central Atom
+//                foreach (int3 improperCycle in improperCycles) {
+//                    AtomID atomID1 = atom0Neighbours[improperCycle.x];
+//                    AtomID atomID2 = atom0Neighbours[improperCycle.y];
+//                    AtomID atomID3 = atom0Neighbours[improperCycle.z];
+//
+//                    Atom atom1 = geometry.GetAtom(atomID1);
+//                    Atom atom2 = geometry.GetAtom(atomID2);
+//                    Atom atom3 = geometry.GetAtom(atomID3);
+//
+//                    try { 
+//                        //Check this hasn't been added in reverse
+//                        int4 dihedralKey = new int4(
+//                            atomIDToIndex[atomID1], 
+//                            atomIDToIndex[atomID0],
+//                            atomIDToIndex[atomID2],
+//                            atomIDToIndex[atomID3]
+//                        );
+//                        if (!impropers.Select(
+//                            x => x.key == dihedralKey.wzyx
+//                        ).Any(x => math.all(x))) {
+//                            impropers.Add(new DihedralCalculator(atom1, atom0, atom2, atom3, false, dihedralKey));
+//                        }
+//                    } catch {}
+//                }
+//                
+//            }
+//            
+//            //Stretches
+//            foreach (AtomID atomID1 in atom0Neighbours) {
+//                Atom atom1 = geometry.GetAtom(atomID1);
+//                
+//                try { 
+//                    //Check this hasn't been added in reverse
+//                    int2 stretchKey = new int2(
+//                        atomIDToIndex[atomID0], 
+//                        atomIDToIndex[atomID1]
+//                    );
+//                    if (!stretches.Select(
+//                        x => x.key == stretchKey.yx
+//                    ).Any(x => math.all(x))) {
+//                        stretches.Add(new StretchCalculator(atom0, atom1, stretchKey));
+//                    }
+//                } catch {}
+//
+//                //Bends
+//                foreach ((AtomID atomID2, BT bondType12) in atom1.EnumerateConnections()) {
+//                    if (atomID2 == atomID0) {continue;}
+//                    Atom atom2 = geometry.GetAtom(atomID2);
+//                    
+//                    try { 
+//                        //Check this hasn't been added in reverse
+//                        int3 bendKey = new int3(
+//                            atomIDToIndex[atomID0], 
+//                            atomIDToIndex[atomID1],
+//                            atomIDToIndex[atomID2]
+//                        );
+//                        if (!bends.Select(
+//                            x => x.key.zyx == bendKey
+//                        ).Any(x => math.all(x))) {
+//                            bends.Add(new BendCalculator(atom0, atom1, atom2, bendKey));
+//                        }
+//                    } catch {}
+//                    
+//                    
+//                    //Propers
+//                    foreach ((AtomID atomID3, BT bondType23) in atom2.EnumerateConnections()) {
+//                        if (atomID3 == atomID1) {continue;}
+//                        Atom atom3 = geometry.GetAtom(atomID3);
+//
+//                        try { 
+//                            //Check this hasn't been added in reverse
+//                            int4 dihedralKey = new int4(
+//                                atomIDToIndex[atomID0], 
+//                                atomIDToIndex[atomID1],
+//                                atomIDToIndex[atomID2],
+//                                atomIDToIndex[atomID3]
+//                            );
+//                            if (!torsions.Select(
+//                                x => x.key.wzyx == dihedralKey
+//                            ).Any(x => math.all(x))) {
+//                                torsions.Add(new DihedralCalculator(atom0, atom1, atom2, atom3, true, dihedralKey));
+//                            }
+//                        } catch {}
+//                    }
+//                }
+//            }
+//        }
+//
+//        float3[] forces = new float3[numNearbyAtoms];
+//        float3[] positions = positionsList.ToArray();
+//        float[] forceMultiplierArray = forceMultipliers.ToArray();
+//
+//        while (pointerDown && chainAtomIDs[0] == optimiseAtomID) {
+//
+//            for (int i=0; i<numNearbyAtoms; i++) {
+//                forces[i] = 0f;
+//            }
+//
+//            stretches  .ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
+//            bends      .ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
+//            torsions   .ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
+//            impropers  .ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
+//            nonBondings.ForEach(x => x.AddForces(forces, positions, forceMultiplierArray));
+//
+//
+//            float maxDis = forces.Select(x => math.length(x) * stepSize).Max();
+//            if (maxDis > maxStep) {
+//                stepSize *= maxStep / maxDis;
+//            }
+//
+//            for (int i=0; i<numNearbyAtoms; i++) {
+//                float3 position = positions[i] += forces[i] * stepSize;
+//                (AtomID atomID, Atom atom) = optimiseAtomArray[i];
+//                atom.position = position;
+//                lineDrawer.UpdatePosition(atomID, position - offset);
+//
+//            }
+//
+//            yield return null;
+//        }
     }
 
     public void OnScroll(PointerEventData pointerEventData) {
@@ -2068,7 +2050,7 @@ public class AtomsVisualiser : MonoBehaviour {
             }
 
             if (Input.GetKeyDown(KeyCode.P)) {
-                StartCoroutine(Exit());
+                Exit();
             }
             if (Input.GetKeyDown(KeyCode.Space)) {
                 GetCollider();
@@ -2098,8 +2080,11 @@ public class AtomsVisualiser : MonoBehaviour {
                     Redo();
                 }
 
-            } else if (Input.GetKeyDown(KeyCode.P)) {
+            }
+
+            if (Input.GetKeyDown(KeyCode.P)) {
                 GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
+
                 if (geometryInterface == null || !geometryInterface.selfDraggedGesture) {
                     return;
                 }
@@ -2426,7 +2411,7 @@ public class AtomsVisualiser : MonoBehaviour {
         GameObject.Destroy(red.gameObject, red.main.duration);
     }
 
-    public static IEnumerator Exit() {
+    public static IEnumerator ExitCoroutine() {
         
         Cursor.lockState = CursorLockMode.None;
         float timer = 0f;
@@ -2445,6 +2430,29 @@ public class AtomsVisualiser : MonoBehaviour {
             timer += Time.deltaTime;
             yield return null;
         }
+
+        main.Hide();
+    }
+
+    public static void Exit() {
+        
+        Cursor.lockState = CursorLockMode.None;
+        //float timer = 0f;
+        main.pointer.SetParent(null);
+        //GameObject particles = Instantiate<GameObject>(main.particlesPrefab,  main.pointer);
+        main.pointer.GetComponent<MeshRenderer>().enabled = false;
+        main.moving = false;
+        //yield return null;
+        //while (timer < 5f) {
+        //    if (main == null) {
+        //        yield break;
+        //    }
+        //    main.dZ *= 0.9f * Time.deltaTime;
+        //    main.translation.z = main.dZ * Time.deltaTime + main.minSpeed;
+        //    main.pointer.Translate(main.translation);
+        //    timer += Time.deltaTime;
+        //    yield return null;
+        //}
 
         main.Hide();
     }

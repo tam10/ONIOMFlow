@@ -59,10 +59,8 @@ newbondLength = Data.bondDistances[new ElementPair(hostPDBID, atomPDBID)][0] - S
 ATOM VISUALISER
 Changed MoveCamera IEnumerator
 
-Check readers and writers are working - changed AtomMap stuff
-
-AtomVisualiser History - need to implement with Geometry : Monobehaviour
-AtomVisualiser BrushOptimise - Partial charge from standard residue?
+Consider moving Arrow Procedure static classes to instance 
+-> can increment activeTasks in Constructors and decrement in destructors
 
 
 DOCUMENTATION
@@ -81,3 +79,7 @@ Sphere - Done
 Multiprompt - Done
 Arrow
 Clean
+
+
+
+Setttings - Need to move SR/NSR protonation + gaussian to ExternalCommand

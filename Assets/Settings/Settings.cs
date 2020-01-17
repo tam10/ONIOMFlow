@@ -45,6 +45,7 @@ public static class Settings {
 	public static bool isWindows;
 	public static bool isRetina;
 	
+	public static string currentDirectory;
 	public static string projectPath;
 	public static string projectSettingsPath;
 	public static string flowSettingsPath;
@@ -261,6 +262,7 @@ public static class Settings {
 		#endif
 
 		projectPath = path;
+		currentDirectory = path;
 		settingsPath = Path.Combine(projectPath, "Settings");
 		dataPath = Path.Combine(projectPath, "Data");
 

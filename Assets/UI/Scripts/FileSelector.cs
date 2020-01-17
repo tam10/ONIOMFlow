@@ -118,7 +118,7 @@ public class FileSelector : PopupWindow {
 
 		if (isBusy) {yield return null;}
 
-		fullPathText.text = Settings.projectPath;
+		fullPathText.text = Settings.currentDirectory;
 
 		userResponded = false;
 		cancelled = false;
@@ -143,7 +143,7 @@ public class FileSelector : PopupWindow {
 
 		if (isBusy) {yield return null;}
 
-		fullPathText.text = Settings.projectPath;
+		fullPathText.text = Settings.currentDirectory;
 
 		userResponded = false;
 		cancelled = false;
@@ -165,7 +165,7 @@ public class FileSelector : PopupWindow {
 
 		Clear();
 
-		DirectoryInfo directory = new DirectoryInfo(Settings.projectPath);
+		DirectoryInfo directory = new DirectoryInfo(Settings.currentDirectory);
 
 		string[] allFiles = directory
 			.GetFiles()
@@ -248,15 +248,15 @@ public class FileSelector : PopupWindow {
 
 	public void ChangeDirectory(string newDirectory) {
 		if (isBusy) {return;}
-		Settings.projectPath = Path.GetFullPath(Path.Combine(Settings.projectPath, newDirectory));
-		fullPathText.text = Settings.projectPath;
+		Settings.currentDirectory = Path.GetFullPath(Path.Combine(Settings.currentDirectory, newDirectory));
+		fullPathText.text = Settings.currentDirectory;
 		fileNameInput.text = string.Empty;
 		StartCoroutine(Populate());
 	}
 
 	public void SelectFile(string filename) {
 		if (isBusy) {return;}
-		fullPathText.text = Path.GetFullPath(Path.Combine(Settings.projectPath, filename));
+		fullPathText.text = Path.GetFullPath(Path.Combine(Settings.currentDirectory, filename));
 		fileNameInput.text = filename;
 	}
 
@@ -267,7 +267,7 @@ public class FileSelector : PopupWindow {
 	}
 
 	public void InputTextChanged() {
-		fullPathText.text = Path.GetFullPath(Path.Combine(Settings.projectPath, fileNameInput.text));
+		fullPathText.text = Path.GetFullPath(Path.Combine(Settings.currentDirectory, fileNameInput.text));
 	}
 
 	public void SetFileTypes(List<string> filetypes) {

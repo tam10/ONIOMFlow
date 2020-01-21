@@ -137,6 +137,8 @@ public class FileSelector : PopupWindow {
 		directoryColorBlock = ColorScheme.main.directoryCB;
 
 		yield return Populate();
+
+		Show();
 	}
 
 	public IEnumerator Initialise(string promptText, List<string> fileTypes=null) {

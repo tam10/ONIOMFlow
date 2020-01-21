@@ -464,6 +464,9 @@ public static class Bash {
 			yield return fileSelector.Initialise(string.Format("Select executable file: {0}", name));
 			//Wait for user response
 
+			fileSelector.Show();
+
+
 			string path = "";
 			while (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) {
 				while (!fileSelector.userResponded) {
@@ -479,8 +482,11 @@ public static class Bash {
 				//Got a non-cancelled response from the user
 				path = fileSelector.confirmedText;
 			}
-			GameObject.Destroy(fileSelector.gameObject);
 
+			fileSelector.Hide();
+
+			yield return null;
+			
 			command = Path.GetFileName(path);
 			commandPath = Path.GetDirectoryName(path);
 		}

@@ -1393,7 +1393,6 @@ MonoBehaviour:
   contentRect: {fileID: 0}
   userResponded: 0
   cancelled: 0
-  verticalScrollbar: {fileID: 114878822083338536}
   enabledFileColorBlock:
     m_NormalColor: {r: 0, g: 1, b: 0, a: 0.2509804}
     m_HighlightedColor: {r: 0, g: 1, b: 0, a: 0.5019608}
@@ -2833,7 +2832,7 @@ PrefabInstance:
     - target: {fileID: 8537492000352917597, guid: e993e712247c84f3c9d83d8362f417cd,
         type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -135.4633
+      value: -100.10786
       objectReference: {fileID: 0}
     - target: {fileID: 8538376744566868967, guid: e993e712247c84f3c9d83d8362f417cd,
         type: 3}
@@ -2858,7 +2857,7 @@ PrefabInstance:
     - target: {fileID: 8427210812220351337, guid: e993e712247c84f3c9d83d8362f417cd,
         type: 3}
       propertyPath: m_Size
-      value: 0.99838233
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 8537656262689085337, guid: e993e712247c84f3c9d83d8362f417cd,
         type: 3}

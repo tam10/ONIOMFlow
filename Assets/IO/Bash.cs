@@ -437,12 +437,14 @@ public static class Bash {
 				Directory.CreateDirectory(workingPath);
 			}
 
-			if (string.IsNullOrWhiteSpace(command) || !CommandExists(externalCommand.GetExecutable())) {
+			bool ignore = externalCommandX.Element("ignore") != null;
+			if (!ignore && (string.IsNullOrWhiteSpace(command) || !CommandExists(externalCommand.GetExecutable()))) {
 				yield return externalCommand.UserSetCommandPath();
 				if (command != "") {
 					externalCommandX.Add(new XElement("command", externalCommand.command));
 					externalCommandX.Add(new XElement("commandPath", externalCommand.commandPath));;
 				} else {
+					externalCommandX.Add(new XElement("ignore"));
 					yield break;
 				}
 			}

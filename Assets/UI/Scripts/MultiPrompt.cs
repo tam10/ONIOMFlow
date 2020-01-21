@@ -79,6 +79,7 @@ public class MultiPrompt : MonoBehaviour {
             button1.GetComponentInChildren<TextMeshProUGUI>().text = buttonSetup1.text;
             button1.onClick.AddListener(buttonSetup1.action);
             button1.gameObject.SetActive(true);
+            
         } else {
             button1.gameObject.SetActive(false);
         }

@@ -1,6 +1,7 @@
 Shader "Custom/BilinearBlur" {
     Properties {
         _Radius("Radius", Range(1, 10)) = 1
+		_MainTex ("Texture", 2D) = "white" {}
     }
 
     CGINCLUDE
@@ -11,9 +12,10 @@ Shader "Custom/BilinearBlur" {
     sampler2D _GrabTexture;
     float4 _MainTex_TexelSize;
     float4 _GrabTexture_TexelSize;
+    int _Radius;
 
-    //const float3 offset = float3(0.0, 1.3846153846, 3.2307692308);
-    //const float3 weight = float3(0.2270270270, 0.3162162162, 0.0702702703);
+    static const float3 offset = float3(0.0, 1.3846153846, 3.2307692308);
+    static const float3 weight = float3(0.2270270270, 0.3162162162, 0.0702702703);
 
     struct appdata {
         float4 vertex : POSITION;
@@ -33,13 +35,12 @@ Shader "Custom/BilinearBlur" {
         o.vertex = UnityObjectToClipPos(v.vertex);
         o.uv = v.uv;
         o.grabPassUV = ComputeGrabScreenPos(o.vertex);
-        o.color = v.color;
         return o;
     }
 
     half4 blur_v(v2f IN) : SV_TARGET {
-        float3 offset = float3(0.0, 1.3846153846, 3.2307692308);
-        float3 weight = float3(0.2270270270, 0.3162162162, 0.0702702703);
+        //float3 offset = float3(0.0, 1.3846153846, 3.2307692308);
+        //float3 weight = float3(0.2270270270, 0.3162162162, 0.0702702703);
         half4 c;
         for (int i = 0; i < 3; i++) {
             c += tex2D(_GrabTexture, IN.grabPassUV + float2(0,  _GrabTexture_TexelSize.y*offset[i])) * weight[i];
@@ -49,8 +50,8 @@ Shader "Custom/BilinearBlur" {
     }
 
     half4 blur_h(v2f IN) : SV_TARGET {
-        float3 offset = float3(0.0, 1.3846153846, 3.2307692308);
-        float3 weight = float3(0.2270270270, 0.3162162162, 0.0702702703);
+        //float3 offset = float3(0.0, 1.3846153846, 3.2307692308);
+        //float3 weight = float3(0.2270270270, 0.3162162162, 0.0702702703);
         half4 c;
         for (int i = 0; i < 3; i++) {
             c += tex2D(_GrabTexture, IN.grabPassUV + float2( _GrabTexture_TexelSize.x*offset[i], 0)) * weight[i];
@@ -108,6 +109,14 @@ Shader "Custom/BilinearBlur" {
             "_GrabTexture"
         }
         Tags{ "Queue" = "Transparent+2500" "IgnoreProjector"="True" "RenderType" = "Transparent" }
+
+        Pass {
+            ZTest Always Cull Off ZWrite Off
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag_quarter
+            ENDCG
+        }
         Pass {
             //Blend SrcAlpha OneMinusSrcAlpha
             //ZTest Always Cull Off ZWrite Off
@@ -126,14 +135,6 @@ Shader "Custom/BilinearBlur" {
             #pragma target 3.0
             ENDCG
         }
-        //Pass
-        //{
-        //    ZTest Always Cull Off ZWrite Off
-        //    CGPROGRAM
-        //    #pragma vertex vert_img
-        //    #pragma fragment frag_quarter
-        //    ENDCG
-        //}
         //Pass
         //{
         //    ZTest Always Cull Off ZWrite Off

@@ -80,7 +80,18 @@ public static class Cleaner {
         Geometry geometry = Flow.GetGeometry(geometryInterfaceID);
 
         // Look up standard water
-        AminoAcid standardWater = Data.waterResidues[Settings.standardWaterResidueName];
+        AminoAcid standardWater;
+        if (!Data.waterResidues.TryGetValue(Settings.standardWaterResidueName, out standardWater)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Standard Water Residue '{0}' not present in Database!",
+                Settings.standardWaterResidueName
+            );
+            NotificationBar.ClearTask(TID.STANDARDISE_WATERS);
+            yield break;
+        }
+        
+        standardWater = Data.waterResidues[Settings.standardWaterResidueName];
 
         // Get the PDBIDs of standard water
         PDBID[] standardWaterPDBIDs = standardWater.GetPDBIDs(RS.WATER);

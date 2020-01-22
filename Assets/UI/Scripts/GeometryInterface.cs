@@ -42,8 +42,8 @@ public class GeometryInterface :
 	/// <summary>The reference to the Geometry that belongs to this Geometry Interface.</summary>
 	public Geometry geometry;
 
-	/// <summary>The reference to the AtomsChecker that belong to this Geometry Interface.</summary>
-	public AtomsChecker checker;
+	/// <summary>The reference to the GeometryChecker that belong to this Geometry Interface.</summary>
+	public GeometryChecker checker;
 
 	/// <summary>A list of the atomCheckerIDs to use to check the Geometry of this Geometry Interface.</summary>
 	private List<ACID> atomCheckerIDs;
@@ -153,6 +153,8 @@ public class GeometryInterface :
 
 		//Get geometry interface ID from "name" attribute
 		geometryInterface.id = FileIO.GetConstant(giX, "name", Constants.GeometryInterfaceIDMap, true);
+
+		geometryInterface.name = geometryInterface.id.ToString();
 
 		//Fill in title and full name
 		geometryInterface.titleText.text = FileIO.ParseXMLString(giX, "title");
@@ -465,8 +467,8 @@ public class GeometryInterface :
 	public IEnumerator Analyse() {
 		if (geometry != null) {
 			activeTasks++;
-			AtomsAnalyser atomsAnalyser = PrefabManager.InstantiateAtomsAnalyer(transform);
-			atomsAnalyser.Analyse(id);
+			GeometryAnalyser geometryAnalyser = PrefabManager.InstantiateGeometryAnalyser(transform);
+			geometryAnalyser.Analyse(id);
 			activeTasks--;
 		}
 		yield return null;
@@ -719,8 +721,8 @@ public class GeometryInterface :
 	/// <summary>Show the Analysis Window.</summary>
 	public void ShowAnalysis() {
 		if (geometry != null) {
-			AtomsAnalyser atomsAnalyser = PrefabManager.InstantiateAtomsAnalyer(null);
-			atomsAnalyser.Analyse(id);
+			GeometryAnalyser geometryAnalyser = PrefabManager.InstantiateGeometryAnalyser(null);
+			geometryAnalyser.Analyse(id);
 		}
 	}
 

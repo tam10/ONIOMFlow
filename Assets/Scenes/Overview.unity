@@ -10898,7 +10898,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: -10, y: 0}
-  m_SizeDelta: {x: 10, y: -7}
+  m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0, y: 0}
 --- !u!114 &446494600
 MonoBehaviour:
@@ -10941,7 +10941,7 @@ MonoBehaviour:
   m_Interactable: 1
   m_TargetGraphic: {fileID: 446494601}
   m_HandleRect: {fileID: 186748502}
-  m_Direction: 0
+  m_Direction: 3
   m_Value: 0
   m_Size: 0.2
   m_NumberOfSteps: 0
@@ -15651,7 +15651,7 @@ MonoBehaviour:
     type: 3}
   lineDrawerPrefab: {fileID: 1958875750173818808, guid: 2e5d225b7f2134e85b94929f2fbdac21,
     type: 3}
-  atomsAnalyserPrefab: {fileID: 7209534296284911529, guid: f227f387eb43d4860b12cd2bb675b73a,
+  geometryAnalyserPrefab: {fileID: 7209534296284911529, guid: f227f387eb43d4860b12cd2bb675b73a,
     type: 3}
   parametersPrefab: {fileID: 9117110565402226989, guid: 52b2ade660f624f6bb45cbb222c7ea8b,
     type: 3}
@@ -16874,6 +16874,13 @@ MonoBehaviour:
   backgroundRect: {fileID: 2112392521}
   tableTitleRect: {fileID: 859972625}
   tableTitleText: {fileID: 1998454995}
+  scrollRectValueChanged: 0
+  scrollbarValueChanged: 0
+  numBuffered: 0
+  numResidues: 0
+  bufferedResidueStartIndex: 0
+  bufferedResidueEndIndex: 0
+  contentShiftVector: {x: 0, y: 0}
   tableTitleFontSize: 18
   tableTitleHeight: 30
   draggableInterface: {fileID: 1299833047}
@@ -17679,8 +17686,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 720806628}
   m_HandleRect: {fileID: 720806627}
   m_Direction: 2
-  m_Value: 1
-  m_Size: 0
+  m_Value: 0
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -18056,7 +18063,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -219888, y: -1343961.5}
+  m_AnchoredPosition: {x: -220608, y: -1365026}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
 --- !u!114 &731135392
@@ -24414,7 +24421,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -219888, y: 677335.2}
+  m_AnchoredPosition: {x: -220608, y: 689287.75}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &945600549
@@ -33057,7 +33064,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 2034, y: 690432.56}
+  m_AnchoredPosition: {x: 0.00006476973, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1245305459
@@ -38745,7 +38752,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -13005429, y: 0}
+  m_AnchoredPosition: {x: -13069094, y: 0}
   m_SizeDelta: {x: 0, y: 30}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1472426049
@@ -55744,7 +55751,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294950783
+    rgba: 4294950784
   m_fontColor: {r: 0.5, g: 0.75, b: 1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -55804,13 +55811,13 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_textInfo:
     textComponent: {fileID: 1998454995}
-    characterCount: 0
+    characterCount: 13
     spriteCount: 0
-    spaceCount: 0
-    wordCount: 0
+    spaceCount: 1
+    wordCount: 2
     linkCount: 0
-    lineCount: 0
-    pageCount: 0
+    lineCount: 1
+    pageCount: 1
     materialCount: 1
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
@@ -57007,8 +57014,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 945049909}
   m_HandleRect: {fileID: 945049908}
   m_Direction: 0
-  m_Value: 0.31578946
-  m_Size: 1
+  m_Value: 0
+  m_Size: 0.998558
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:

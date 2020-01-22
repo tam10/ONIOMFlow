@@ -2402,7 +2402,7 @@ GameObject:
   - component: {fileID: 1358181458155084897}
   - component: {fileID: 7209534296284911529}
   m_Layer: 0
-  m_Name: AtomsAnalyser
+  m_Name: GeometryAnalyser
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2449,6 +2449,18 @@ MonoBehaviour:
   size: 0
   atomsName: 
   formula: 
+  positiveColor: {r: 1, g: 0, b: 0, a: 1}
+  negativeColor: {r: 0, g: 0, b: 1, a: 1}
+  ringColor: {r: 1, g: 1, b: 1, a: 1}
+  normalColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  waterColor: {r: 0, g: 1, b: 1, a: 1}
+  hBondStartColor: {r: 0.7, g: 0.7, b: 0, a: 1}
+  hBondEndColor: {r: 0, g: 0.7, b: 0.7, a: 1}
+  ringStartColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
+  ringEndColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
+  ionicStartColor: {r: 1, g: 0, b: 0, a: 1}
+  ionicEndColor: {r: 0, g: 0, b: 1, a: 1}
+  buttonSeparation: 20
 --- !u!1 &7669087157249770014
 GameObject:
   m_ObjectHideFlags: 0

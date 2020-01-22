@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<graphics>
+	<globalResolution value="5">
+		<ballResolution>2</ballResolution>
+		<stickResolution>2</stickResolution>
+	</globalResolution>
+
+	<globalResolution value="4">
+		<ballResolution>2</ballResolution>
+		<stickResolution>2</stickResolution>
+	</globalResolution>
+
+	<globalResolution value="3">
+		<ballResolution>2</ballResolution>
+		<stickResolution>2</stickResolution>
+	</globalResolution>
+
+	<globalResolution value="2">
+		<ballResolution>2</ballResolution>
+		<stickResolution>2</stickResolution>
+	</globalResolution>
+
+	<globalResolution value="1">
+		<ballResolution>1</ballResolution>
+		<stickResolution>1</stickResolution>
+	</globalResolution>
+
+	<globalResolution value="0">
+		<ballResolution>0</ballResolution>
+		<stickResolution>0</stickResolution>
+	</globalResolution>
+</graphics>

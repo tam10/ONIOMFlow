@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<tasks>
+
+    <parentClass>
+        <name>geometryInterface</name>
+        <fullName>Geometry Interface</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>cleaner</name>
+        <fullName>Cleaning</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>nonStandardResidueTools</name>
+        <fullName>Non-Standard Residues</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>partialChargesCalculator</name>
+        <fullName>Partial Charges</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>protonator</name>
+        <fullName>Protonation</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>gaussian</name>
+        <fullName>Gaussian</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>layers</name>
+        <fullName>Layers</fullName>
+    </parentClass>
+
+    <parentClass>
+        <name>amberCalculator</name>
+        <fullName>AMBER</fullName>
+    </parentClass>
+
+    <task>
+        <name>loadAtoms</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Load Atoms</fullName>
+        <description>Load atoms from a file in between tasks</description>
+    </task>
+
+    <task>
+        <name>saveAtoms</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Save Atoms</fullName>
+        <description>Save atoms in between tasks</description>
+    </task>
+    
+    <task>
+        <name>checkGeometry</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Check Geometry</fullName>
+        <description>Perform validity checks on a geometry</description>
+    </task>
+
+    <task>
+        <name>standardiseWaters</name>
+        <parentClass>cleaner</parentClass>
+        <fullName>Standardise Water Residues</fullName>
+        <description>Sets all water residue and PDB Names to their standard names</description>
+    </task>
+
+    <!-- Obsolete
+    <task>
+        <name>uniquatePDBs</name>
+        <parentClass>cleaner</parentClass>
+        <fullName>Uniquate Residue PDB Names</fullName>
+        <description>Replace all duplicate PDB Names in residues with unique names</description>
+    </task>
+    -->
+    
+    <task>
+        <name>removePDBSpecialCharacters</name>
+        <parentClass>cleaner</parentClass>
+        <fullName>Strip PDB Special Characters</fullName>
+        <description>Remove special characters from PDB Names within residues</description>
+    </task>
+    
+    <task>
+        <name>mergeNonStandardResidues</name>
+        <parentClass>nonStandardResidueTools</parentClass>
+        <fullName>Merge Neighbouring Non-Standard Residues</fullName>
+        <description>Merge Non-Standard Residues if they are touching</description>
+    </task>
+    
+    <task>
+        <name>getChain</name>
+        <parentClass>cleaner</parentClass>
+        <fullName>Get Specified Chain Atoms</fullName>
+        <description>Get only the atoms in the chain specified in settings</description>
+    </task>
+    
+    <task>
+        <name>calculateAMBERTypes</name>
+        <parentClass>amberCalculator</parentClass>
+        <fullName>Look up AMBER Types</fullName>
+        <description>Look up AMBER Types for atoms in Standard Residues</description>
+    </task>
+    
+    <task>
+        <name>calculateAMBERTypesWithAntechamber</name>
+        <parentClass>amberCalculator</parentClass>
+        <fullName>Calculate AMBER Types (Antechamber)</fullName>
+        <description>Calculate AMBER Types using Antechamber</description>
+    </task>
+
+    <task>
+        <name>calculateParameters</name>
+        <parentClass>amberCalculator</parentClass>
+        <fullName>Calculate AMBER Parameters (parmchk2)</fullName>
+        <description>Use parmchk2 to calculate AMBER parameters</description>
+     </task>
+
+    <task>
+        <name>optimiseWithAmber</name>
+        <parentClass>cleaner</parentClass>
+        <fullName>Optimise with AMBER</fullName>
+        <description>Minimise the Geometry's potential energy with AMBER</description>
+     </task>
+
+    <task>
+        <name>protonateWithPDB2PQR</name>
+        <parentClass>protonator</parentClass>
+        <fullName>Protonate Standard Residues (PDB2PQR)</fullName>
+        <description>Protonate and assign partial charges to Standard Residues using PDB2PQR</description>
+    </task>
+
+    <task>
+        <name>protonateWithReduce</name>
+        <parentClass>protonator</parentClass>
+        <fullName>Protonate Non-Standard Residues (Reduce)</fullName>
+        <description>Protonate Non-Standard Residues using Reduce</description>
+    </task>
+
+    <task>
+        <name>getSRs</name>
+        <parentClass>nonStandardResidueTools</parentClass>
+        <fullName>Get Standard Residues</fullName>
+        <description>Separate and cap Standard Residues</description>
+    </task>
+
+    <task>
+        <name>getNSRs</name>
+        <parentClass>nonStandardResidueTools</parentClass>
+        <fullName>Get Non-Standard Residues</fullName>
+        <description>Separate and cap Non-Standard Residues</description>
+    </task>
+
+    <task>
+        <name>calculateConnectivity</name>
+        <parentClass>cleaner</parentClass>
+        <fullName>Calculate Connectivity</fullName>
+        <description>Compute bond orders by residue</description>
+    </task>
+
+    <task>
+        <name>clearConnectivity</name>
+        <parentClass>cleaner</parentClass>
+        <fullName>Clear Connectivity</fullName>
+        <description>Remove all bonds</description>
+    </task>
+
+    <task>
+        <name>selectNonStandardResidues</name>
+        <parentClass>nonStandardResidueTools</parentClass>
+        <fullName>Flag Non-Standard Residues</fullName>
+        <description>Mark residues as non-standard</description>
+    </task>
+
+    <task>
+        <name>calculatePartialChargesRED</name>
+        <parentClass>partialChargesCalculator</parentClass>
+        <fullName>Calculate Partial Charges (RED)</fullName>
+        <description>Compute partial charges for each residue</description>
+    </task>
+
+    <task>
+        <name>calculatePartialChargesGaussian</name>
+        <parentClass>partialChargesCalculator</parentClass>
+        <fullName>Calculate Partial Charges (Gaussian)</fullName>
+        <description>Compute partial charges for each residue</description>
+    </task>
+
+    <task>
+        <name>getPartialChargesFromMol2</name>
+        <parentClass>partialChargesCalculator</parentClass>
+        <fullName>Get Partial Charges from MOL2 file</fullName>
+        <description>Read partial charges from a previously completed RED calculation.</description>
+    </task>
+
+    <task>
+        <name>fillMissingResidues</name>
+        <parentClass>cleaner</parentClass>
+        <fullName>Add Missing Residues</fullName>
+        <description>Fill in any missing residues from PDB records.</description>
+    </task>
+
+    <task>
+        <name>optimiseMissingResidues</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Optimise Missing Residues </fullName>
+        <description>Remove clashes after adding missing residues.</description>
+    </task>
+
+    <task>
+        <name>mergeGeometries</name>
+        <parentClass>nonStandardResidueTools</parentClass>
+        <fullName>Merge Geometries</fullName>
+        <description>Merge two geometries, removing capping residues</description>
+    </task>
+
+    <task>
+        <name>moveAllToModelLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move All to Model Layer</fullName>
+        <description>Move all Atoms to Model Layer</description>
+    </task>
+
+    <task>
+        <name>moveAllToIntermediateLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move All to Intermediate Layer</fullName>
+        <description>Move all Atoms to Intermediate Layer</description>
+    </task>
+
+    <task>
+        <name>moveAllToRealLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move All to Real Layer</fullName>
+        <description>Move all Atoms to Real Layer</description>
+    </task>
+
+    <task>
+        <name>moveSelectionToModelLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move Selection to Model Layer</fullName>
+        <description>Move selection to Model Layer</description>
+    </task>
+
+    <task>
+        <name>moveSelectionToIntermediateLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move Selection to Intermediate Layer</fullName>
+        <description>Move selection to Intermediate Layer</description>
+    </task>
+
+    <task>
+        <name>moveSelectionToRealLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Move Selection to Real Layer</fullName>
+        <description>Move selection to Real Layer</description>
+    </task>
+
+    <task>
+        <name>validateLayers</name>
+        <parentClass>layers</parentClass>
+        <fullName>Validate Layers</fullName>
+        <description>Check this geometry has the correct number of ONIOM Layers for a Gaussian calculation</description>
+    </task>
+
+    <task>
+        <name>setupCalculation</name>
+        <parentClass>gaussian</parentClass>
+        <fullName>Gaussian Calculation Setup</fullName>
+        <description>Get information to initialise a Gaussian calculation</description>
+    </task>
+
+    <task>
+        <name>runGaussianRecipe</name>
+        <parentClass>gaussian</parentClass>
+        <fullName>Run Gaussian Recipe</fullName>
+        <description>Load an XML file containing a sequence of Gaussian Calculations and actions</description>
+    </task>
+
+    <task>
+        <name>getModelLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Get Model Layer</fullName>
+        <description>Isolate the Model Layer for parameterisation</description>
+    </task>
+
+    <task>
+        <name>getIntermediateLayer</name>
+        <parentClass>layers</parentClass>
+        <fullName>Get Intermediate Layer</fullName>
+        <description>Isolate the Intermediate Layer for parameterisation</description>
+    </task>
+
+    <task>
+        <name>copyGeometry</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Copy Geometry</fullName>
+        <description>Copy dragged Geometry to this Interface</description>
+    </task>
+
+    <task>
+        <name>copyPositions</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Copy Positions</fullName>
+        <description>Copy Positions of dragged Geometry (only matching Atoms are copied)</description>
+    </task>
+
+    <task>
+        <name>replaceParameters</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Replace Parameters</fullName>
+        <description>Replace Paramaters of dragged Geometry</description>
+    </task>
+
+    <task>
+        <name>updateParameters</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Update Parameters</fullName>
+        <description>Update Paramaters of dragged Geometry</description>
+    </task>
+
+    <task>
+        <name>copyPartialCharges</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Copy Partial Charges</fullName>
+        <description>Copy Partial Charges of dragged Geometry (only matching Atoms are copied)</description>
+    </task>
+
+    <task>
+        <name>copyAmbers</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Copy AMBER types</fullName>
+        <description>Copy AMBER types of dragged Geometry (only matching atoms are copied)</description>
+    </task>
+
+    <task>
+        <name>alignGeometries</name>
+        <parentClass>geometryInterface</parentClass>
+        <fullName>Align Geometry Positions</fullName>
+        <description>Use the best transformation matrix to align Geometries</description>
+    </task>
+
+    
+</tasks>

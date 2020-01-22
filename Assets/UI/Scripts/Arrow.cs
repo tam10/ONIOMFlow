@@ -358,8 +358,12 @@ public class Arrow : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, I
 			} else {
 				status = GIS.OK;
 			}
-		} else if (startStatus == GIS.OK && ! startIsBusy) {
-			status = GIS.OK;
+		} else if ( ! startIsBusy) {
+			if (startStatus == GIS.OK) {
+				status = GIS.OK;
+			} else if (startStatus == GIS.WARNING) {
+				status = GIS.WARNING;
+			}
 		}
 
 		Color color = ColorScheme.GetColorBlock(status).normalColor;

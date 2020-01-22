@@ -74,9 +74,9 @@ public class PrefabManager : MonoBehaviour {
 		return GameObject.Instantiate<LineDrawer>(main.lineDrawerPrefab, transform);
 	}
 
-	public AtomsAnalyser atomsAnalyserPrefab;
-	public static AtomsAnalyser InstantiateAtomsAnalyer(Transform transform) {
-		return GameObject.Instantiate<AtomsAnalyser>(main.atomsAnalyserPrefab, transform);
+	public GeometryAnalyser geometryAnalyserPrefab;
+	public static GeometryAnalyser InstantiateGeometryAnalyser(Transform transform) {
+		return GameObject.Instantiate<GeometryAnalyser>(main.geometryAnalyserPrefab, transform);
 	}
 
 	// AMBER

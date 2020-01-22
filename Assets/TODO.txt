@@ -29,9 +29,7 @@ Will need to update Tasks.xml and tasks.html
 Make GetResidueGroup non-recursive. DONE but needs checking.
 
 PROTONATOR
-Move GetNSRs and GetSRs to a new class - GeometrySplitter
 Provide some progress feedback for R.E.D.
-Allow selection of mol2 file
 
 ARROWS/TASKS/PROCEDURES
 Simplify this by moving info to Flow.xml and Tasks.xml
@@ -45,16 +43,6 @@ Make functions to change Angle and Dihedral
 ATOMS
 Reevaluate the ChangePDBID() method. Looks like it only reconnects internal connections.
 Fix ResetConnectivity()
-
-PROTONATOR
-broke
-CAP residues aren't recognised in Reduce command
-
-RESIDUE
-Changed:
-newbondLength = Data.bondDistances[new ElementPair(hostPDBID, atomID.pdbID)][0] - Settings.bondLeeway * 1.5f;
-to 
-newbondLength = Data.bondDistances[new ElementPair(hostPDBID, atomPDBID)][0] - Settings.bondLeeway * 1.5f;
 
 ATOM VISUALISER
 Changed MoveCamera IEnumerator
@@ -79,7 +67,3 @@ Sphere - Done
 Multiprompt - Done
 Arrow
 Clean
-
-
-
-Setttings - Need to move SR/NSR protonation + gaussian to ExternalCommand

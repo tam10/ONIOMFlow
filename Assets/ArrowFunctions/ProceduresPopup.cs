@@ -197,7 +197,7 @@ public class ProceduresPopup : PopupWindow {
                 );
             } else if (!parentClasses.Contains(taskParentClass)) {
                 parentClasses.Add(taskParentClass);
-                taskGroups[taskParentClass] = new List<TID>();
+                taskGroups[taskParentClass] = new List<TID> {taskID};
             } else {
                 taskGroups[taskParentClass].Add(taskID);
             }

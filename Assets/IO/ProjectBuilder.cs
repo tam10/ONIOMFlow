@@ -4,6 +4,16 @@ using UnityEngine;
 using System.IO;
 
 public class ProjectBuilder : MonoBehaviour {
+
+    public string projectPath;
+    public string settingsDirectory;
+    public string settingsPath;
+    public string dataDirectory;
+    public string dataPath;
+    public string recipeDirectory;
+    public string recipePath;
+
+    public string projectFile = ".project";
     
     void Start() {
         StartCoroutine(LoadProject());
@@ -11,32 +21,150 @@ public class ProjectBuilder : MonoBehaviour {
 
     IEnumerator LoadProject() {
         
+//        ProjectSelector projectSelector = ProjectSelector.main;
+//
+//        yield return projectSelector.Initialise();
+//
+//        while (!projectSelector.userResponded) {
+//            yield return null;
+//        }
+//
+//        projectPath = projectSelector.projectPath;
+//        
+//        projectSelector.Hide();
+//
+//        if (projectSelector.cancelled) {
+//            Application.Quit();
+//            yield break;
+//        }
+//
+//        SettingsBuilder settingsBuilder = SettingsBuilder.main;
+//        
+//        yield return settingsBuilder.Initialise();
+//
+//
+//        CreateDirectory(projectPath);
+//
+//        settingsDirectory = "Settings";
+//        settingsPath = Path.Combine(projectPath, settingsDirectory);
+//
+//        CreateDirectory(settingsPath);
+//        CreateFile(settingsDirectory, "ProjectSettings", settingsPath, "ProjectSettings.xml");
+//        CreateFile(settingsDirectory, "Tasks", settingsPath, "Tasks.xml");
+//        CreateFile(settingsDirectory, "Atoms", settingsPath, "Atoms.xml");
+//        CreateFile(settingsDirectory, "Graphics", settingsPath, "Graphics.xml");
+//        CreateFile(settingsDirectory, "Flow", settingsPath, "Flow.xml");
+//        CreateFile(settingsDirectory, "ResidueTable", settingsPath, "ResidueTable.xml");
+//
+//        dataDirectory = "Data";
+//        dataPath = Path.Combine(projectPath, dataDirectory);
+//
+//        CreateDirectory(dataPath);
+//        CreateFile(dataDirectory, "Bonds", dataPath, "Bonds.xml");
+//        CreateFile(dataDirectory, "StandardResidues", dataPath, "StandardResidues.xml");
+//        CreateFile(dataDirectory, "GaussianMethods", dataPath, "GaussianMethods.xml");
+//        CreateFile(dataDirectory, "amberToElement", dataPath, "amberToElement.csv");
+//        CreateFile(dataDirectory, "pdbToElement", dataPath, "pdbToElement.csv");
+//
+//        recipeDirectory = "Recipes";
+//        recipePath = Path.Combine(projectPath, recipeDirectory);
+//
+//        CreateDirectory(recipePath);
+//        CreateFile(recipeDirectory, "resp", recipePath, "resp.xml");
+//
+//        yield return Settings.Initialise(projectPath);
+//        yield return Data.Initialise();
+
+        yield return GetProjectPath();
+        
+        SettingsBuilder settingsBuilder = SettingsBuilder.main;
+        yield return settingsBuilder.Initialise();
+
+        GetSettingsFiles();
+        GetDataFiles();
+        GetRecipeFiles();
+
+        yield return Settings.Initialise(projectPath);
+        yield return Data.Initialise();
+
+        settingsBuilder.Hide();
+        SceneManager.LoadScene("Overview");
+
+    }
+
+    IEnumerator GetProjectPath() {
+
+        projectPath = "";
+        
         ProjectSelector projectSelector = ProjectSelector.main;
 
         yield return projectSelector.Initialise();
 
-        while (!projectSelector.userResponded) {
-            yield return null;
+        while (string.IsNullOrWhiteSpace(projectPath)) {
+
+            while (!projectSelector.userResponded) {
+                yield return null;
+            }
+
+            if (projectSelector.cancelled) {
+                #if UNITY_EDITOR
+                    UnityEditor.EditorApplication.isPlaying = false;
+                #else
+                    Application.Quit();
+                #endif
+                yield break;
+            }
+
+            string path = projectSelector.projectPath;
+            string projectFilePath = Path.Combine(path, projectFile);
+            Debug.Log(projectFilePath);
+            projectSelector.userResponded = false;
+
+            if (string.IsNullOrWhiteSpace(path)) {
+                yield return null;
+            } else if (!Directory.Exists(path) || !File.Exists(projectFilePath)) {
+
+                bool createNew = false;
+
+                MultiPrompt multiPrompt = MultiPrompt.main;
+
+                multiPrompt.Initialise(
+                    "Create New Project",
+                    string.Format("Create a new project in '{0}'?", path),
+                    new ButtonSetup(text:"Confirm", action:() => createNew = true),
+                    new ButtonSetup(text:"Cancel", action:() => createNew = false)
+                );
+
+                while (!multiPrompt.userResponded) {
+				    yield return null;
+                }
+
+                multiPrompt.Hide();
+
+                if (createNew) {
+                    projectPath = path;
+                    CreateDirectory(projectPath);
+                    File.Create(projectFilePath);
+                    File.SetAttributes(projectFilePath, File.GetAttributes(projectFilePath) | FileAttributes.Hidden);
+
+                    break;
+                }
+
+            } else {
+                projectPath = path;
+                break;
+            }
         }
 
-        string projectPath = projectSelector.projectPath;
-        
+
         projectSelector.Hide();
 
-        if (projectSelector.cancelled) {
-            Application.Quit();
-            yield break;
-        }
+    }
 
-        SettingsBuilder settingsBuilder = SettingsBuilder.main;
-        
-        yield return settingsBuilder.Initialise();
+    void GetSettingsFiles() {
 
-
-        CreateDirectory(projectPath);
-
-        string settingsDirectory = "Settings";
-        string settingsPath = Path.Combine(projectPath, settingsDirectory);
+        settingsDirectory = "Settings";
+        settingsPath = Path.Combine(projectPath, settingsDirectory);
 
         CreateDirectory(settingsPath);
         CreateFile(settingsDirectory, "ProjectSettings", settingsPath, "ProjectSettings.xml");
@@ -45,9 +173,11 @@ public class ProjectBuilder : MonoBehaviour {
         CreateFile(settingsDirectory, "Graphics", settingsPath, "Graphics.xml");
         CreateFile(settingsDirectory, "Flow", settingsPath, "Flow.xml");
         CreateFile(settingsDirectory, "ResidueTable", settingsPath, "ResidueTable.xml");
+    }
 
-        string dataDirectory = "Data";
-        string dataPath = Path.Combine(projectPath, dataDirectory);
+    void GetDataFiles() {
+        dataDirectory = "Data";
+        dataPath = Path.Combine(projectPath, dataDirectory);
 
         CreateDirectory(dataPath);
         CreateFile(dataDirectory, "Bonds", dataPath, "Bonds.xml");
@@ -55,19 +185,14 @@ public class ProjectBuilder : MonoBehaviour {
         CreateFile(dataDirectory, "GaussianMethods", dataPath, "GaussianMethods.xml");
         CreateFile(dataDirectory, "amberToElement", dataPath, "amberToElement.csv");
         CreateFile(dataDirectory, "pdbToElement", dataPath, "pdbToElement.csv");
+    }
 
-        string recipeDirectory = "Recipes";
-        string recipePath = Path.Combine(projectPath, recipeDirectory);
+    void GetRecipeFiles() {
+        recipeDirectory = "Recipes";
+        recipePath = Path.Combine(projectPath, recipeDirectory);
 
         CreateDirectory(recipePath);
         CreateFile(recipeDirectory, "resp", recipePath, "resp.xml");
-
-        yield return Settings.Initialise(projectPath);
-        yield return Data.Initialise();
-
-        settingsBuilder.Hide();
-        SceneManager.LoadScene("Overview");
-
     }
 
     void CreateDirectory(string path) {

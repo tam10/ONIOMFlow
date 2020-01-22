@@ -59,19 +59,19 @@ public class ResidueTable : MonoBehaviour {
     public Dictionary<RP, ResidueHeader> headerDict = new Dictionary<RP, ResidueHeader>();
 
     //This is needed to stop both listener functions being called
-    private bool scrollRectValueChanged = false;
-    private bool scrollbarValueChanged = false;
+    public bool scrollRectValueChanged = false;
+    public bool scrollbarValueChanged = false;
 
 
     //Number of Residues to be loaded
-    private int numBuffered;
-    private int numResidues;
+    public int numBuffered;
+    public int numResidues;
 
     //Indices of first and last atom in buffered region
-    private int bufferedResidueStartIndex;
-    private int bufferedResidueEndIndex;
+    public int bufferedResidueStartIndex;
+    public int bufferedResidueEndIndex;
 
-    private Vector2 contentShiftVector;
+    public Vector2 contentShiftVector;
 
     public float tableTitleFontSize = 18f;
     public float tableTitleHeight = 30f;
@@ -130,8 +130,8 @@ public class ResidueTable : MonoBehaviour {
 
 
         //Add listeners so scrollrect and scrollbar talk to each other
-        bufferedScrollRect.onValueChanged.AddListener(delegate {ScrollRectValueChanged();});
-        residueScrollbar.onValueChanged.AddListener(delegate {ScrollBarValueChanged();});
+        bufferedScrollRect.onValueChanged.AddListener(delta => ScrollRectValueChanged(delta));
+        residueScrollbar.onValueChanged.AddListener(value => ScrollBarValueChanged(value));
 
         //Don't use small scrollbar when fewer atoms than rows
         residueScrollbar.size = (numBuffered < numResidues) ? 0.2f : 1f;
@@ -227,26 +227,33 @@ public class ResidueTable : MonoBehaviour {
         }
     }
 
-    private void ScrollRectValueChanged() {
+    private void ScrollRectValueChanged(Vector2 delta) {
         //Invoked when the content window (table) are scrolled
         if (scrollbarValueChanged) return;
         scrollRectValueChanged = true;
 
+        //CustomLogger.LogOutput(
+        //    "residueScrollbar.value {0} -> {1}",
+        //    residueScrollbar.value,
+        //    (numResidues - numBuffered > 0) ? (float)bufferedResidueEndIndex / (numResidues - numBuffered) : 1
+        //);
         //Change position of displayed scrollbar
         residueScrollbar.value = (numResidues - numBuffered > 0) ? (float)bufferedResidueEndIndex / (numResidues - numBuffered) : 1;
         
         //Swap top and bottom rows and change values 
         // if reached top or bottom of buffered region
-        if (bufferedScrollbar.value == 0) {
+        if (bufferedScrollbar.value <= 0) {
+            //Debug.Log("ScrollRectValueChanged.TryScrollDownStep");
             TryScrollDownStep();
-        } else if (bufferedScrollbar.value == 1) {
+        } else if (bufferedScrollbar.value >= 1) {
+            //Debug.Log("ScrollRectValueChanged.TryScrollUpStep");
             TryScrollUpStep();
         }
 
         scrollRectValueChanged = false;
     }
 
-    private void ScrollBarValueChanged() {
+    private void ScrollBarValueChanged(float value) {
         //Invoked when the scrollbar area is clicked
         if (scrollRectValueChanged) return;
         scrollbarValueChanged = true;
@@ -254,7 +261,7 @@ public class ResidueTable : MonoBehaviour {
         //Scrollbar has a value between 0 and 1.
         //Translate this to atom index using numAtoms
         //Need to subtract numBuffered so bufferedAtomEndIndex doesn't exceed numAtoms
-        bufferedResidueStartIndex = (int)((residueScrollbar.value) * (numResidues - numBuffered));
+        bufferedResidueStartIndex = (int)((value) * (numResidues - numBuffered));
         bufferedResidueEndIndex = bufferedResidueStartIndex + numBuffered - 1;
         
         //All the entries must be updated this time - 10x slower

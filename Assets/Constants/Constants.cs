@@ -175,11 +175,12 @@ public static class Constants {
 	};
 
 
-    public enum AtomCheckerID : int { NONE, HAS_PDB, HAS_AMBER, PDBS_ALPHANUM }
+    public enum AtomCheckerID : int { NONE, HAS_PDB, HAS_AMBER, HAS_VALID_AMBER, PDBS_ALPHANUM }
 	public static Map<string, AtomCheckerID> AtomCheckerIDMap = new Map<string, AtomCheckerID> {
 		{"none", AtomCheckerID.NONE},
         {"hasPDB", AtomCheckerID.HAS_PDB},
 		{"hasAMBER", AtomCheckerID.HAS_AMBER},
+		{"hasValidAMBER", AtomCheckerID.HAS_VALID_AMBER},
         {"pdbsAlphanum", AtomCheckerID.PDBS_ALPHANUM}
 	};
 

@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<atoms>
+
+    <!-- How much can a bond stretch from its standard length before its bond order is reduced? -->
+    <bondLeeway>0.1</bondLeeway>
+
+    <!-- 
+    Which chain should calculations use? (Multiple chains aren't supported by external commands) 
+    Overridden by Cleaner.GetChain()
+    -->
+    <defaultChain>A</defaultChain>
+
+    <!-- What should water residues be called? -->
+    <standardWaterResidueName>HOH</standardWaterResidueName>
+
+    <!-- What PDBIDs are valid connection points for standard residues? -->
+    <standardConnections>
+        <connection type="N_VALENT"> N  </connection>
+        <connection type="C_VALENT"> C  </connection>
+        <connection type="SG_VALENT"> SG </connection>
+    </standardConnections>
+
+    <nonStandardConnections>
+        <element>C</element>
+        <element>N</element>
+        <element>O</element>
+        <element>S</element>
+        <element>P</element>
+    </nonStandardConnections>
+
+    <!-- Which positively charges heavy atom PDBIDs form salt bridges? -->
+    <positiveChargeSites>
+        <residue name="LYS">
+            <pdbID> NZ </pdbID>
+        </residue>
+        <residue name="HIP">
+            <pdbID> ND1</pdbID>
+            <pdbID> ND2</pdbID>
+        </residue>
+        <residue name="ARG">
+            <pdbID> NH1</pdbID>
+            <pdbID> NH2</pdbID>
+        </residue>
+        <residue name="HOH">
+            <pdbID> O  </pdbID>
+            <pdbID> OH </pdbID>
+            <pdbID> OW </pdbID>
+        </residue>
+    </positiveChargeSites>
+
+    <!-- Which negatively charges heavy atom PDBIDs form salt bridges? -->
+    <negativeChargeSites>
+        <residue name="ASP">
+            <pdbID> OD1</pdbID>
+            <pdbID> OD2</pdbID>
+        </residue>
+        <residue name="GLU">
+            <pdbID> OE1</pdbID>
+            <pdbID> OE2</pdbID>
+        </residue>
+        <residue name="HOH">
+            <pdbID> O  </pdbID>
+            <pdbID> OH </pdbID>
+            <pdbID> OW </pdbID>
+        </residue>
+    </negativeChargeSites>
+
+    <!-- Which residues contain rings and what are their PDBIDs? -->
+    <ringSites>
+        <residue name="PHE">
+            <ring>
+                <pdbID> CG </pdbID>
+                <pdbID> CD1</pdbID>
+                <pdbID> CD2</pdbID>
+                <pdbID> CE1</pdbID>
+                <pdbID> CE2</pdbID>
+                <pdbID> CZ </pdbID>
+            </ring>
+        </residue>
+        <residue name="TYR">
+            <ring>
+                <pdbID> CG </pdbID>
+                <pdbID> CD1</pdbID>
+                <pdbID> CD2</pdbID>
+                <pdbID> CE1</pdbID>
+                <pdbID> CE2</pdbID>
+                <pdbID> CZ </pdbID>
+            </ring>
+        </residue>
+        <residue name="TRP">
+            <ring>
+                <pdbID> CG </pdbID>
+                <pdbID> CD1</pdbID>
+                <pdbID> CD2</pdbID>
+                <pdbID> NE1</pdbID>
+                <pdbID> CE2</pdbID>
+            </ring>
+            <ring>
+                <pdbID> CD2</pdbID>
+                <pdbID> CE1</pdbID>
+                <pdbID> CE2</pdbID>
+                <pdbID> CZ1</pdbID>
+                <pdbID> CZ2</pdbID>
+                <pdbID> CH2</pdbID>
+            </ring>
+        </residue>
+    </ringSites>
+
+    <!-- Bond orders and translations -->
+    <bonds>
+        <bond ID="">
+            <name>none</name>
+            <gaussString>0.0</gaussString>
+            <triposString>0</triposString>
+        </bond>
+        <bond ID="S">
+            <name>single</name>
+            <gaussString>1.0</gaussString>
+            <triposString>1</triposString>
+        </bond>
+        <bond ID="A">
+            <name>aromatic</name>
+            <gaussString>1.5</gaussString>
+            <triposString>ar</triposString>
+        </bond>
+        <bond ID="D">
+            <name>double</name>
+            <gaussString>2.0</gaussString>
+            <triposString>2</triposString>
+        </bond>
+        <bond ID="T">
+            <name>triple</name>
+            <gaussString>3.0</gaussString>
+            <triposString>3</triposString>
+        </bond>
+    </bonds>
+
+    <!--Use this to predict total charge of a system-->
+    <formalCharges>
+        <atom amber="N">
+            <entry neighbours="2">-1</entry>
+            <entry neighbours="3">0</entry>
+            <entry neighbours="4">1</entry>
+        </atom>
+        <atom amber="NA">
+            <entry neighbours="2">-1</entry>
+            <entry neighbours="3">0</entry>
+            <entry neighbours="4">1</entry>
+        </atom>
+        <atom amber="NB">
+            <entry neighbours="2">0</entry>
+            <entry neighbours="3">1</entry>
+        </atom>
+        <atom amber="NC">
+            <entry neighbours="2">0</entry>
+            <entry neighbours="3">1</entry>
+        </atom>
+        <atom amber="N2">
+            <entry neighbours="2">-1</entry>
+            <entry neighbours="3">0</entry>
+            <entry neighbours="3">1</entry>
+        </atom>
+        <atom amber="N3">
+            <entry neighbours="2">-1</entry>
+            <entry neighbours="3">0</entry>
+            <entry neighbours="3">1</entry>
+        </atom>
+        <atom amber="O">
+            <entry neighbours="1">0</entry>
+            <entry neighbours="2">1</entry>
+        </atom>
+        <atom amber="OH">
+            <entry neighbours="1">-1</entry>
+            <entry neighbours="2">0</entry>
+        </atom>
+        <atom amber="O2">
+            <entry neighbours="1">-0.5</entry>
+            <entry neighbours="2">0.5</entry>
+        </atom>
+        <atom amber="SH">
+            <entry neighbours="1">-1</entry>
+            <entry neighbours="2">0</entry>
+        </atom>
+    </formalCharges>
+
+    <aromaticAmbers>
+        <entry amber="C">1</entry>
+        <entry amber="CA">1</entry>
+        <entry amber="CB">1</entry>
+        <entry amber="CC">1</entry>
+        <entry amber="CD">1</entry>
+        <entry amber="CK">1</entry>
+        <entry amber="CN">1</entry>
+        <entry amber="CR">1</entry>
+        <entry amber="CV">1</entry>
+        <entry amber="CW">1</entry>
+        <entry amber="C*"> 1</entry>
+        <entry amber="NB">1</entry>
+        <entry amber="O2">0.5</entry>
+        <entry amber="O">1</entry>
+    </aromaticAmbers>
+
+    <!-- Element Data -->
+    <elements>
+        <element ID="X">
+            <!-- Unknown element -->
+            <red>1.0</red>
+            <green>0.0</green>
+            <blue>1.0</blue>
+            <alpha>0.6</alpha>
+            <radius>1.0</radius>
+            <mass>1.0</mass>
+        </element>
+        <element ID="H">
+            <red>0.9</red>
+            <green>0.9</green>
+            <blue>0.9</blue>
+            <alpha>1.0</alpha>
+            <radius>1.2</radius>
+            <mass>1.0</mass>
+        </element>
+        <element ID="He">
+        </element>
+        <element ID="Li">
+        </element>
+        <element ID="Be">
+        </element>
+        <element ID="B">
+        </element>
+        <element ID="C">
+            <red>0.4</red>
+            <green>0.4</green>
+            <blue>0.4</blue>
+            <alpha>1.0</alpha>
+            <radius>1.7</radius>
+            <mass>12.0</mass>
+        </element>
+        <element ID="N">
+            <red>0.0</red>
+            <green>0.0</green>
+            <blue>1.0</blue>
+            <alpha>1.0</alpha>
+            <radius>1.55</radius>
+            <mass>14.0</mass>
+        </element>
+        <element ID="O">
+            <red>1.0</red>
+            <green>0.0</green>
+            <blue>0.0</blue>
+            <alpha>1.0</alpha>
+            <radius>1.52</radius>
+            <mass>16.0</mass>
+        </element>
+        <element ID="F">
+        </element>
+        <element ID="Ne">
+        </element>
+        <element ID="Na">
+            <red>1.0</red>
+            <green>0.0</green>
+            <blue>0.75</blue>
+            <alpha>1.0</alpha>
+            <radius>1.6</radius>
+            <mass>23.0</mass>
+        </element>
+        <element ID="Mg">
+        </element>
+        <element ID="Al">
+        </element>
+        <element ID="Si">
+        </element>
+        <element ID="P">
+        </element>
+        <element ID="S">
+            <red>1.0</red>
+            <green>1.0</green>
+            <blue>0.0</blue>
+            <alpha>1.0</alpha>
+            <radius>1.8</radius>
+            <mass>32.0</mass>
+        </element>
+        <element ID="Cl">
+        </element>
+        <element ID="Ar">
+        </element>
+        <element ID="K">
+        </element>
+        <element ID="Ca">
+        </element>
+        <element ID="Sc">
+        </element>
+        <element ID="Ti">
+        </element>
+        <element ID="V">
+        </element>
+        <element ID="Cr">
+        </element>
+        <element ID="Mn">
+        </element>
+        <element ID="Fe">
+        </element>
+        <element ID="Co">
+        </element>
+        <element ID="Ni">
+        </element>
+        <element ID="Cu">
+        </element>
+        <element ID="Zn">
+        </element>
+        <element ID="Ga">
+        </element>
+        <element ID="Ge">
+        </element>
+        <element ID="As">
+        </element>
+        <element ID="Se">
+        </element>
+        <element ID="Br">
+        </element>
+        <element ID="Kr">
+        </element>
+        <element ID="Rb">
+        </element>
+        <element ID="Sr">
+        </element>
+        <element ID="Y">
+        </element>
+        <element ID="Zr">
+        </element>
+        <element ID="Nb">
+        </element>
+        <element ID="Mo">
+        </element>
+        <element ID="Tc">
+        </element>
+        <element ID="Ru">
+        </element>
+        <element ID="Rh">
+        </element>
+        <element ID="Pd">
+        </element>
+        <element ID="Ag">
+        </element>
+        <element ID="Cd">
+        </element>
+        <element ID="In">
+        </element>
+        <element ID="Sn">
+        </element>
+        <element ID="Sb">
+        </element>
+        <element ID="Te">
+        </element>
+        <element ID="I">
+        </element>
+        <element ID="Xe">
+        </element>
+        <element ID="Cs">
+        </element>
+        <element ID="Ba">
+        </element>
+        <element ID="La">
+        </element>
+        <element ID="Ce">
+        </element>
+        <element ID="Pr">
+        </element>
+        <element ID="Nd">
+        </element>
+        <element ID="Pm">
+        </element>
+        <element ID="Sm">
+        </element>
+        <element ID="Eu">
+        </element>
+        <element ID="Gd">
+        </element>
+        <element ID="Tb">
+        </element>
+        <element ID="Dy">
+        </element>
+        <element ID="Ho">
+        </element>
+        <element ID="Er">
+        </element>
+        <element ID="Tm">
+        </element>
+        <element ID="Yb">
+        </element>
+        <element ID="Lu">
+        </element>
+        <element ID="Hf">
+        </element>
+        <element ID="Ta">
+        </element>
+        <element ID="W">
+        </element>
+        <element ID="Re">
+        </element>
+        <element ID="Os">
+        </element>
+        <element ID="Ir">
+        </element>
+        <element ID="Pt">
+        </element>
+        <element ID="Au">
+        </element>
+        <element ID="Hg">
+        </element>
+        <element ID="Tl">
+        </element>
+        <element ID="Pb">
+        </element>
+        <element ID="Bi">
+        </element>
+        <element ID="Po">
+        </element>
+        <element ID="At">
+        </element>
+        <element ID="Rn">
+        </element>
+        <element ID="Fr">
+        </element>
+        <element ID="Ra">
+        </element>
+        <element ID="Ac">
+        </element>
+        <element ID="Th">
+        </element>
+        <element ID="Pa">
+        </element>
+        <element ID="U">
+        </element>
+        <element ID="Np">
+        </element>
+        <element ID="Pu">
+        </element>
+        <element ID="Am">
+        </element>
+        <element ID="Cm">
+        </element>
+        <element ID="Bk">
+        </element>
+        <element ID="Cf">
+        </element>
+        <element ID="Es">
+        </element>
+        <element ID="Fm">
+        </element>
+        <element ID="Md">
+        </element>
+        <element ID="No">
+        </element>
+        <element ID="Lr">
+        </element>
+        <element ID="Rf">
+        </element>
+        <element ID="Db">
+        </element>
+        <element ID="Sg">
+        </element>
+        <element ID="Bh">
+        </element>
+        <element ID="Hs">
+        </element>
+        <element ID="Mt">
+        </element>
+        <element ID="Ds">
+        </element>
+        <element ID="Rg">
+        </element>
+        <element ID="Cn">
+        </element>
+        <element ID="Nh">
+        </element>
+        <element ID="Fl">
+        </element>
+        <element ID="Mc">
+        </element>
+        <element ID="Lv">
+        </element>
+        <element ID="Ts">
+        </element>
+        <element ID="Og">
+        </element>
+    </elements>
+
+</atoms>

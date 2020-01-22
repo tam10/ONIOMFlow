@@ -12,7 +12,15 @@ using EL = Constants.ErrorLevel;
 using RS = Constants.ResidueState;
 using Amber = Constants.Amber;
 
-public class AtomsChecker : MonoBehaviour {
+
+/// <summary>Atoms Checker Class</summary>
+/// <remarks>
+/// Contains Residues and represents a single geometry.
+/// Performs tasks on collections of Residues and Atom objects.
+/// Holds a reference to a Molecular Mechanics Parameters object.
+/// Holds a reference to a Gaussian Calculator object.
+/// </remarks>
+public class GeometryChecker : MonoBehaviour {
     //Perform a series of checks on an Geometry object
     //Checks should be a list of functions so the expensive
     // Take() method of Geometry is called as few times as possible 
@@ -237,6 +245,7 @@ public class AtomChecker {
         switch (atomCheckerID) {
             case (ACID.HAS_PDB): return HasPDB;
             case (ACID.HAS_AMBER): return HasAmber;
+            case (ACID.HAS_VALID_AMBER): return HasValidAmber;
             case (ACID.PDBS_ALPHANUM): return AlphaNumericPDB;
         }
         throw new ErrorHandler.InvalidAtomCheckerID(
@@ -265,6 +274,15 @@ public class AtomChecker {
             return GIS.OK;
         }
         Fail(string.Format("Atom {0} in Residue {1} has no Amber Type in Geometry {2}", pdbID, residueID, geometry));
+        return errorLevelOnFail;
+    }
+
+    private GIS HasValidAmber(Geometry geometry, ResidueID residueID, PDBID pdbID) {
+        Amber amber = geometry.residueDict[residueID].atoms[pdbID].amber;
+        if (amber != Amber.DU) {
+            return GIS.OK;
+        }
+        Fail(string.Format("Atom {0} in Residue {1} has a Dummy Amber Type in Geometry {2}", pdbID, residueID, geometry));
         return errorLevelOnFail;
     }
 

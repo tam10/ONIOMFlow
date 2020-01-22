@@ -170,13 +170,7 @@ public static class Settings {
 		}
 		return externalCommand;
 	}
-
-	//GAUSSIAN
-//	public static string gaussianVersion;
-//	public static string gaussianEXEDIR;
-//	public static string gaussianSCRDIR;
-
-	//PROTONATION
+	
 	private static string _tempFolder;
 	public static string tempFolder {
 		get {
@@ -186,27 +180,6 @@ public static class Settings {
 		}
 		set {_tempFolder = value;}
 	}
-//	private static string srProtonationBaseName;
-//	public static string srProtonationPath;
-//	public static string pdb2pqrCommand = "pdb2pqr";
-//	public static List<string> pdb2pqrOptions;
-//	public static float pH = 7.0f;
-//	private static string nsrProtonationBaseName;
-//	public static string nsrProtonationPath;
-//	public static string reduceCommand = "reduce";
-//	public static List<string> reduceOptions;
-
-	//AMBER TYPE
-//	private static string antechamberCalcBaseName;
-//	public static string antechamberCalcPath;
-//	public static string antechamberCommand = "antechamber";
-//	public static List<string> antechamberOptions;
-
-	//AMBER PARAMETERS
-//	private static string parmchkCalcBaseName;
-//	public static string parmchkCalcPath;
-//	public static string parmchkCommand = "parmchk2";
-//	public static List<string> parmchkOptions;
 
 	//INTERACTIONS
 	public static Dictionary<string, List<PDBID>> positiveChargeSites = new Dictionary<string, List<PDBID>>();
@@ -377,55 +350,6 @@ public static class Settings {
 		}
 
 		sX.Save(projectSettingsPath);
-
-		//GAUSSIAN
-//		XElement gaussianX = pX.Element("gaussian");
-//		gaussianVersion = FileIO.ParseXMLString(gaussianX, "version");
-//		gaussianEXEDIR = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(gaussianX, "exeDir"));
-//		gaussianSCRDIR = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(gaussianX, "scrDir"));
-
-		//PROTONATION
-//		XElement protonationX = pX.Element("protonation");
-
-		//Get paths to write protonation files
-//		srProtonationBaseName = FileIO.ParseXMLString(protonationX, "srProtonationBaseName");
-//		srProtonationPath = Path.Combine(projectPath, srProtonationBaseName);
-//
-//		nsrProtonationBaseName = FileIO.ParseXMLString(protonationX, "nsrProtonationBaseName");
-//		nsrProtonationPath = Path.Combine(projectPath, nsrProtonationBaseName);
-//
-//		//Get command and options
-//		XElement pdb2pqrX = protonationX.Element ("pdb2pqr");
-//		pdb2pqrCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(pdb2pqrX, "command"));
-//		pH = FileIO.ParseXMLFloat(pdb2pqrX, "pH");
-//		pdb2pqrOptions = FileIO.ParseXMLStringList(pdb2pqrX, "options", "option");
-
-//      CHANGE THIS NEXT ^ THEN GAUSSIAN
-
-//		//Get command and options
-//		XElement reduceX = protonationX.Element ("reduce");
-//		reduceCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(reduceX, "command"));
-//		reduceOptions = FileIO.ParseXMLStringList(reduceX, "options", "option");
-//		
-		//AMBER CALCULATION
-//		XElement amberX = pX.Element("amberCalculation");
-//		//Get path to write AMBER calculation files
-//		antechamberCalcBaseName = FileIO.ParseXMLString(amberX, "antechamberCalcBaseName");
-//		antechamberCalcPath = FileIO.ExpandEnvironmentVariables(Path.Combine(projectPath, antechamberCalcBaseName));
-//		//Get command and options
-//		XElement antechamberX = amberX.Element("antechamber");
-//		antechamberCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(antechamberX, "command"));
-//		antechamberOptions = FileIO.ParseXMLStringList(antechamberX, "options", "option");
-
-//		//AMBER PARAMETERS
-//		XElement amberParamsX = pX.Element("amberParameterCalculation");
-//		//Get path to write AMBER Parameters calculation files
-//		parmchkCalcBaseName = FileIO.ParseXMLString(amberParamsX, "parmchkCalcBaseName");
-//		parmchkCalcPath = FileIO.ExpandEnvironmentVariables(Path.Combine(projectPath, parmchkCalcBaseName));
-//		//Get command and options
-//		XElement parmchkX = amberParamsX.Element("parmchk");
-//		parmchkCommand = FileIO.ExpandEnvironmentVariables(FileIO.ParseXMLString(parmchkX, "command"));
-//		parmchkOptions = FileIO.ParseXMLStringList(parmchkX, "options", "option");
 
 		//PARTIAL CHARGES
 		XElement partialChargesX = pX.Element("partialCharges");
@@ -776,6 +700,7 @@ public static class Settings {
 	private static Dictionary<ACID, string> atomCheckerTitles = new Dictionary<ACID, string> {
 		{ACID.HAS_PDB, "Element has PDB Type"},
 		{ACID.HAS_AMBER, "Element has AMBER Type"},
+		{ACID.HAS_VALID_AMBER, "Element has a valid AMBER Type"},
 		{ACID.PDBS_ALPHANUM, "PBD has no special characters"}
 	};
 	public static string GetAtomCheckerTitle(ACID atomCheckerID) {
@@ -810,6 +735,7 @@ public static class Settings {
 	private static Dictionary<ACID, string> atomCheckerDescriptions = new Dictionary<ACID, string> {
 		{ACID.HAS_PDB, "Element has PDB Type"},
 		{ACID.HAS_AMBER, "Element has AMBER Type"},
+		{ACID.HAS_VALID_AMBER, "Element has a valid AMBER Type"},
 		{ACID.PDBS_ALPHANUM, "PBDs have no special characters"}
 	};
 	public static string GetAtomCheckerDescription(ACID atomCheckerID) {

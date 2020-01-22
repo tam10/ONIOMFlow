@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<projectSettings>
+
+	<projectDirectoryName>Flow</projectDirectoryName>
+	<projectPath></projectPath>
+
+	<externalCommands>
+
+		<externalCommand name="g09">
+			<command>g09</command>
+			<commandFormat>{COMMAND} &lt; {IN} &gt; {OUT}</commandFormat>
+			<workingDirectory>Gaussian</workingDirectory>
+			<basename>gaussian</basename>
+			<inputFileFormat>gjf</inputFileFormat>
+			<outputFileFormat>log</outputFileFormat>
+			<environmentVariables>
+				<var key="SCRDIR">/Applications/gaussian09/g09/</var>
+				<var key="EXEDIR">~/Scratch</var>
+				<var key="PATH">$PATH:$EXEDIR</var>
+			</environmentVariables>
+		</externalCommand>
+	
+		<externalCommand name="g16">
+			<command>g16</command>
+			<commandFormat>{COMMAND} &lt; {IN} &gt; {OUT}</commandFormat>
+			<workingDirectory>Gaussian</workingDirectory>
+			<basename>gaussian</basename>
+			<inputFileFormat>gjf</inputFileFormat>
+			<outputFileFormat>log</outputFileFormat>
+			<environmentVariables>
+				<var key="SCRDIR">/Applications/g16/</var>
+				<var key="EXEDIR">~/Scratch</var>
+				<var key="PATH">$PATH:$EXEDIR</var>
+			</environmentVariables>
+		</externalCommand>
+	
+		<externalCommand name="protonate_sr">
+			<command>pdb2pqr</command>
+			<commandFormat>{COMMAND} {OPTIONS} {IN} {OUT}</commandFormat>
+			<workingDirectory>Protonation</workingDirectory>
+			<basename>SR_protonation</basename>
+			<inputFileFormat>pdb</inputFileFormat>
+			<outputFileFormat>pqr</outputFileFormat>
+			<options>
+				<option>--ph-calc-method=propka</option>
+				<option>--with-ph=7.8</option>
+				<option>--ff=amber</option>
+				<option>--ffout=amber</option>
+				<option>--chain</option>
+			</options>
+		</externalCommand>
+	
+		<externalCommand name="protonate_nsr">
+			<command>reduce</command>
+			<commandFormat>{COMMAND} {OPTIONS} {IN} &gt; {OUT}</commandFormat>
+			<workingDirectory>Protonation</workingDirectory>
+			<basename>NSR_protonation</basename>
+			<inputSuffix>_in</inputSuffix>
+			<outputSuffix>_out</outputSuffix>
+			<inputFileFormat>pdb</inputFileFormat>
+			<outputFileFormat>pdb</outputFileFormat>
+			<options>
+				<option>-Quiet</option>
+			</options>
+		</externalCommand>
+	
+		<externalCommand name="parameters">
+			<command>parmchk2</command>
+			<commandFormat>{COMMAND} {OPTIONS} -i {IN} -o {OUT}</commandFormat>
+			<workingDirectory>Parameters</workingDirectory>
+			<basename>params</basename>
+			<inputFileFormat>mol2</inputFileFormat>
+			<outputFileFormat>frcmod</outputFileFormat>
+			<options>
+				<option>-a Y</option>
+				<option>-f mol2</option>
+			</options>
+		</externalCommand>
+	
+		<externalCommand name="amber">
+			<command>antechamber</command>
+			<commandFormat>{COMMAND} {OPTIONS} -i {IN} -o {OUT}</commandFormat>
+			<workingDirectory>Amber</workingDirectory>
+			<basename>amber</basename>
+			<inputFileFormat>pdb</inputFileFormat>
+			<outputFileFormat>mol2</outputFileFormat>
+			<options>
+				<option>-fi pdb</option>
+				<option>-fo mol2</option>
+				<option>-at amber</option>
+			</options>
+		</externalCommand>
+	
+		<externalCommand name="perl">
+			<command>perl</command>
+			<commandFormat>{COMMAND} {OPTIONS}</commandFormat>
+			<workingDirectory>Perl</workingDirectory>
+		</externalCommand>
+
+	</externalCommands>
+
+	<gaussian>
+		<version>g09</version>
+		<exeDir>/Applications/gaussian09/g09/</exeDir>
+		<scrDir>~/Scratch</scrDir>
+	</gaussian>
+
+	<protonation>
+		<srProtonationBaseName>SR_protonation</srProtonationBaseName>
+		<pdb2pqr>
+			<command>~/Utilities/pdb2pqr-osx-bin64-2.1.0/pdb2pqr</command>
+			<options>
+				<option>--ff=amber</option>
+				<option>--ffout=amber</option>
+				<option>--chain</option>
+			</options>
+			<pH>7.8</pH>
+		</pdb2pqr>
+
+		<nsrProtonationBaseName>NSR_protonation</nsrProtonationBaseName>
+		<reduce>
+			<command>/anaconda3/bin/reduce</command>
+			<options>
+				<option>-Quiet</option>
+			</options>
+		</reduce>
+	</protonation>
+
+	<amberCalculation>
+		<antechamberCalcBaseName>antechamber</antechamberCalcBaseName>
+		<antechamber>
+			<command>antechamber</command>
+			<options>
+				<option>-at amber</option>
+			</options>
+		</antechamber>
+	</amberCalculation>
+
+	<amberParameterCalculation>
+		<parmchkCalcBaseName>params</parmchkCalcBaseName>
+		<parmchk>
+			<command>parmchk2</command>
+			<options>
+				<option>-a Y</option>
+			</options>
+		</parmchk>
+	</amberParameterCalculation>
+
+	<partialCharges>
+		<chargesDirectory>Charges</chargesDirectory>
+		<redBaseName>Mol_red1</redBaseName><!-- DO NOT CHANGE - Chosen by R.E.D. -->
+		<redDirectory>Data-RED</redDirectory><!-- DO NOT CHANGE - Chosen by R.E.D. -->
+		<redChargeFilename>Mol_m1-o1-sm.mol2</redChargeFilename><!-- DO NOT CHANGE - Chosen by R.E.D. -->
+		<commandPath>~/Utilities/RED-III.52-Tools-Files/RED-vIII.5.pl</commandPath>
+		<options>
+			<numProc type="int">
+				<name>Number of Processors</name>
+				<redName>NP</redName>
+				<value>4</value>
+			</numProc>
+		
+			<qm type="dropdown">
+				<name>QM Software</name>
+				<redName>QMSOFT</redName>
+				<value>GAUSSIAN</value>
+				<options>
+					<option redName="GAUSSIAN">Gaussian</option>
+					<option redName="Firefly">Firefly</option>
+					<option redName="GAMESS">GAMESS</option>
+				</options>
+			</qm>
+		
+			<opt type="bool">
+				<name>Optimise</name>
+				<redName>OPT_Calc</redName>
+				<value>1</value>
+			</opt>
+		
+			<mep type="bool">
+				<name>MEPCHR</name>
+				<redName>MEPCHR_Calc</redName>
+				<value>1</value>
+			</mep>
+		
+			<chrType type="dropdown">
+				<name>Charge Calculation Type</name>
+				<redName>CHR_TYP</redName>
+				<value>RESP-A1</value>
+				<options>
+					<option redName="RESP-A1">RESP-A1 (default)</option>
+					<option redName="RESP-A2">RESP-A2</option>
+					<option redName="RESP-C1">RESP-C1</option>
+					<option redName="RESP-C2">RESP-C2</option>
+					<option redName="ESP-A1">ESP-A1</option>
+					<option redName="ESP-A2">ESP-A2</option>
+					<option redName="ESP-C1">ESP-C1</option>
+					<option redName="ESP-C2">ESP-C2</option>
+				</options>
+			</chrType>
+		
+			<chrCor type="dropdown">
+				<name>Charge Correction Accuracy</name>
+				<redName>CHR_TYP</redName>
+				<value>4</value>
+				<options>
+					<option redName="0">No Correction</option>
+					<option redName="6">1e-6</option>
+					<option redName="5">1e-5</option>
+					<option redName="4">1e-4 (default)</option>
+					<option redName="3">1e-3 (not recommended)</option>
+					<option redName="2">1e-2 (not recommended)</option>
+					<option redName="1">1e-1 (not recommended)</option>
+				</options>
+			</chrCor>
+			
+		</options>
+	</partialCharges>
+
+	<!-- Settings Files -->
+	<graphicsSettingsFilename>Graphics.xml</graphicsSettingsFilename>
+	<flowSettingsFilename>Flow.xml</flowSettingsFilename>
+	<tasksSettingsFilename>Tasks.xml</tasksSettingsFilename>
+	<atomsSettingsFilename>Atoms.xml</atomsSettingsFilename>
+	<residueTableSettingsFilename>ResidueTable.xml</residueTableSettingsFilename>
+
+	<!-- Log -->
+	<logFilename>flow.log</logFilename>
+
+	<!-- Data Files -->
+	<amberToElementFilename>amberToElement.csv</amberToElementFilename>
+	<pdbToElementFilename>pdbToElement.csv</pdbToElementFilename>
+	<standardResiduePDBsFilename>StandardResidues.xml</standardResiduePDBsFilename>
+	<gaussianMethodsFilename>GaussianMethods.xml</gaussianMethodsFilename>
+	<bondDistancesFilename>Bonds.xml</bondDistancesFilename>
+	<standardResiduesDirectory>AminoAcids</standardResiduesDirectory>
+	<parametersDirectory>Parameters</parametersDirectory>
+
+	<defaultParametersFilename>amber.prm</defaultParametersFilename>
+
+</projectSettings>

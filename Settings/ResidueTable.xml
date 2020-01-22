@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- 
+This XML defines the titles, widths and types of each column in the residue table 
+If you want to add a new column you need to add the name to Constants.cs, then add the column in Settings.cs (residueTableProperties)
+
+-->
+
+<residueTable>
+    <residueProperty name="chainID">
+        <title>Chain</title>
+        <columnWidth>50</columnWidth>
+        <displayType>stringEditable</displayType>
+    </residueProperty>
+
+    <residueProperty name="residueNumber">
+        <title>Number</title>
+        <columnWidth>60</columnWidth>
+        <displayType>intEditable</displayType>
+    </residueProperty>
+
+    <residueProperty name="residueName">
+        <title>Name</title>
+        <columnWidth>50</columnWidth>
+        <displayType>stringNonEditable</displayType>
+    </residueProperty>
+
+    <residueProperty name="state">
+        <title>State</title>
+        <columnWidth>80</columnWidth>
+        <displayType>stringNonEditable</displayType>
+    </residueProperty>
+
+    <residueProperty name="standard">
+        <title>Standard?</title>
+        <columnWidth>70</columnWidth>
+        <displayType>boolEditable</displayType>
+    </residueProperty>
+
+    <residueProperty name="protonated">
+        <title>Protonated?</title>
+        <columnWidth>90</columnWidth>
+        <displayType>boolNonEditable</displayType>
+    </residueProperty>
+
+    <residueProperty name="charge">
+        <title>Charge</title>
+        <columnWidth>50</columnWidth>
+        <displayType>floatNonEditable</displayType>
+    </residueProperty>
+
+    <residueProperty name="size">
+        <title>Size</title>
+        <columnWidth>50</columnWidth>
+        <displayType>intNonEditable</displayType>
+    </residueProperty>
+
+    <residueProperty name="selected">
+        <title>Selected</title>
+        <columnWidth>70</columnWidth>
+        <displayType>button</displayType>
+    </residueProperty>
+
+</residueTable>

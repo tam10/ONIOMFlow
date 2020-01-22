@@ -9,9 +9,8 @@ using Element = Constants.Element;
 using EL = Constants.ErrorLevel;
 using GIID = Constants.GeometryInterfaceID;
 using TMPro;
-using UnityEngine.PostProcessing;
 
-public class AtomsAnalyser : MonoBehaviour {
+public class GeometryAnalyser : MonoBehaviour {
 
 	public TextMeshProUGUI nameText;
 	public TextMeshProUGUI sizeText;

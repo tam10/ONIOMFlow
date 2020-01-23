@@ -419,7 +419,7 @@ public class ResidueRepresentation : MonoBehaviour {
         float3 origin = lineDrawer.transform.InverseTransformPoint(ray.origin);
         float3 direction = lineDrawer.transform.InverseTransformDirection(ray.direction);
 
-        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
 
             float3 vector = atom.position - offset - origin;
 

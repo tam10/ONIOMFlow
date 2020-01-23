@@ -654,7 +654,7 @@ public class Parameters : MonoBehaviour {
 		Parameters currentParameters = geometry.parameters;
 		Parameters missingParameters = PrefabManager.InstantiateParameters(null);
 
-		foreach ((AtomID atomID0, Atom atom0) in geometry.EnumerateAtoms()) {
+		foreach ((AtomID atomID0, Atom atom0) in geometry.EnumerateAtomIDPairs()) {
 			Amber amber0;
 			if (!TryGetAmber(atom0, atomID0, out amber0)) {continue;}
 

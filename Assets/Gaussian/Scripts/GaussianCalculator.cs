@@ -162,7 +162,7 @@ public class GaussianCalculator : MonoBehaviour {
 
 	public List<OLID> GetLayersInAtoms() {
 		List<OLID> oniomLayers = new List<OLID>();
-		foreach ((AtomID atomID, Atom atom) in parent.EnumerateAtoms()) {
+		foreach (Atom atom in parent.EnumerateAtoms()) {
 			OLID oniomLayer = atom.oniomLayer;
 			if (!oniomLayers.Contains(oniomLayer)) {
 				oniomLayers.Add(oniomLayer);

@@ -7,6 +7,8 @@ using GIS = Constants.GeometryInterfaceStatus;
 using EL = Constants.ErrorLevel;
 using Unity.Mathematics;
 using System.Xml.Linq;
+using System.IO;
+using System;
 
 /// <summary>The Flow Singleton Class</summary>
 /// 
@@ -98,6 +100,105 @@ public class Flow :
 		//Create an arrow for each <connection> tag
 		foreach (XElement connectionX in flowX.Elements("connection")) {
 			Arrow.FromXML(connectionX, main.contentRectTransform);
+		}
+	}
+
+	public static IEnumerator SaveState() {
+		string stateDirectory = Path.Combine(
+			Settings.projectPath,
+			DateTime.Now.ToString(".yyyy-MM-ddTHH.mm.ss")
+		);
+
+		if (!Directory.Exists(stateDirectory)) {
+			Directory.CreateDirectory(stateDirectory);
+			DirectoryInfo directoryInfo = new DirectoryInfo(stateDirectory);
+			directoryInfo.Attributes |= FileAttributes.Hidden;
+		}
+
+		foreach ((GIID geometryInterfaceID, GeometryInterface geometryInterface) in main.geometryDict) {
+			Geometry geometry = geometryInterface.geometry;
+
+
+			if (geometry != null) {
+				string fileName = string.Format("{0}.xat", geometryInterface.id);
+				string path = Path.Combine(stateDirectory, fileName);
+				yield return FileWriter.WriteFile(geometry, path, true);
+			}
+		}
+	}
+
+	public static IEnumerator LoadState() {
+
+		string[] directories = Directory.GetDirectories(
+			Settings.projectPath,
+			".*",
+			searchOption:SearchOption.TopDirectoryOnly
+		);
+
+		List<string> stateDirectories = new List<string>();
+
+		FileSelector fileSelector = FileSelector.main;
+		fileSelector.saveMode = true;
+		fileSelector.cancelled = false;
+		fileSelector.SetFileTypes(new List<string>());
+
+		while (fileSelector.isBusy) {
+			yield return null;
+		}
+
+		fileSelector.Clear();
+
+		fileSelector.SetPromptText("Load a previously saved State");
+
+		Dictionary<string, string> timeStampToDirectory = new Dictionary<string, string>();
+
+		foreach (string path in directories) {
+			string directory = Path.GetFileName(path);
+			Debug.Log(directory);
+			DateTime timeStamp;
+			try {
+				timeStamp = DateTime.Parse(directory.TrimStart(new char[] {'.'}).Replace(".", ":"));
+			} catch {
+				Debug.Log(directory.TrimStart(new char[] {'.'}).Replace(".", ":"));
+				continue;
+			}
+			string timeStampString = timeStamp.ToString();
+			timeStampToDirectory[timeStampString] = directory;
+			stateDirectories.Add(directory);
+			fileSelector.AddItem(directory, true, true, timeStampString);
+		}
+
+		while (!fileSelector.userResponded) {
+			yield return null;
+		}
+
+		fileSelector.Hide();
+		if (fileSelector.cancelled) {
+			yield break;
+		}
+
+		string statePath = fileSelector.confirmedText;
+
+		yield return null;
+
+		if (!Directory.Exists(statePath)) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"Directory does not exist: {0}",
+				statePath
+			);
+			yield break;
+		}
+
+		foreach ((GIID geometryInterfaceID, GeometryInterface geometryInterface) in main.geometryDict) {
+
+			string fileName = string.Format("{0}.xat", geometryInterface.id);
+			string path = Path.Combine(statePath, fileName);
+			if (File.Exists(path)) {
+				geometryInterface.InitialiseEmptyGeometry();
+				yield return FileReader.LoadGeometry(geometryInterface.geometry, path);
+				yield return geometryInterface.CheckAll();
+			}
 		}
 	}
 
@@ -335,121 +436,31 @@ public class Flow :
 	/// <summary>Called when the background is clicked on.</summary>
 	/// <remarks>Called by Unity</remarks>
 	public void OnPointerClick(PointerEventData eventData) {
-		//StartCoroutine(TEST());
+		if (eventData.button == PointerEventData.InputButton.Right) {
+			ShowContextMenu();
+		}
 	}
 
-	//private IEnumerator TEST() {
-//
-	//	Graph graph = new Graph();
-	//	Atoms testAtoms = PrefabManager.InstantiateAtoms(null);
-	//	ResidueID tID = new ResidueID("A", 1);
-	//	Residue testRes = new Residue(tID, "TST", testAtoms);
-	//	PDBID c1 = new PDBID("C", "", 1);
-	//	PDBID c2 = new PDBID("C", "", 2);
-	//	PDBID c3 = new PDBID("C", "", 3);
-	//	PDBID c4 = new PDBID("C", "", 4);
-	//	Atom atom1 = new Atom( new float[3] {-0.5f, 0, 1}, tID, "CT");
-	//	Atom atom2 = new Atom( new float[3] {-0.5f, 0, 0}, tID, "CT");
-	//	Atom atom3 = new Atom( new float[3] { 0.5f, 0, 0}, tID, "CT");
-	//	Atom atom4 = new Atom( new float[3] { 0.5f, 1, 0}, tID, "CT");
-//
-	//	testRes.AddAtom(c1, atom1);
-	//	testRes.AddAtom(c2, atom2);
-	//	testRes.AddAtom(c3, atom3);
-	//	testRes.AddAtom(c4, atom4);
-//
-	//	CustomLogger.LogOutput(
-	//		string.Format(
-	//			"{0} {1}",
-    //            CustomMathematics.GetAngle(atom1, atom2, atom3) * Mathf.Rad2Deg,
-	//			CustomMathematics.GetAngle(atom2, atom3, atom4) * Mathf.Rad2Deg
-	//		)
-	//	);
-//
-	//	testAtoms.SetResidue(tID, testRes);
-	//	testAtoms.Connect(new AtomID(tID, c1), new AtomID(tID, c2), Constants.BondType.SINGLE);
-	//	testAtoms.Connect(new AtomID(tID, c2), new AtomID(tID, c3), Constants.BondType.SINGLE);
-	//	testAtoms.Connect(new AtomID(tID, c3), new AtomID(tID, c4), Constants.BondType.SINGLE);
-//
-	//	yield return graph.SetAtoms(testAtoms, new List<ResidueID> {tID});
-//
-	//	CustomLogger.LogOutput(
-	//		"Stretch: " + string.Join(", ", graph.stretches.Select(
-	//			x => x.atom0.amber + x.index0.ToString() + " " + 
-	//				 x.atom1.amber + x.index1.ToString()
-	//		))
-	//	);
-//
-	//	CustomLogger.LogOutput(
-	//		"Bend: " + string.Join(", ", graph.bends.Select(
-	//			x => x.atom0.amber + x.index0.ToString() + " " + 
-	//				 x.atom1.amber + x.index1.ToString() + " " + 
-	//				 x.atom2.amber + x.index2.ToString()
-	//		))
-	//	);
-//
-	//	CustomLogger.LogOutput(
-	//		"Torsions: " + string.Join(", ", graph.torsions.Select(
-	//			x => x.atom0.amber + x.index0.ToString() + " " + 
-	//				 x.atom1.amber + x.index1.ToString() + " " + 
-	//				 x.atom2.amber + x.index2.ToString() + " " + 
-	//				 x.atom3.amber + x.index3.ToString()
-	//		))
-	//	);
-//
-	//	CustomLogger.LogOutput(
-	//		"Impropers: " + string.Join(", ", graph.impropers.Select(
-	//			x => x.atom0.amber + x.index0.ToString() + " " + 
-	//				 x.atom1.amber + x.index1.ToString() + " " + 
-	//				 x.atom2.amber + x.index2.ToString() + " " + 
-	//				 x.atom3.amber + x.index3.ToString()
-	//		))
-	//	);
-//
-	//	CustomLogger.LogOutput(
-	//		"Non-Bonding: " + string.Join(", ", graph.nonBondings.Select(
-	//			x => x.atom0.amber + x.index0.ToString() + " " + 
-	//				 x.atom1.amber + x.index1.ToString()
-	//		))
-	//	);
-//
-	//	CustomLogger.LogOutput( 
-	//		string.Format(
-	//			"Stretches: \n{0}\nBends: \n{1}\nDihedrals: \n{2}\nNon-Bondings: \n{3}\n",
-	//			CustomMathematics.ToString(graph.ComputeForces(true, false, false, false)),
-	//			CustomMathematics.ToString(graph.ComputeForces(false, true, false, false)),
-	//			CustomMathematics.ToString(graph.ComputeForces(false, false, true, false)),
-	//			CustomMathematics.ToString(graph.ComputeForces(false, false, false, true))
-	//		)
-	//	);
-//
-	//	yield return FileWriter.WriteFile(testAtoms, Path.Combine(Settings.projectPath, "test_in.pdb"), true);
-	//	float3[] forces;
-	//	for (int i=0;i<1000;i++){
-	//		forces = graph.ComputeForces(false, false, true, false);
-	//		graph.TakeStep(forces, 10f, 0.2f);
-	//		CustomLogger.LogOutput(
-	//			string.Join(
-	//				" ",
-	//				testRes.atoms.Select(x => CustomMathematics.ToString(x.Value.position))
-	//			)
-	//		);
-	//	}
-	//	yield return FileWriter.WriteFile(testAtoms, Path.Combine(Settings.projectPath, "test_out.pdb"), true);
-	//}
+	void ShowContextMenu() {
+		ContextMenu contextMenu = ContextMenu.main;
 
-	/// <summary>
-	/// Called every frame.
-	/// Currently listens for ESC and will quit the application
-	/// </summary>
-	/// <remarks>Called by Unity</remarks>
-	//void Update() {
-	//	if (Input.GetKeyDown(KeyCode.Escape)) {
-	//		#if UNITY_EDITOR
-	//			UnityEditor.EditorApplication.isPlaying = false;
-	//		#else
-	//			Application.Quit();
-	//		#endif
-	//	}
-	//}
+		//Clear the Context Menu
+		contextMenu.Clear();
+        
+		contextMenu.AddButton(
+            () => {StartCoroutine(SaveState());}, 
+            "Save State", 
+            true
+        );
+		contextMenu.AddButton(
+			() => {StartCoroutine(LoadState());},
+			"Load State",
+			true
+		);
+
+		//Show the Context Menu
+		contextMenu.Show();
+	}
+
+
 }

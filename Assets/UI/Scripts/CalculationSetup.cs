@@ -204,7 +204,7 @@ public class CalculationSetup : MonoBehaviour {
         Geometry geometry = geometryInterface.geometry;
         yield return null;
 
-        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+        foreach (Atom atom in geometry.EnumerateAtoms()) {
             atom.oniomLayer = oniomLayerID;
         }
         

@@ -1632,6 +1632,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e82aab84515e4e30ba24dc25038ef67, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  projectPath: 
+  settingsDirectory: 
+  settingsPath: 
+  dataDirectory: 
+  dataPath: 
+  recipeDirectory: 
+  recipePath: 
+  projectFile: .project
 --- !u!1 &1143853808
 GameObject:
   m_ObjectHideFlags: 0

@@ -415,7 +415,7 @@ public static class PartialChargeCalculator {
         );
         Geometry groupGeometry = geometryInterface.geometry.TakeResidues(residueGroup, null);
 
-        foreach ((AtomID atomID, Atom atom) in groupGeometry.EnumerateAtoms()) {
+        foreach (Atom atom in groupGeometry.EnumerateAtoms()) {
             atom.oniomLayer = OLID.REAL;
         }
 

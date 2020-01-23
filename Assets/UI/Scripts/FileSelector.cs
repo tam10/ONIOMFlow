@@ -41,7 +41,7 @@ public class FileSelector : PopupWindow {
 
 	private string[] filetypes;
 
-	private bool saveMode;
+	public bool saveMode;
 
 	public float listItemMinHeight = 40f;
 	private float listItemHeight;
@@ -109,6 +109,11 @@ public class FileSelector : PopupWindow {
 
 		//List Item
 		listItemHeight = Mathf.Max(listItemMinHeight, contentRect.rect.height / 10);
+
+		//Colours
+		enabledFileColorBlock = ColorScheme.main.enabledFileCB;
+		disabledFileColorBlock = ColorScheme.main.disabledFileCB;
+		directoryColorBlock = ColorScheme.main.directoryCB;
 
 		activeTasks--;
 		yield break;
@@ -210,7 +215,7 @@ public class FileSelector : PopupWindow {
 		activeTasks--;
 	}
 
-	public void AddItem(string textValue, bool isFile, bool isEnabled) {
+	public void AddItem(string textValue, bool isFile, bool isEnabled, string visibleText="") {
 		
 		ListItem item = PrefabManager.InstantiateListItem(contentHolder);
 		RectTransform itemRect = item.GetComponent<RectTransform>();
@@ -221,7 +226,7 @@ public class FileSelector : PopupWindow {
 
 		GameObject itemGo = item.gameObject;
 		itemGo.name = textValue;
-		item.text.text = textValue;
+		item.text.text = string.IsNullOrWhiteSpace(visibleText) ? textValue : visibleText;
 
 		Button button = item.GetComponent<Button>();
 		if (isEnabled) {

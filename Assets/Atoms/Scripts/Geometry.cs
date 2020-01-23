@@ -41,39 +41,35 @@ public class Geometry : MonoBehaviour {
 			.Distinct();
 
 	/// <summary>Enumerate the AtomIDs in this Geometry object</summary>
-	public IEnumerable<AtomID> EnumerateAtomIDs() {
-		//Loop through all Residues, keeping their ResidueIDs
-		foreach (ResidueID residueID in residueDict.Keys) {
-			Residue residue = residueDict[residueID];
-			//Loop through all PDBIDs in each Residue
-			foreach (PDBID pdbID in residue.atoms.Keys) {
+	public IEnumerable<AtomID> EnumerateAtomIDs() =>
+		//Loop through all Residues
+		residueDict.SelectMany(
+			kvp => kvp.Value.pdbIDs
 				//Yield the AtomID formed by the ResidueID and PDBID
-				yield return new AtomID(residueID, pdbID);
-			}
-		}
-		yield break;
-	}
+				.Select(pdbID => new AtomID(kvp.Key, pdbID)));
 	
 	/// <summary>Enumerate each Atom in this Geometry object</summary>
-	public IEnumerable<(AtomID, Atom)> EnumerateAtoms() {
-		//Loop through all Residues, keeping their ResidueIDs
-		foreach (ResidueID residueID in residueDict.Keys) {
-			Residue residue = residueDict[residueID];
-			//Loop through all PDBIDs in each Residue
-			foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+	public IEnumerable<(AtomID, Atom)> EnumerateAtomIDPairs()  =>
+		//Loop through all Residues
+		residueDict.SelectMany(
+			rKVP => rKVP.Value.atoms
 				//Yield the AtomID formed by the ResidueID and PDBID
-				yield return (new AtomID(residueID, pdbID), atom);
-			}
-		}
-		yield break;
-	}
+				.Select(aKVP => (new AtomID(rKVP.Key, aKVP.Key), aKVP.Value)));
+	
+	/// <summary>Enumerate each Atom in this Geometry object</summary>
+	public IEnumerable<Atom> EnumerateAtoms()  =>
+		//Loop through all Residues
+		residueDict.SelectMany(
+			rKVP => rKVP.Value.atoms
+				//Yield the AtomID formed by the ResidueID and PDBID
+				.Select(aKVP => aKVP.Value));
 
 	/// <summary>Return the unique ONIOM Layer IDs in this Geometry object</summary>
 	public IEnumerable<OLID> GetLayers() => 
 		//Loop through each atom
 		EnumerateAtoms()
 			//Get all the ONIOM Layer IDs
-			.Select(x => x.Item2.oniomLayer)
+			.Select(x => x.oniomLayer)
 			//Select the unique ones
 			.Distinct();
 
@@ -84,7 +80,7 @@ public class Geometry : MonoBehaviour {
 			//Parallelise
 			.AsParallel()
 			//Get all the partial charges
-			.Select(x => x.Item2.partialCharge)
+			.Select(x => x.partialCharge)
 			//Return the sum
 			.Sum();
 
@@ -114,15 +110,18 @@ public class Geometry : MonoBehaviour {
 	/// <summary>Dictionary of Residues that are missing in this Geometry object.</summary>
 	public Dictionary<ResidueID, string> missingResidues = new Dictionary<ResidueID, string> ();
 
-	/// <summary>Map of AtomIDs to Atom Nums in a Gaussian File.</summary>
+	/// <summary>Map of AtomIDs to Atom Nums.</summary>
 	public Map<AtomID, int> atomMap;
+	/// <summary>Generate a Map of AtomIDs to Atom Nums.</summary>
 	public void GenerateAtomMap() {
 		atomMap = EnumerateAtomIDs()
 			.Select((v,i) => (v,i))
 			.ToMap(x => x.v, x => x.i);
 	}
 
+	/// <summary>The reference to this Geometry's Gaussian Calculator.</summary>
 	public GaussianCalculator gaussianCalculator;
+	/// <summary>The reference to this Geometry's Molecular Mechanics Parameters.</summary>
 	public Parameters parameters;
 	
 	void Awake () {
@@ -410,7 +409,7 @@ public class Geometry : MonoBehaviour {
 		bool updateCharges=false,
 		bool updateAmbers=false
 	) {
-		foreach ((AtomID atomID, Atom otherAtom) in other.EnumerateAtoms()) {
+		foreach ((AtomID atomID, Atom otherAtom) in other.EnumerateAtomIDPairs()) {
 			Atom thisAtom;
 			if (TryGetAtom(atomID, out thisAtom)) {
 				if (updatePositions) {
@@ -600,7 +599,7 @@ public class Geometry : MonoBehaviour {
 			translation
 		);
 
-		foreach ((AtomID atomID, Atom atom) in EnumerateAtoms()) {
+		foreach (Atom atom in EnumerateAtoms()) {
 			atom.position = CustomMathematics.Dot(averageRotationMatrix, atom.position) + translation;
 
 			if (Timer.yieldNow) {yield return null;}
@@ -951,11 +950,11 @@ public class Geometry : MonoBehaviour {
 				}
 			} else {
 				var selector = GetSelector(str);
-				selection.Concat(EnumerateAtoms().Where(x => selector(x)));
+				selection.Concat(EnumerateAtomIDPairs().Where(x => selector(x)));
 			}
 		}
 
-		IEnumerable<(AtomID, Atom)> currentSelection = EnumerateAtoms();
+		IEnumerable<(AtomID, Atom)> currentSelection = EnumerateAtomIDPairs();
 
 		if (string.Equals(selectionString, "all", StringComparison.CurrentCultureIgnoreCase)) {
 			return currentSelection;
@@ -1247,7 +1246,7 @@ public struct Bounds {
 		centre = new float3();
 		minBound = new float3();
 		maxBound = new float3();
-		foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+		foreach (Atom atom in geometry.EnumerateAtoms()) {
 			float3 position = atom.position;
 			//Initiate bounds
 			if (_size == 0) {

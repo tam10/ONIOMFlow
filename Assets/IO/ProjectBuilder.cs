@@ -117,7 +117,7 @@ public class ProjectBuilder : MonoBehaviour {
 
             string path = projectSelector.projectPath;
             string projectFilePath = Path.Combine(path, projectFile);
-            Debug.Log(projectFilePath);
+
             projectSelector.userResponded = false;
 
             if (string.IsNullOrWhiteSpace(path)) {

@@ -78,6 +78,7 @@ public class ProjectSelector : PopupWindow {
 		GameObject tempTextGO = AddText(fullPathHolder, "Temp", "Temp");
         SetRect(tempTextGO, 0, 0.25f, 1, 0.75f, 2, 0, -2, 0);
 		TextMeshProUGUI tempText = tempTextGO.GetComponent<TextMeshProUGUI>();
+		tempText.color = new Color(0f, 0f, 0f, 0f);
 		tempText.enableAutoSizing = true;
 		yield return null;
 		float fontSize = tempText.fontSize;

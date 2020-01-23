@@ -724,7 +724,7 @@ public static class Data {
 		float aromaticCount = 0;
 		float chargeContribution = 0f;
 		int electrons = 0;
-		foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+		foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
 			Amber amber = atom.amber;
 			electrons += atomID.pdbID.atomicNumber;
 

@@ -76,7 +76,7 @@ public static class FileReader {
 
 		yield return LoadGeometry(tempGeometry, path);
 
-        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
             Atom tempAtom;
             if (tempGeometry.TryGetAtom(atomID, out tempAtom)) {
                 if (updateAmbers) {
@@ -93,6 +93,8 @@ public static class FileReader {
 				yield return null;
 			}
         }
+
+		GameObject.Destroy(tempGeometry.gameObject);
 
 	}
 

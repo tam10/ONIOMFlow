@@ -654,7 +654,7 @@ public class AtomsVisualiser : MonoBehaviour {
         float3 direction = lineDrawer.transform.InverseTransformDirection(ray.direction);
         
 
-        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
 
             float3 vector = atom.position - offset - origin;
 
@@ -2170,7 +2170,7 @@ public class AtomsVisualiser : MonoBehaviour {
         PDBID backboneN = PDBID.N;
         count = 0;
         counter = 0;
-        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
             if (atomID.pdbID == backboneN) {
                 GameObject sphere = Instantiate<GameObject>(spherePrefab, meshHolder);
                 sphere.transform.localPosition = atom.position - offset;

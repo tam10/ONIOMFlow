@@ -527,7 +527,7 @@ public static class GaussianRecipe {
                 );
             }
         } else {
-            foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtoms()) {
+            foreach (Atom atom in geometry.EnumerateAtoms()) {
                 atom.oniomLayer = oniomLayerID;
             }
         }

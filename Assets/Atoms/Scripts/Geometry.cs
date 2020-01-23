@@ -155,14 +155,16 @@ public class Geometry : MonoBehaviour {
 		}
 	}
 
+	/// <summary>Sets the Residue State of all Residues and Amber Types of their Atoms from the Standard Residues Database.</summary>
 	public IEnumerator SetAllResidueProperties() {
 		foreach (ResidueID residueID in residueDict.Keys) {
-			Residue residue = residueDict[residueID];
-			Data.SetResidueProperties(ref residue);
+			SetResidueProperties(residueID);
 			if (Timer.yieldNow) yield return null;
 		}
 	}
 
+	/// <summary>Sets the Residue State of a Residue and Amber Types of its Atoms from the Standard Residues Database.</summary>
+	/// <param name="residueID">The Residue ID of the Residue to set.</param>
 	public void SetResidueProperties(ResidueID residueID) {
 		Residue residue = residueDict[residueID];
 		Data.SetResidueProperties(ref residue);

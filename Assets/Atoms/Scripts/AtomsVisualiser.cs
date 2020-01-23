@@ -162,8 +162,9 @@ public class AtomsVisualiser : MonoBehaviour {
             meshHolder.localScale = cubeTransform.localScale;
             lineDrawer.transform.localScale = cubeTransform.localScale;
         } else {
-            meshHolder.localScale = cubeTransform.localScale / radius;
-            lineDrawer.transform.localScale = cubeTransform.localScale / radius;
+            Vector3 scale = cubeTransform.localScale / (2 * radius);
+            meshHolder.localScale = scale;
+            lineDrawer.transform.localScale = scale;
         }
 
 
@@ -246,7 +247,12 @@ public class AtomsVisualiser : MonoBehaviour {
         initialCameraPosition = mainCamera.transform.position; 
         initialCameraRotation = mainCamera.transform.rotation;
 
-    }
+        RotationCube rotationCube = Camera.main.GetComponentInChildren<RotationCube>();
+        if (rotationCube != null) {
+            rotationCube.LinkTransform(atomsRepresentation, atomsRepresentationStartPosition);
+        }
+
+    } 
 
     public void Hide() {
         dialogue.gameObject.SetActive(false);
@@ -263,6 +269,11 @@ public class AtomsVisualiser : MonoBehaviour {
 
         if (main.pointer != null) {
             GameObject.Destroy(main.pointer.gameObject);
+        }
+        
+        RotationCube rotationCube = Camera.main.GetComponentInChildren<RotationCube>();
+        if (rotationCube != null) {
+            rotationCube.UnlinkTransform();
         }
     }
 

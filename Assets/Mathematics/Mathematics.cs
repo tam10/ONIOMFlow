@@ -1155,6 +1155,21 @@ public static class CustomMathematics {
 		);
 	}
 
+	public static int GetCombinedHash(params int[] hashes) {
+		if (ReferenceEquals(hashes, null)) {throw new System.ArgumentNullException("hashes");}
+		int length = hashes.Length;
+		if (length == 0) {throw new System.IndexOutOfRangeException();}
+		int hash = hashes[0];
+		for (int i=1; i<length; i++) {
+			hash = GetCombinedHash(hash, hashes[i]);
+		}
+		return hash;
+	}
+
+	public static int GetCombinedHash(int hash0, int hash1) {
+		return (hash0 << 6) + hash0 ^ hash1;
+	}
+
 	/// <summary>Get the binomial coefficients n choose k</summary>
 	public static int Binomial(int n, int k) {
 		if (k < 0 || k > n) {return 0;}

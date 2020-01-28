@@ -35,6 +35,9 @@ public class Atom {
 	/// <summary>Is this Atom allowed to move during optimisations?</summary>
 	public bool mobile;
 
+	/// <summary>This is the penalty score on the parameters for this Atom.<summary>
+	public float penalty;
+
 	/// <summary>The dictionary of Atoms in this Atom's parent Residue this Atom is connected to, accessed by their PDBIDs and Bond Types as values.</summary>
 	public Dictionary<PDBID, BT> internalConnections = new Dictionary<PDBID, BT>();
 	/// <summary>The dictionary of Atoms outside this Atom's parent Residue this Atom is connected to, accessed by their Atom IDs and Bond Types as values.</summary>

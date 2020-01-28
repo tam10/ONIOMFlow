@@ -82,11 +82,13 @@ public static class PartialChargeCalculator {
             Bash.ExternalCommand perl = Settings.GetExternalCommand("perl");
 
             //Check Perl
-            if (!perl.CheckCommand()) {
-                throw new ErrorHandler.CommandNotFoundException(
-                    string.Format("perl not installed. Cannot run R.E.D."),
-                    "perl"
-                );
+            try {
+                perl.CheckCommand();
+            } catch (SystemException e) {
+                CustomLogger.LogFormat(EL.ERROR, "perl not installed. Cannot run R.E.D.");
+                CustomLogger.LogOutput("Traceback: {0}", e.StackTrace);
+                geometryInterface.activeTasks--;
+                yield break;
             }
 
             yield return SetTaskProgress(taskID, 0f);
@@ -96,12 +98,11 @@ public static class PartialChargeCalculator {
 
             yield return SetTaskProgress(taskID, 0.1f);
             
-            if (!gaussian.CheckCommand()) {
-                CustomLogger.LogFormat(
-                    EL.ERROR,
-                    "Gaussian not available - cannot run Partial Charges Calculation"
-                );
-                NotificationBar.ClearTask(taskID);
+            try {
+                gaussian.CheckCommand();
+            } catch (SystemException e) {
+                CustomLogger.LogFormat(EL.ERROR, "Gaussian not available - cannot run Partial Charges Calculation");
+                CustomLogger.LogOutput("Traceback: {0}", e.StackTrace);
                 geometryInterface.activeTasks--;
                 yield break;
             }
@@ -131,13 +132,12 @@ public static class PartialChargeCalculator {
         GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
         geometryInterface.activeTasks++;
         yield return SetTaskProgress(taskID, 0f);
-        
-        if (!gaussian.CheckCommand()) {
-            NotificationBar.ClearTask(taskID);
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Gaussian not available - cannot run Partial Charges Calculation"
-            );
+            
+        try {
+            gaussian.CheckCommand();
+        } catch (SystemException e) {
+            CustomLogger.LogFormat(EL.ERROR, "Gaussian not available - cannot run Partial Charges Calculation");
+            CustomLogger.LogOutput("Traceback: {0}", e.StackTrace);
             geometryInterface.activeTasks--;
             yield break;
         }

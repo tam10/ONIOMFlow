@@ -92,6 +92,23 @@ public static class Settings {
 		}
 	}
 
+	public static Color GetAtomColourFromAMBER(Amber amber) {
+		switch (amber) {
+			case Amber._: return Color.red;
+			case Amber.X: return Color.red;
+			case Amber.DU: return Color.yellow;
+		}
+		return Color.green;
+	}
+
+	public static Color GetAtomColourFromPenalty(float penalty, float max=100f) {
+		if (penalty > max) {
+			return Color.red;
+		} else {
+			return Color.Lerp(Color.green, Color.red, penalty / max);
+		}
+	}
+
 	public static Color negativeColour = new Color(0f, 0f, 1f, 1f);
 	public static Color neutralColour = new Color(0.5f, 0.5f, 0.5f, 0.5f);
 	public static Color positiveColour = new Color(1f, 0f, 0f, 1f);

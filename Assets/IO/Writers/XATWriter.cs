@@ -111,11 +111,11 @@ public static class XATWriter {
 
     static void WriteParameters(Parameters parameters) {
         WriteNonBonding(parameters.nonbonding);
-        WriteAtomicParameters(parameters.atomicParameters);
-        WriteStretches(parameters.stretches);
-        WriteBends(parameters.bends);
-        WriteTorsions(parameters.torsions);
-        WriteImproperTorsions(parameters.improperTorsions);
+        WriteAtomicParameters(parameters.atomicParameters.Values);
+        WriteStretches(parameters.stretches.Values);
+        WriteBends(parameters.bends.Values);
+        WriteTorsions(parameters.torsions.Values);
+        WriteImproperTorsions(parameters.improperTorsions.Values);
     }
 
     static void WriteNonBonding(NonBonding nonbonding) {
@@ -148,11 +148,11 @@ public static class XATWriter {
         x.WriteEndElement();
     }
 
-    static void WriteAtomicParameters(List<AtomicParameter> atomicParameters) {
+    static void WriteAtomicParameters(IEnumerable<AtomicParameter> atomicParameters) {
         x.WriteStartElement("atomicParameters");
         foreach (AtomicParameter atomicParameter in atomicParameters) {
             x.WriteStartElement("atomicParameter");
-            x.WriteAttributeString("type", AmberCalculator.GetAmberString(atomicParameter.type));
+            x.WriteAttributeString("type", AmberCalculator.GetAmberString(atomicParameter.type.amber));
             x.WriteAttributeString("depth", string.Format("{0:0.0000}", atomicParameter.wellDepth));
             x.WriteAttributeString("mass", string.Format("{0:0.0000}", atomicParameter.mass));
             x.WriteAttributeString("radius", string.Format("{0:0.0000}", atomicParameter.radius));
@@ -161,7 +161,7 @@ public static class XATWriter {
         x.WriteEndElement();
     }
 
-    static void WriteStretches(List<Stretch> stretches) {
+    static void WriteStretches(IEnumerable<Stretch> stretches) {
         x.WriteStartElement("stretches");
         foreach (Stretch stretch in stretches) {
             x.WriteStartElement("stretch");
@@ -173,7 +173,7 @@ public static class XATWriter {
         x.WriteEndElement();
     }
 
-    static void WriteBends(List<Bend> bends) {
+    static void WriteBends(IEnumerable<Bend> bends) {
         x.WriteStartElement("bends");
         foreach (Bend bend in bends) {
             x.WriteStartElement("bend");
@@ -185,7 +185,7 @@ public static class XATWriter {
         x.WriteEndElement();
     }
 
-    static void WriteTorsions(List<Torsion> torsions) {
+    static void WriteTorsions(IEnumerable<Torsion> torsions) {
         x.WriteStartElement("torsions");
         foreach (Torsion torsion in torsions) {
             x.WriteStartElement("torsion");
@@ -206,7 +206,7 @@ public static class XATWriter {
         x.WriteEndElement();
     }
 
-    static void WriteImproperTorsions(List<ImproperTorsion> improperTorsions) {
+    static void WriteImproperTorsions(IEnumerable<ImproperTorsion> improperTorsions) {
         x.WriteStartElement("improperTorsions");
         foreach (ImproperTorsion improperTorsion in improperTorsions) {
             x.WriteStartElement("improperTorsion");

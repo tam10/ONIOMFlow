@@ -744,6 +744,7 @@ public class GeometryInterface :
 		contextMenu.AddButton(() => ComputeConnectivity(), "Compute Connectivity", geometryEnabled);
 		contextMenu.AddButton(() => StartCoroutine(CheckAll()), "Check Atoms", geometryEnabled);
 		contextMenu.AddButton(() => ShowAnalysis(), "Analyse", geometryEnabled);
+		contextMenu.AddButton(() => StartCoroutine(ComputeParameterScores()), "Get Parameter Scores", geometryEnabled);
 
 		contextMenu.AddSpacer();
 
@@ -875,6 +876,60 @@ public class GeometryInterface :
 		NotificationBar.ClearTask(TID.CHECK_GEOMETRY);
 		yield return null;
 		activeTasks--;
+	}
+
+	public IEnumerator ComputeParameterScores() {
+
+		if (geometry == null || geometry.size == 0) {
+            CustomLogger.LogFormat(
+                EL.ERROR, 
+                "Geometry is empty on Geometry Interface ID: {0}.",
+				id
+            );
+			yield break;
+		}
+
+		geometry.parameters.UpdateParameters(Settings.defaultParameters);
+
+		activeTasks++;
+        NotificationBar.SetTaskProgress(TID.COMPUTE_PARAMETER_SCORES, 0f);
+		yield return null;
+
+		int numAtoms = geometry.size;
+		int atomNum = 0;
+		foreach (Atom atom in geometry.EnumerateAtoms()) {
+			atom.penalty = 0f;
+			if (Timer.yieldNow) {
+				NotificationBar.SetTaskProgress(
+					TID.COMPUTE_PARAMETER_SCORES,
+					CustomMathematics.Map(atomNum, 0, numAtoms, 0, 0.2f)
+				);
+				yield return null;
+			}
+		}
+
+		atomNum = 0;
+		foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
+			geometry.parameters.GetAtomPenalty(atomID);
+			CustomLogger.LogFormat(
+				EL.VERBOSE,
+				"Setting Penalty Score for Atom ({0}): {1}",
+				atomID,
+				atom.penalty
+			);
+			if (Timer.yieldNow) {
+				NotificationBar.SetTaskProgress(
+					TID.COMPUTE_PARAMETER_SCORES,
+					CustomMathematics.Map(atomNum, 0, numAtoms, 0.2f, 1)
+				);
+				yield return null;
+			}
+			atomNum++;
+		}
+
+        NotificationBar.ClearTask(TID.COMPUTE_PARAMETER_SCORES);
+		activeTasks--;
+
 	}
 
 	/// <summary>

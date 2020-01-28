@@ -98,12 +98,17 @@ public class AtomsVisualiser : MonoBehaviour {
     private EditMode selectedEditMode = EditMode.ROTATEXY;
     private EditMode finalEditMode = EditMode.ROTATEXY;
 
-    public Transform historyTransform;
+    public GeometryHistory geometryHistory;
+    //public Transform historyTransform;
     int maxHistory=20;
-    public int historyStep;
+    //public int historyStep;
 
 
     void Awake() { 
+
+        GameObject historyGO = new GameObject("History");
+        historyGO.transform.SetParent(transform);
+        geometryHistory = historyGO.AddComponent<GeometryHistory>();
         
         if (lineDrawer == null) {
             lineDrawer = PrefabManager.InstantiateLineDrawer(atomsRepresentation);
@@ -143,7 +148,8 @@ public class AtomsVisualiser : MonoBehaviour {
         this.geometryInterfaceID = geometryInterfaceID;
         geometry = Flow.GetGeometry(geometryInterfaceID);
 
-        ResetHistory();
+        geometryHistory.Initialise(geometry, maxHistory);
+        //ResetHistory();
         Clear();
         Display();
         
@@ -226,6 +232,14 @@ public class AtomsVisualiser : MonoBehaviour {
         lineDrawer.SetColoursByElement();
     }
 
+    void SetColoursByAMBER() {
+        lineDrawer.SetColoursByAMBER();
+    }
+    
+    void SetColoursByParameters() {
+        lineDrawer.SetColoursByParameters();
+    }
+
     public void Clear() {
         lineDrawer.Clear();
         foreach (Transform child in meshHolder) {
@@ -249,7 +263,7 @@ public class AtomsVisualiser : MonoBehaviour {
 
         RotationCube rotationCube = Camera.main.GetComponentInChildren<RotationCube>();
         if (rotationCube != null) {
-            rotationCube.LinkTransform(atomsRepresentation, atomsRepresentationStartPosition);
+            rotationCube.LinkTransform(atomsRepresentation);
         }
 
     } 
@@ -449,88 +463,88 @@ public class AtomsVisualiser : MonoBehaviour {
     // HISTORY //
     /////////////
 
-    void ClearHistory() {
-        foreach (Transform savedTransform in historyTransform) {
-            GameObject.Destroy(savedTransform.gameObject);
-        }
-        historyStep = 0;
-    }
-
-    void ResetHistory() {
-        ClearHistory();
-        if (geometry == null) {
-            CustomLogger.LogFormat(EL.ERROR, "Failed to reset geometry history - geometry is null.");
-            return;
-        }
-        SaveState("Reset");
-    }
-
-    void SaveState(string operationName="") {
-        if (geometry == null) {
-            CustomLogger.LogFormat(EL.ERROR, "Failed to save geometry history - geometry is null.");
-            return;
-        }
-
-        //Do not exceed the maximum number of history steps
-        if (historyTransform.childCount == maxHistory) {
-            GameObject.Destroy(historyTransform.GetChild(0).gameObject);
-        }
-
-        //Delete all redo states past the most recent undo operation
-        for (int deleteIndex = historyStep + 1; deleteIndex < historyTransform.childCount; deleteIndex++) {
-            GameObject.Destroy(historyTransform.GetChild(deleteIndex).gameObject);
-        }
-
-        //Clone the current geometry
-        Geometry clonedGeometry = PrefabManager.InstantiateGeometry(historyTransform);
-        clonedGeometry.transform.SetAsLastSibling();
-        geometry.CopyTo(clonedGeometry);
-        
-        historyStep = historyTransform.childCount - 1;
-        clonedGeometry.gameObject.name = string.Format(
-            "Save {0} ({1})", 
-            historyStep, 
-            operationName
-        );
-        
-    }
-
-    void LoadState(int historyStep) {
-        if (historyStep < 0 || historyStep >= historyTransform.childCount) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "History step ({0}) out of bounds for history count ({1})",
-                historyStep,
-                historyTransform.childCount
-            );
-            return;
-        }
-
-        Geometry historyGeometry = historyTransform.GetChild(historyStep).GetComponent<Geometry>();
-        if (historyGeometry == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Could not load state - geometry was null!"
-            );
-            return;
-        }
-        historyGeometry.CopyTo(geometry);
-        StartCoroutine(Redraw());
-    }
-
-    void Undo() {
-        if (historyStep < 1) {
-            return;
-        }
-        LoadState(--historyStep);
-    }
-
-    void Redo() {
-        if (historyStep + 2 > historyTransform.childCount) {
-            return;
-        }
-        LoadState(++historyStep);
-    }
+//    void ClearHistory() {
+//        foreach (Transform savedTransform in historyTransform) {
+//            GameObject.Destroy(savedTransform.gameObject);
+//        }
+//        historyStep = 0;
+//    }
+//
+//    void ResetHistory() {
+//        ClearHistory();
+//        if (geometry == null) {
+//            CustomLogger.LogFormat(EL.ERROR, "Failed to reset geometry history - geometry is null.");
+//            return;
+//        }
+//        SaveState("Reset");
+//    }
+//
+//    void SaveState(string operationName="") {
+//        if (geometry == null) {
+//            CustomLogger.LogFormat(EL.ERROR, "Failed to save geometry history - geometry is null.");
+//            return;
+//        }
+//
+//        //Do not exceed the maximum number of history steps
+//        if (historyTransform.childCount == maxHistory) {
+//            GameObject.Destroy(historyTransform.GetChild(0).gameObject);
+//        }
+//
+//        //Delete all redo states past the most recent undo operation
+//        for (int deleteIndex = historyStep + 1; deleteIndex < historyTransform.childCount; deleteIndex++) {
+//            GameObject.Destroy(historyTransform.GetChild(deleteIndex).gameObject);
+//        }
+//
+//        //Clone the current geometry
+//        Geometry clonedGeometry = PrefabManager.InstantiateGeometry(historyTransform);
+//        clonedGeometry.transform.SetAsLastSibling();
+//        geometry.CopyTo(clonedGeometry);
+//        
+//        historyStep = historyTransform.childCount - 1;
+//        clonedGeometry.gameObject.name = string.Format(
+//            "Save {0} ({1})", 
+//            historyStep, 
+//            operationName
+//        );
+//        
+//    }
+//
+//    void LoadState(int historyStep) {
+//        if (historyStep < 0 || historyStep >= historyTransform.childCount) {
+//            CustomLogger.LogFormat(
+//                EL.ERROR,
+//                "History step ({0}) out of bounds for history count ({1})",
+//                historyStep,
+//                historyTransform.childCount
+//            );
+//            return;
+//        }
+//
+//        Geometry historyGeometry = historyTransform.GetChild(historyStep).GetComponent<Geometry>();
+//        if (historyGeometry == null) {
+//            CustomLogger.LogFormat(
+//                EL.ERROR,
+//                "Could not load state - geometry was null!"
+//            );
+//            return;
+//        }
+//        historyGeometry.CopyTo(geometry);
+//        StartCoroutine(Redraw());
+//    }
+//
+//    void Undo() {
+//        if (historyStep < 1) {
+//            return;
+//        }
+//        LoadState(--historyStep);
+//    }
+//
+//    void Redo() {
+//        if (historyStep + 2 > historyTransform.childCount) {
+//            return;
+//        }
+//        LoadState(++historyStep);
+//    }
 
     //////////////////
     // CONTEXT MENU //
@@ -548,7 +562,7 @@ public class AtomsVisualiser : MonoBehaviour {
         IEnumerator CalculateConnectivity() {
             yield return Cleaner.CalculateConnectivity(geometryInterfaceID);
             yield return Redraw();
-            SaveState("Calculate Connectivity");
+            geometryHistory.SaveState("Calculate Connectivity");
         }
 
 		//Add buttons and spacers
@@ -580,6 +594,8 @@ public class AtomsVisualiser : MonoBehaviour {
         ContextButtonGroup colourGroup = contextMenu.AddButtonGroup("Colour Mode", true);
         colourGroup.AddButton(() => {SetColoursByElement(); contextMenu.Hide();}, "Element", true);
         colourGroup.AddButton(() => {SetColoursByCharge(); contextMenu.Hide();}, "Charge", true);
+        colourGroup.AddButton(() => {SetColoursByAMBER(); contextMenu.Hide();}, "Has AMBER", true);
+        colourGroup.AddButton(() => {SetColoursByParameters(); contextMenu.Hide();}, "Parameter Penalty", true);
 
 		contextMenu.AddSpacer();
 
@@ -632,7 +648,7 @@ public class AtomsVisualiser : MonoBehaviour {
             }
         }
         StartCoroutine(Redraw());
-        SaveState(string.Format("Add selection to {0}", oniomLayerID));
+        geometryHistory.SaveState(string.Format("Add selection to {0}", oniomLayerID));
     }
 
     void ClearSelectedAtoms() {
@@ -1436,12 +1452,12 @@ public class AtomsVisualiser : MonoBehaviour {
         GameObject.Destroy(startConnectionButton.gameObject);
         GameObject.Destroy(endConnectionButton.gameObject);
 
-        SaveState(string.Format("Modify bond '{0}'-'{1}'", startID, endID));
+        geometryHistory.SaveState(string.Format("Modify bond '{0}'-'{1}'", startID, endID));
         if (cancelled) {
-            Undo();
-        } else {
-            StartCoroutine(Redraw());
+            geometryHistory.Undo();            
         }
+        StartCoroutine(Redraw());
+        
 
     }
 
@@ -1542,12 +1558,11 @@ public class AtomsVisualiser : MonoBehaviour {
         GameObject.Destroy(startConnectionButton.gameObject);
         GameObject.Destroy(endConnectionButton.gameObject);
 
-        SaveState(string.Format("Modify angle '{0}'-'{1}'-'{2}'", startID, centreAtomID, endID));
+        geometryHistory.SaveState(string.Format("Modify angle '{0}'-'{1}'-'{2}'", startID, centreAtomID, endID));
         if (cancelled) {
-            Undo();
-        } else {
-            StartCoroutine(Redraw());
+            geometryHistory.Undo();            
         }
+        StartCoroutine(Redraw());
         
     }
 
@@ -1658,12 +1673,11 @@ public class AtomsVisualiser : MonoBehaviour {
         GameObject.Destroy(startConnectionButton.gameObject);
         GameObject.Destroy(endConnectionButton.gameObject);
 
-        SaveState(string.Format("Modify dihedral '{0}'-'{1}'-'{2}'-'{3}'", startID, atomID1, atomID2, endID));
+        geometryHistory.SaveState(string.Format("Modify dihedral '{0}'-'{1}'-'{2}'-'{3}'", startID, atomID1, atomID2, endID));
         if (cancelled) {
-            Undo();
-        } else {
-            StartCoroutine(Redraw());
+            geometryHistory.Undo();            
         }
+        StartCoroutine(Redraw());
     }
 
     IEnumerator EditTransform() {
@@ -1722,10 +1736,10 @@ public class AtomsVisualiser : MonoBehaviour {
 
         if (chainAtoms[0].IsConnectedTo(chainAtomIDs[1])) {
             geometry.Disconnect(chainAtomIDs[0], chainAtomIDs[1]);
-            SaveState(string.Format("Disconnect '{0}'-'{1}'", chainAtomIDs[0], chainAtomIDs[1]));
+            geometryHistory.SaveState(string.Format("Disconnect '{0}'-'{1}'", chainAtomIDs[0], chainAtomIDs[1]));
         } else {
             geometry.Connect(chainAtomIDs[0], chainAtomIDs[1], BT.SINGLE);
-            SaveState(string.Format("Connect '{0}'-'{1}'", chainAtomIDs[0], chainAtomIDs[1]));
+            geometryHistory.SaveState(string.Format("Connect '{0}'-'{1}'", chainAtomIDs[0], chainAtomIDs[1]));
         }
 
         StartCoroutine(Redraw());
@@ -2086,9 +2100,11 @@ public class AtomsVisualiser : MonoBehaviour {
 
             if (cmdMod) {
                 if (Input.GetKeyDown(KeyCode.Z)) {
-                    Undo();
+                    geometryHistory.Undo();
+                    StartCoroutine(Redraw());
                 } else if (Input.GetKeyDown(KeyCode.Y)) {
-                    Redo();
+                    geometryHistory.Redo();
+                    StartCoroutine(Redraw());
                 }
 
             }

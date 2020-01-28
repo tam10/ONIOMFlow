@@ -286,22 +286,17 @@ public static class XATReader {
             return;
         }
         foreach (XElement stretchX in stretchesX.Elements("stretch")) {
-            Amber[] types = GetTypes(stretchX);
+            Amber2 types;
+            if (!TryGetAmber2(stretchX, out types)) {
+                continue;
+            }
 
             //Equilibrium distance
             float req = FileIO.ParseXMLAttrFloat(stretchX, "req");
             //Force Constant
             float keq = FileIO.ParseXMLAttrFloat(stretchX, "keq");
 
-            Stretch stretch;
-            try {
-                stretch = new Stretch(types, req, keq);
-            } catch (System.Exception e) {
-                if (types.Length != 2) {
-                    FileIO.ThrowXMLError(stretchX, path, "ReadStretches", e);
-                }
-                continue;
-            }
+            Stretch stretch= new Stretch(types, req, keq);
             parameters.AddStretch(stretch);
         }
     }
@@ -311,22 +306,17 @@ public static class XATReader {
             return;
         }
         foreach (XElement bendX in bendsX.Elements("bend")) {
-            Amber[] types = GetTypes(bendX);
+            Amber3 types;
+            if (!TryGetAmber3(bendX, out types)) {
+                continue;
+            }
 
             //Equilibrium Angle
             float aeq = FileIO.ParseXMLAttrFloat(bendX, "aeq");
             //Force Constant
             float keq = FileIO.ParseXMLAttrFloat(bendX, "keq");
 
-            Bend bend;
-            try {
-                bend = new Bend(types, aeq, keq);
-            } catch (System.Exception e) {
-                if (types.Length != 3) {
-                    FileIO.ThrowXMLError(bendX, path, "ReadBends", e);
-                }
-                continue;
-            }
+            Bend bend = new Bend(types, aeq, keq);
             parameters.AddBend(bend);
         }
     }
@@ -336,20 +326,15 @@ public static class XATReader {
             return;
         }
         foreach (XElement torsionX in torsionsX.Elements("torsion")) {
-            Amber[] types = GetTypes(torsionX);
+            Amber4 types;
+            if (!TryGetAmber4(torsionX, out types)) {
+                continue;
+            }
             
             //The number of dihedrals centred on this bond
             int nPaths = FileIO.ParseXMLAttrInt(torsionX, "nPaths");
             
-            Torsion torsion;
-            try {
-                torsion = new Torsion(types, new float[4], new float[4], nPaths);
-            } catch (System.Exception e) {
-                if (types.Length != 4) {
-                    FileIO.ThrowXMLError(torsionX, path, "ReadTorsions", e);
-                }
-                continue;
-            }
+            Torsion torsion = new Torsion(types, new float[4], new float[4], nPaths);
 
             foreach (XElement termX in torsionX.Elements("term")) {
 
@@ -369,7 +354,10 @@ public static class XATReader {
             return;
         }
         foreach (XElement improperTorsionX in improperTorsionsX.Elements("improperTorsion")) {
-            Amber[] types = GetTypes(improperTorsionX);
+            Amber4 types;
+            if (!TryGetAmber4(improperTorsionX, out types)) {
+                continue;
+            }
             
             //Periodicity of the torsion
             int period = FileIO.ParseXMLAttrInt(improperTorsionX, "period");
@@ -378,15 +366,7 @@ public static class XATReader {
             //Barrier Height
             float barrierHeight = FileIO.ParseXMLAttrFloat(improperTorsionX, "barrier");
             
-            ImproperTorsion improperTorsion;
-            try {
-                improperTorsion = new ImproperTorsion(types, barrierHeight, phaseOffset, period);
-            } catch (System.Exception e) {
-                if (types.Length != 4) {
-                    FileIO.ThrowXMLError(improperTorsionX, path, "ReadImproperTorsions", e);
-                }
-                continue;
-            }
+            ImproperTorsion improperTorsion = new ImproperTorsion(types, barrierHeight, phaseOffset, period);
             parameters.AddImproperTorsion(improperTorsion);
         }
     }
@@ -422,6 +402,88 @@ public static class XATReader {
         Amber t3 = AmberCalculator.GetAmber(t3String);
         return new Amber[4] {t0, t1, t2, t3};
 
+    }
+
+    private static bool TryParseAMBER(XElement typesX, string key, out Amber amber) {
+        amber = Amber.X;
+        string typeString = FileIO.ParseXMLAttrString(typesX, key, "");
+        if (string.IsNullOrWhiteSpace(typeString)) {
+            return false;
+        }
+        amber = AmberCalculator.GetAmber(typeString);
+        return true;
+    }
+
+    private static bool TryGetAmber1(XElement typesX, out Amber1 types1) {
+        string typesString = FileIO.ParseXMLAttrString(typesX, "types", "");
+        if (!string.IsNullOrWhiteSpace(typesString)) {
+            types1 = new Amber1(typesString);
+            return true;
+        }
+        types1 = new Amber1();
+
+        Amber amber0;
+        if (!TryParseAMBER(typesX, "t0", out amber0)) {return false;}
+
+        types1 = new Amber1(amber0);
+        return true;
+    }
+
+    private static bool TryGetAmber2(XElement typesX, out Amber2 types2) {
+        string typesString = FileIO.ParseXMLAttrString(typesX, "types", "");
+        if (!string.IsNullOrWhiteSpace(typesString)) {
+            types2 = new Amber2(typesString);
+            return true;
+        }
+        types2 = new Amber2();
+
+        Amber amber0;
+        if (!TryParseAMBER(typesX, "t0", out amber0)) {return false;}
+        Amber amber1;
+        if (!TryParseAMBER(typesX, "t1", out amber1)) {return false;}
+
+        types2 = new Amber2(amber0, amber1);
+        return true;
+    }
+
+    private static bool TryGetAmber3(XElement typesX, out Amber3 types3) {
+        string typesString = FileIO.ParseXMLAttrString(typesX, "types", "");
+        if (!string.IsNullOrWhiteSpace(typesString)) {
+            types3 = new Amber3(typesString);
+            return true;
+        }
+        types3 = new Amber3();
+
+        Amber amber0;
+        if (!TryParseAMBER(typesX, "t0", out amber0)) {return false;}
+        Amber amber1;
+        if (!TryParseAMBER(typesX, "t1", out amber1)) {return false;}
+        Amber amber2;
+        if (!TryParseAMBER(typesX, "t2", out amber2)) {return false;}
+
+        types3 = new Amber3(amber0, amber1, amber2);
+        return true;
+    }
+
+    private static bool TryGetAmber4(XElement typesX, out Amber4 types4) {
+        string typesString = FileIO.ParseXMLAttrString(typesX, "types", "");
+        if (!string.IsNullOrWhiteSpace(typesString)) {
+            types4 = new Amber4(typesString);
+            return true;
+        }
+        types4 = new Amber4();
+
+        Amber amber0;
+        if (!TryParseAMBER(typesX, "t0", out amber0)) {return false;}
+        Amber amber1;
+        if (!TryParseAMBER(typesX, "t1", out amber1)) {return false;}
+        Amber amber2;
+        if (!TryParseAMBER(typesX, "t2", out amber2)) {return false;}
+        Amber amber3;
+        if (!TryParseAMBER(typesX, "t3", out amber3)) {return false;}
+
+        types4 = new Amber4(amber0, amber1, amber2, amber3);
+        return true;
     }
 
 }

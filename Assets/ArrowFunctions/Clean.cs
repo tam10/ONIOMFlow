@@ -108,7 +108,8 @@ public static class Cleaner {
 
         CustomLogger.LogFormat(
             EL.VERBOSE, 
-            "PDBIDs: '{0}'{3}AMBERs: '{1}'{3}Partial Charges: '{2}'", 
+            "Standard Water Settings:{4}Residue Name: '{0}'{4}PDBIDs: '{1}'{4}AMBERs: '{2}'{4}Partial Charges: '{3}'",
+            Settings.standardWaterResidueName, 
             string.Join("', '", standardWaterPDBIDs),
             string.Join("', '", standardWaterPDBIDs.Select(x => ambers[x])),
             string.Join("', '", standardWaterPDBIDs.Select(x => partialCharges[x])),
@@ -179,9 +180,10 @@ public static class Cleaner {
             waterResidue.residueName = Settings.standardWaterResidueName;
 
             //Make PDBIDs enumerable
-            List<PDBID> pdbIDs = waterResidue.pdbIDs.ToList();
+            List<PDBID> pdbIDs = waterResidue.pdbIDs.OrderBy(x => x).ToList();
+            int count = pdbIDs.Count;
 
-            if (pdbIDs.Count() == 1) {
+            if (count == 1) {
                 //One atom in water - should be just oxygen
                 PDBID pdbID = pdbIDs.First();
                 if (pdbID.element != Element.O) {
@@ -197,19 +199,51 @@ public static class Cleaner {
                 }
                 //Process oxygen
                 ProcessAtom(waterResidue, pdbID, oxygenID);
-            } else if (pdbIDs.Count() == 3) {
+            } else if (count == 3) {
                 //3 atoms - full water residue
+
+                bool hasH0 = pdbIDs.Contains(hydrogenID0);
+                bool hasH1 = pdbIDs.Contains(hydrogenID1);
+                bool h0Correct = pdbIDs.First(x => x.element == Element.H) == hydrogenID0;
+                bool h1Correct = pdbIDs.Last(x => x.element == Element.H) == hydrogenID1;
+
                 foreach (PDBID pdbID in pdbIDs) {
                     PDBID newPDBID;
                     if (pdbID.element == Element.H) {
                         //Found a hydrogen 
                         if (firstH) {
-                            //Use the first hydrogen PDBID
-                            newPDBID = pdbIDs.Contains(hydrogenID0) ? pdbID : hydrogenID0;
+                            //Get the first hydrogen PDBID
+                            if (h0Correct) {
+                                // This is hydrogenID0 - make no change
+                                newPDBID = hydrogenID0;
+                            } else if (hasH0 && !h1Correct) {
+                                // This one's wrong, but second is hydrogenID0 - make sure we don't try to overwrite second
+                                newPDBID = hydrogenID1;
+                            } else if (hasH1) {
+                                //This one's hydrogenID1, second is wrong
+                                newPDBID = hydrogenID1;
+                            } else {
+                                //Both are wrong, so need to change both
+                                newPDBID = hydrogenID0;
+                            }
+
                             firstH = false;
                         } else {
-                            //Use the second hydrogen PDBID
-                            newPDBID = pdbIDs.Contains(hydrogenID1) ? pdbID : hydrogenID1;
+                            //Get the second hydrogen PDBID
+                            if (h1Correct) {
+                                // This is hydrogenID1 - make no change
+                                newPDBID = hydrogenID1;
+                            } else if (hasH1 && !h0Correct) {
+                                // This one's wrong, but first is hydrogenID1 - make sure we don't try to overwrite first
+                                newPDBID = hydrogenID0;
+                            } else if (hasH0) {
+                                //This one's hydrogenID0, first is wrong
+                                newPDBID = hydrogenID0;
+                            } else {
+                                //Both are wrong, so need to change both
+                                newPDBID = hydrogenID1;
+                            }
+                            
                         }
                     } else if (pdbID.element == Element.O) {
                         //Found an oxygen
@@ -234,7 +268,7 @@ public static class Cleaner {
                     EL.ERROR,
                     "Wrong size for water Residue {0}! Must be 1 or 3, is {1}",
                     waterResidue.residueID,
-                    waterResidue.size
+                    count
                 );
                 Flow.GetGeometryInterface(geometryInterfaceID).status = GIS.ERROR;
                 yield break;

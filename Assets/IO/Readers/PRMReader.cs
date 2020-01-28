@@ -107,6 +107,7 @@ public static class PRMReader {
 		float req = float.Parse (splitLine [5]);
 
 		Bend bend = new Bend (t0, t1, t2, req, keq);
+
 		parameters.AddBend (bend);
 	}
 	

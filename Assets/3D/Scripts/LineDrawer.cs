@@ -14,6 +14,9 @@ public class LineDrawer : MonoBehaviour {
     private Dictionary<(AtomID, AtomID), LinkerWireFrame> linkerWireFrames = new Dictionary<(AtomID, AtomID), LinkerWireFrame>();
     public List<Arc> arcs = new List<Arc>();
 
+    public enum AtomColour: int {ELEMENT, CHARGE, HAS_AMBER, PARAMETERS}
+    public static int numAtomColourTypes = 4; //Must be the length of the above enum
+
     void Start() {
         activeCamera = Camera.main;
     }
@@ -53,19 +56,38 @@ public class LineDrawer : MonoBehaviour {
 
     public void SetColoursByCharge() {
         foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
-            residueWireFrame.SetColoursByCharge();
+            residueWireFrame.colourType = AtomColour.CHARGE;
         }
         foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
-            linkerWireFrame.SetColoursByCharge();
+            linkerWireFrame.colourType = AtomColour.CHARGE;
         }
     }
 
     public void SetColoursByElement() {
         foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
-            residueWireFrame.SetColoursByElement();
+            residueWireFrame.colourType = AtomColour.ELEMENT;
         }
         foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
-            linkerWireFrame.SetColoursByElement();
+            linkerWireFrame.colourType = AtomColour.ELEMENT;
+        }
+    }
+
+    public void SetColoursByAMBER() {
+        foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
+            residueWireFrame.colourType = AtomColour.HAS_AMBER;
+        }
+        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
+            linkerWireFrame.colourType = AtomColour.HAS_AMBER;
+        }
+    }
+
+
+    public void SetColoursByParameters() {
+        foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
+            residueWireFrame.colourType = AtomColour.PARAMETERS;
+        }
+        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
+            linkerWireFrame.colourType = AtomColour.PARAMETERS;
         }
     }
 
@@ -222,25 +244,22 @@ public class LineDrawer : MonoBehaviour {
 class ResidueWireFrame {
     Transform parentTransform;
     float3[] positions;
-    Color[] elementColours;
-    Color[] chargeColours;
+    Dictionary<LineDrawer.AtomColour, Color[]> atomColours;
     float[] radii;
     float[] widths;
 
     int numBonds;
     float3[] bondVertices;
-    Color[] bondElementColours;
-    Color[] bondChargeColours;
+    Dictionary<LineDrawer.AtomColour, Color[]> bondColours;
     float[] bondWidths;
     BT[] bondTypes;
     int[] bondPairs;
 
-    bool colourByCharge;
+    public LineDrawer.AtomColour colourType;
 
     int numNonBondedAtoms;
     float3[] nonBondedVertices;
-    Color[] nonBondedElementColours;
-    Color[] nonBondedChargeColours;
+    Dictionary<LineDrawer.AtomColour, Color[]> nonBondedColours;
     float[] nonBondedWidths;
     int[] nonBondedAtoms;
     PDBID[] pdbIDs;
@@ -251,25 +270,41 @@ class ResidueWireFrame {
         int numAtoms = pdbIDs.Length;
 
         positions = new float3[numAtoms];
-        elementColours = new Color[numAtoms];
-        chargeColours = new Color[numAtoms];
+
+        atomColours = Enumerable.Range(0, LineDrawer.numAtomColourTypes)
+            .ToDictionary(
+                x => (LineDrawer.AtomColour)x, 
+                x => new Color[numAtoms]
+            );
+            
         radii = new float[numAtoms];
         widths = new float[numAtoms];
 
-        colourByCharge = false;
+        colourType = LineDrawer.AtomColour.ELEMENT;
 
         int positionIndex = 0;
         numBonds = 0;
+        
         List<int> bondPairs = new List<int>();
         List<int> nonBondedAtomList = new List<int>();
         List<BT> bondTypeList = new List<BT>();
+
+        Color[] elementColours = atomColours[LineDrawer.AtomColour.ELEMENT];
+        Color[] chargeColours = atomColours[LineDrawer.AtomColour.ELEMENT];
+        Color[] amberColours = atomColours[LineDrawer.AtomColour.HAS_AMBER];
+        Color[] parameterColours = atomColours[LineDrawer.AtomColour.PARAMETERS];
+
         for (int atomNum=0; atomNum < numAtoms; atomNum++) {
             PDBID pdbID = pdbIDs[atomNum];
             Atom atom = residue.atoms[pdbID];
 
             positions[positionIndex++] = atom.position + offset;
-            elementColours[atomNum] = Settings.GetAtomColourFromElement(pdbID.element);
-            chargeColours[atomNum] = Settings.GetAtomColourFromCharge(atom.partialCharge);
+
+            atomColours[LineDrawer.AtomColour.ELEMENT][atomNum] = Settings.GetAtomColourFromElement(pdbID.element);
+            atomColours[LineDrawer.AtomColour.CHARGE][atomNum] = Settings.GetAtomColourFromCharge(atom.partialCharge);
+            atomColours[LineDrawer.AtomColour.HAS_AMBER][atomNum] = Settings.GetAtomColourFromAMBER(atom.amber);
+            atomColours[LineDrawer.AtomColour.PARAMETERS][atomNum] = Settings.GetAtomColourFromPenalty(atom.penalty);
+
             radii[atomNum] = Settings.GetAtomRadiusFromElement(pdbID.element);
             widths[atomNum] = Settings.layerLineThicknesses[atom.oniomLayer] * parentTransform.lossyScale.x;
             
@@ -302,8 +337,12 @@ class ResidueWireFrame {
         this.nonBondedAtoms = nonBondedAtomList.ToArray();
 
         bondVertices = new float3[numBonds * 2];
-        bondElementColours = new Color[numBonds * 2];
-        bondChargeColours = new Color[numBonds * 2];
+        
+        bondColours = Enumerable.Range(0, LineDrawer.numAtomColourTypes)
+            .ToDictionary(
+                x => (LineDrawer.AtomColour)x, 
+                x => new Color[numBonds * 2]
+            );
         bondWidths = new float[numBonds];
 
         int bondAtomIndex = 0;
@@ -314,22 +353,17 @@ class ResidueWireFrame {
         bondTypes = bondTypeList.ToArray();
 
         nonBondedVertices = new float3[numNonBondedAtoms * 6];
-        nonBondedElementColours = new Color[numNonBondedAtoms];
-        nonBondedChargeColours = new Color[numNonBondedAtoms];
+        nonBondedColours = Enumerable.Range(0, LineDrawer.numAtomColourTypes)
+            .ToDictionary(
+                x => (LineDrawer.AtomColour)x, 
+                x => new Color[numNonBondedAtoms]
+            );
         nonBondedWidths = new float[numNonBondedAtoms];
 
         int nonBondedVertexIndex = 0;
         for (int nonBondedAtomNum=0; nonBondedAtomNum<numNonBondedAtoms; nonBondedAtomNum++) {
             AddNonbondedWireframeGeometry(ref nonBondedVertexIndex, nonBondedAtomNum);
         }
-    }
-
-    public void SetColoursByCharge() {
-        colourByCharge = true;
-    }
-
-    public void SetColoursByElement() {
-        colourByCharge = false;
     }
 
     public void UpdatePosition(PDBID pdbID, float3 position) {
@@ -361,20 +395,30 @@ class ResidueWireFrame {
         ref int bondVertexIndex,
         int bondNum
     ) {
-        float width0 = widths[bondPairs[bondAtomIndex]];
+        
+        int i0 = bondPairs[bondAtomIndex];
 
-        bondElementColours[bondAtomIndex] = elementColours[bondPairs[bondAtomIndex]];
-        bondChargeColours[bondAtomIndex] = chargeColours[bondPairs[bondAtomIndex]];
-        int i0 = bondPairs[bondAtomIndex++];
+        float width0 = widths[i0];
+
+        bondColours[LineDrawer.AtomColour.ELEMENT][bondAtomIndex] = atomColours[LineDrawer.AtomColour.ELEMENT][i0];
+        bondColours[LineDrawer.AtomColour.CHARGE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CHARGE][i0];
+        bondColours[LineDrawer.AtomColour.HAS_AMBER][bondAtomIndex] = atomColours[LineDrawer.AtomColour.HAS_AMBER][i0];
+        bondColours[LineDrawer.AtomColour.PARAMETERS][bondAtomIndex] = atomColours[LineDrawer.AtomColour.PARAMETERS][i0];
+
+        bondAtomIndex++;
+
         bondVertices[bondVertexIndex++] = positions[i0++];
         
+        int i1 = bondPairs[bondAtomIndex];
 
-        float width1 = widths[bondPairs[bondAtomIndex]];
+        float width1 = widths[i1];
 
-        bondElementColours[bondAtomIndex] = elementColours[bondPairs[bondAtomIndex]];
-        bondChargeColours[bondAtomIndex] = chargeColours[bondPairs[bondAtomIndex]];
+        bondColours[LineDrawer.AtomColour.ELEMENT][bondAtomIndex] = atomColours[LineDrawer.AtomColour.ELEMENT][i1];
+        bondColours[LineDrawer.AtomColour.CHARGE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CHARGE][i1];
+        bondColours[LineDrawer.AtomColour.HAS_AMBER][bondAtomIndex] = atomColours[LineDrawer.AtomColour.HAS_AMBER][i1];
+        bondColours[LineDrawer.AtomColour.PARAMETERS][bondAtomIndex] = atomColours[LineDrawer.AtomColour.PARAMETERS][i1];
         
-        int i1 = bondPairs[bondAtomIndex++];
+        bondAtomIndex++;
         bondVertices[bondVertexIndex++] = positions[i1++];
 
         bondWidths[bondNum] = Mathf.Min(width0, width1);
@@ -387,8 +431,10 @@ class ResidueWireFrame {
 
         int nonBondedAtomIndex = nonBondedAtoms[nonBondedAtomNum];
 
-        nonBondedElementColours[nonBondedAtomNum] = elementColours[nonBondedAtomIndex];
-        nonBondedChargeColours[nonBondedAtomNum] = chargeColours[nonBondedAtomIndex];
+        nonBondedColours[LineDrawer.AtomColour.ELEMENT][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.ELEMENT][nonBondedAtomIndex];
+        nonBondedColours[LineDrawer.AtomColour.CHARGE][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.CHARGE][nonBondedAtomIndex];
+        nonBondedColours[LineDrawer.AtomColour.HAS_AMBER][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.HAS_AMBER][nonBondedAtomIndex];
+        nonBondedColours[LineDrawer.AtomColour.PARAMETERS][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.PARAMETERS][nonBondedAtomIndex];
 
         nonBondedWidths[nonBondedAtomNum] = widths[nonBondedAtomIndex];
         float radius = radii[nonBondedAtomIndex] * 0.5f * Settings.atomicRadiusToSphereRatio;
@@ -434,12 +480,8 @@ class ResidueWireFrame {
         float3 mid = new float3();
         float3 end = new float3();
 
-        Color[] bondColorArray = colourByCharge 
-            ? bondChargeColours 
-            : bondElementColours;
-        Color[] nonbondedColorArray = colourByCharge 
-            ? nonBondedChargeColours 
-            : nonBondedElementColours;
+        Color[] bondColorArray = bondColours[colourType];
+        Color[] nonbondedColorArray = nonBondedColours[colourType];
 
         int bondVertexIndex = 0;
         int colourIndex = 0;
@@ -517,17 +559,15 @@ class ResidueWireFrame {
 
 class LinkerWireFrame {
     
-    Color startElementColour;
-    Color endElementColour;
-    Color startChargeColour;
-    Color endChargeColour;
+    public LineDrawer.AtomColour colourType;
+    Dictionary<LineDrawer.AtomColour, Color> startColours;
+    Dictionary<LineDrawer.AtomColour, Color> endColours;
     float3 linkerStart;
     float3 linkerEnd;
     AtomID linkerStartID;
     AtomID linkerEndID;
     float bondWidth;
 
-    bool colourByCharge;
 
     public LinkerWireFrame(Transform parentTransform, Atom atom0, Atom atom1, AtomID atomID0, AtomID atomID1, float3 offset) {
 
@@ -536,19 +576,28 @@ class LinkerWireFrame {
 
         this.linkerStartID = atomID0;
         this.linkerEndID = atomID1;
-        
-        startElementColour = Settings.GetAtomColourFromElement(atomID0.pdbID.element); 
-        endElementColour = Settings.GetAtomColourFromElement(atomID1.pdbID.element);
 
-        startChargeColour = Settings.GetAtomColourFromCharge(atom0.partialCharge);
-        endChargeColour = Settings.GetAtomColourFromCharge(atom1.partialCharge);
+        startColours = new Dictionary<LineDrawer.AtomColour, Color>();
+        endColours = new Dictionary<LineDrawer.AtomColour, Color>();
+        
+        startColours[LineDrawer.AtomColour.ELEMENT] = Settings.GetAtomColourFromElement(atomID0.pdbID.element); 
+        endColours[LineDrawer.AtomColour.ELEMENT] = Settings.GetAtomColourFromElement(atomID1.pdbID.element);
+
+        startColours[LineDrawer.AtomColour.CHARGE] = Settings.GetAtomColourFromCharge(atom0.partialCharge);
+        endColours[LineDrawer.AtomColour.CHARGE] = Settings.GetAtomColourFromCharge(atom1.partialCharge);
+
+        startColours[LineDrawer.AtomColour.HAS_AMBER] = Settings.GetAtomColourFromAMBER(atom0.amber);
+        endColours[LineDrawer.AtomColour.HAS_AMBER] = Settings.GetAtomColourFromAMBER(atom1.amber);
+        
+        startColours[LineDrawer.AtomColour.PARAMETERS] = Settings.GetAtomColourFromPenalty(atom0.penalty);
+        endColours[LineDrawer.AtomColour.PARAMETERS] = Settings.GetAtomColourFromPenalty(atom1.penalty);
 
         bondWidth = math.min(
             Settings.layerLineThicknesses[atom0.oniomLayer],
             Settings.layerLineThicknesses[atom1.oniomLayer]
         ) * parentTransform.lossyScale.x; 
 
-        colourByCharge = false;
+        colourType = LineDrawer.AtomColour.ELEMENT;
     }
     
     public IEnumerable<(Color, float3, float3, float3, float3)> EnumerateBondQuads(
@@ -569,7 +618,7 @@ class LinkerWireFrame {
         float3 norm = math.normalizesafe(math.cross(start, end)) * width;
         
         yield return (
-            colourByCharge ? startChargeColour : startElementColour, 
+            startColours[colourType], 
             start + norm,
             start - norm,
             mid - norm,
@@ -577,7 +626,7 @@ class LinkerWireFrame {
         );
 
         yield return (
-            colourByCharge ? endChargeColour : endElementColour, 
+            endColours[colourType], 
             mid + norm,
             mid - norm,
             end - norm,
@@ -594,16 +643,6 @@ class LinkerWireFrame {
             linkerEnd = position;
         }
     }
-    
-
-    public void SetColoursByCharge() {
-        colourByCharge = true;
-    }
-
-    public void SetColoursByElement() {
-        colourByCharge = false;
-    }
-
     
 }
 

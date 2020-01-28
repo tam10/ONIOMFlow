@@ -452,10 +452,19 @@ public static class Bash {
 			externalCommands[name] = externalCommand;
 		}
 
-		public bool CheckCommand() {
-			if (string.IsNullOrWhiteSpace(command)) {return false;}
-			if (!CommandExists(GetExecutable())) {return false;}
-			return Bash.CommandExists(command);
+		public void CheckCommand() {
+			if (string.IsNullOrWhiteSpace(command)) {
+				throw new System.Exception(string.Format(
+					"External Command '{0}' is empty in Project Settings!",
+					name
+				));
+			}
+			if (!CommandExists(GetExecutable())) {
+				throw new System.Exception(string.Format(
+					"External Command '{0}' is not exectutable!",
+					GetExecutable()
+				));
+			}
 		}
 
 		IEnumerator UserSetCommandPath() {

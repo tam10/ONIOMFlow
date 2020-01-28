@@ -188,9 +188,7 @@ public class Graph {
             positions[i] = atom0.position;
             ambers[i] = atom0.amber;
             charges[i] = atom0.partialCharge;
-            atomicParameters[i] = parameters.atomicParameters
-                .Where(x => x.type == atom0.amber)
-                .FirstOrDefault();
+            atomicParameters[i] = parameters.GetAtomicParameter(atom0.amber);
 
             List<int> neighbours = new List<int>();
             foreach ((AtomID atomID, BT bondType) in atom0.EnumerateConnections()) {
@@ -216,13 +214,11 @@ public class Graph {
         float torsionTimeTot = 0f;
 
         int2 ij = new int2();
-        //int3 ijk = new int3();
         int4 ijkl = new int4();
-        //int4 jikl = new int4();
 
-        Amber[] stretchTypes = new Amber[2];
-        Amber[] bendTypes = new Amber[3];
-        Amber[] dihedralTypes = new Amber[4];
+        Amber2 stretchTypes = Amber2.empty;
+        Amber3 bendTypes = Amber3.empty;
+        Amber4 dihedralTypes = Amber4.empty;
 
         NonBonding nonBonding = parameters.nonbonding;
         
@@ -236,7 +232,6 @@ public class Graph {
                 continue;
             }
 
-            //ij.x = ijk.x = ijkl.x = jikl.y = i;
             ij.x = ijkl.x = i;
 
             //
@@ -294,7 +289,7 @@ public class Graph {
             //Impropers
             if (atom0Neighbours.Length == 3) {
 
-                dihedralTypes[1] = ambers[i];
+                dihedralTypes.amber1 = ambers[i];
 
                 //Cycle over the 6 possible improper combinations for this central Atom
                 foreach (int3 improperCycle in improperCycles) {
@@ -303,17 +298,17 @@ public class Graph {
                     int l = atom0Neighbours[improperCycle.z];
 
                     //Centre atom is outer loop so it's impossible to be added in reverse
-                    dihedralTypes[0] = ambers[j];
-                    dihedralTypes[2] = ambers[k];
-                    dihedralTypes[3] = ambers[l];
-                    foreach (ImproperTorsion improper in parameters.improperTorsions) {
-                        if (improper.TypeEquivalentOrWild(dihedralTypes)) {
-                            impropers.Add(new DihedralCalculator(
-                                improper, 
-                                new int4(j,i,k,l)
-                            ));
-                        }
-                        break;
+                    dihedralTypes.amber0 = ambers[j];
+                    dihedralTypes.amber2 = ambers[k];
+                    dihedralTypes.amber3 = ambers[l];
+
+                    
+                    ImproperTorsion improper;
+                    if (parameters.TryGetImproperTorsion(dihedralTypes, out improper, true)) {
+                        impropers.Add(new DihedralCalculator(
+                            improper, 
+                            new int4(j,i,k,l)
+                        ));
                     }
 
                 }
@@ -328,39 +323,37 @@ public class Graph {
             float bendTime = 0f;
             float torsionTime = 0f;
 
-            stretchTypes[0] = bendTypes[0] = dihedralTypes[0] = ambers[i];
+            stretchTypes.amber0 = bendTypes.amber0 = dihedralTypes.amber0 = ambers[i];
 
             //Stretches
             foreach (int j in atom0Neighbours) {
 
                 //
                 startTime = Time.realtimeSinceStartup;
-                bendTypes[1] = dihedralTypes[1] = stretchTypes[1] = ambers[j];
+                bendTypes.amber1 = dihedralTypes.amber1 = stretchTypes.amber1 = ambers[j];
                 
                 ijkl.y = j;
                 if (j > i) {
                     
-                    foreach (Stretch stretch in parameters.stretches) {
-                        if (stretch.TypeEquivalentOrWild(stretchTypes)) {
-                            stretches.Add(new StretchCalculator(
-                                parameters, 
-                                stretch, 
-                                ijkl.xy
-                            ));
-                            goto hasStretch;
-                        }
+                    Stretch stretch;
+                    if (parameters.TryGetStretch(stretchTypes, out stretch, true)) {
+                        stretches.Add(new StretchCalculator(
+                            parameters, 
+                            stretch, 
+                            ijkl.xy
+                        ));
+                    } else {
+                        CustomLogger.LogFormat(
+                            EL.WARNING,
+                            "No Stretch Parameter for Atoms: '{0}'-'{1}'. Ambers: {2}-{3}",
+                            () => new object[] {
+                                nearbyAtomIDs[i],
+                                nearbyAtomIDs[j],
+                                stretchTypes.amber0,
+                                stretchTypes.amber1
+                            }
+                        );
                     }
-                    CustomLogger.LogFormat(
-                        EL.WARNING,
-                        "No Stretch Parameter for Atoms: '{0}'-'{1}'. Ambers: {2}-{3}",
-                        () => new object[] {
-                            nearbyAtomIDs[i],
-                            nearbyAtomIDs[j],
-                            stretchTypes[0],
-                            stretchTypes[1]
-                        }
-                    );
-                    hasStretch:;
                 }
 
                 stretchTime += Time.realtimeSinceStartup - startTime;
@@ -374,37 +367,28 @@ public class Graph {
                     if (k == i) {continue;}
                     //
                     startTime = Time.realtimeSinceStartup;
-                    bendTypes[2] = dihedralTypes[2] = ambers[k];
+                    bendTypes.amber2 = dihedralTypes.amber2 = ambers[k];
 
                     ijkl.z = k;
                     if (k > i) {
-                        try { 
-                            //Check this hasn't been added in reverse
-                            //int3 bendKey = new int3(i, j, k);
-                            
-                            foreach (Bend bend in parameters.bends) {
-                                if (bend.TypeEquivalentOrWild(bendTypes)) {
-                                    bends.Add(new BendCalculator(
-                                        parameters,
-                                        bend, 
-                                        ijkl.xyz
-                                    ));
-                                    break;
-                                }
-                            }
-
-                            
-                        } catch {
+                        Bend bend;
+                        if (parameters.TryGetBend(bendTypes, out bend, true)) {
+                            bends.Add(new BendCalculator(
+                                parameters,
+                                bend, 
+                                ijkl.xyz
+                            ));
+                        } else {
                             CustomLogger.LogFormat(
                                 EL.WARNING,
-                                "No Bend Parameter for Atoms: '{0}'-'{1}'-{2}'. Ambers: {3}-{4}-{5}",
+                                "No Bend Parameter for Atoms: '{0}'-'{1}'-'{2}'. Ambers: {3}-{4}-{5}",
                                 () => new object[] {
                                     nearbyAtomIDs[i],
                                     nearbyAtomIDs[j],
                                     nearbyAtomIDs[k],
-                                    bendTypes[0],
-                                    bendTypes[1],
-                                    bendTypes[2]
+                                    bendTypes.amber0,
+                                    bendTypes.amber1,
+                                    bendTypes.amber2
                                 }
                             );
                         }
@@ -423,26 +407,16 @@ public class Graph {
                     //Propers
                     foreach (int l in atom2Neighbours) {
                         if (l <= i || l == j) {continue;}
-                        dihedralTypes[3] = ambers[l];
+                        dihedralTypes.amber3 = ambers[l];
 
-
-                        try { 
-                            //Check this hasn't been added in reverse
-                            //int4 dihedralKey = new int4(i, j, k, l);
-                            //if (!torsions.Any(x => IsReverse4(x.key, i, j, k, l))) {
-                            ijkl.w = l;
-                            
-                            foreach (Torsion torsion in parameters.torsions) {
-                                if (torsion.TypeEquivalentOrWild(dihedralTypes)) {
-                                    torsions.Add(new DihedralCalculator(
-                                        torsion, 
-                                        ijkl
-                                    ));
-                                    break;
-                                }
-                            }
-                            //}
-                        } catch {}
+                        Torsion torsion;
+                        if (parameters.TryGetTorsion(dihedralTypes, out torsion, true)) {
+                            torsions.Add(new DihedralCalculator(
+                                torsion, 
+                                ijkl
+                            ));
+                            break;
+                        }
                     }
                     
                     torsionTime += Time.realtimeSinceStartup - startTime;

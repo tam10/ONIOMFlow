@@ -439,8 +439,9 @@ public class Residue {
 			AtomID oldAtomID = new AtomID (residueID, oldPDBID);
 			AtomID newAtomID = new AtomID (residueID, newPDBID);
 			foreach ((AtomID neighbourID, BT bondType) in connections) {
-				parent.Disconnect(oldAtomID, neighbourID);
-				parent.Connect(newAtomID, neighbourID, bondType);
+				Atom neighbour = parent.GetAtom(neighbourID);
+				neighbour.internalConnections.Remove(oldPDBID);
+				neighbour.internalConnections[newPDBID] = bondType;
 			}
 		}
 	}

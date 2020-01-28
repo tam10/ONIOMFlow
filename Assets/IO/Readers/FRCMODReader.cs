@@ -56,31 +56,29 @@ public static class FRCMODReader {
         } else if (paramType == ParamType.NULL) {
             paramTypeDict.TryGetValue(line, out paramType);
         } else {
-            float penalty = GetPenalty();
             bool needsRevision = NeedsRevision();
 
+            AtomicParameter existingParameter;
             switch (paramType) {
                 case (ParamType.NULL):
                     paramTypeDict.TryGetValue(line, out paramType);
                     break;
                 case (ParamType.MASS):
                     AtomicParameter massParameter = ReadMass();
-                    int massIndex = parameters.IndexAtomicParameter(massParameter);
-                    if (massIndex != -1) {
-                        parameters.atomicParameters[massIndex].mass = massParameter.mass;
+                    if (parameters.TryGetAtomicParameter(massParameter.type, out existingParameter)) {
+                        existingParameter.mass = massParameter.mass;
                     } else {
-                        parameters.atomicParameters.Add(massParameter);
+                        parameters.AddAtomicParameter(massParameter);
                     }
                     
                     break;
                 case (ParamType.NONBON):
                     AtomicParameter nonBonParameter = ReadNonBon();
-                    int nonBonIndex = parameters.IndexAtomicParameter(nonBonParameter);
-                    if (nonBonIndex != -1) {
-                        parameters.atomicParameters[nonBonIndex].wellDepth = nonBonParameter.wellDepth;
-                        parameters.atomicParameters[nonBonIndex].radius = nonBonParameter.radius;
+                    if (parameters.TryGetAtomicParameter(nonBonParameter.type, out existingParameter)) {
+                        existingParameter.wellDepth = nonBonParameter.wellDepth;
+                        existingParameter.radius = nonBonParameter.radius;
                     } else {
-                        parameters.atomicParameters.Add(nonBonParameter);
+                        parameters.AddAtomicParameter(nonBonParameter);
                     }
                     break;
                 case (ParamType.BOND):
@@ -91,11 +89,11 @@ public static class FRCMODReader {
                             "Bad Stretch added! ({0})", 
                             stretch
                         );
-                    } else if (penalty > 0f) {
+                    } else if (stretch.penalty > 0f) {
                         CustomLogger.LogFormat(
                             EL.WARNING,
                             "Adding Stretch with penalty={0} ({1})", 
-                            penalty, 
+                            stretch.penalty, 
                             stretch
                         );
                     }
@@ -109,11 +107,11 @@ public static class FRCMODReader {
                             "Bad Bend added! ({0})", 
                             bend
                         );
-                    } else if (penalty > 0f) {
+                    } else if (bend.penalty > 0f) {
                         CustomLogger.LogFormat(
                             EL.WARNING,
                             "Adding Bend with penalty={0} ({1})", 
-                            penalty, 
+                            bend.penalty, 
                             bend
                         );
                     }
@@ -127,11 +125,11 @@ public static class FRCMODReader {
                             "Bad Torsion added! ({0})", 
                             torsion
                         );
-                    } else if (penalty > 0f) {
+                    } else if (torsion.penalty > 0f) {
                         CustomLogger.LogFormat(
                             EL.WARNING,
                             "Adding Torsion with penalty={0} ({1})", 
-                            penalty, 
+                            torsion.penalty, 
                             torsion
                         );
                     }
@@ -146,11 +144,11 @@ public static class FRCMODReader {
                             "Bad Improper Torsion added! ({0})", 
                             improper
                         );
-                    } else if (penalty > 0f) {
+                    } else if (improper.penalty > 0f) {
                         CustomLogger.LogFormat(
                             EL.WARNING,
                             "Adding Improper Torsion with penalty={0} ({1})", 
-                            penalty, 
+                            improper.penalty, 
                             improper
                         );
                     }
@@ -201,10 +199,12 @@ public static class FRCMODReader {
         Amber type = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
         float radius = float.Parse(line.Substring(11, 7));
         float wellDepth = float.Parse(line.Substring(19, 7));
+        float penalty = GetPenalty();
 
         AtomicParameter atomicParameter = new AtomicParameter(type);
         atomicParameter.radius = radius;
         atomicParameter.wellDepth = wellDepth;
+        atomicParameter.penalty = penalty;
         return atomicParameter;
     }
 
@@ -221,6 +221,8 @@ public static class FRCMODReader {
         float keq = float.Parse(line.Substring(6,7));
         float req = float.Parse(line.Substring(15,6));
 
+        float penalty = GetPenalty();
+
         if (req == 0f) {
             CustomLogger.LogFormat(
                 EL.ERROR,
@@ -234,7 +236,7 @@ public static class FRCMODReader {
             );
         }
 
-        return new Stretch(t0, t1, req, keq);
+        return new Stretch(t0, t1, req, keq, penalty);
     }
 
     private static Bend ReadAngle() {
@@ -251,6 +253,8 @@ public static class FRCMODReader {
         float keq = float.Parse(line.Substring(10,7));
         float aeq = float.Parse(line.Substring(22,7));
 
+        float penalty = GetPenalty();
+
         if (aeq == 0f) {
             CustomLogger.LogFormat(
                 EL.ERROR,
@@ -264,7 +268,7 @@ public static class FRCMODReader {
             );
         }
 
-        return new Bend(t0, t1, t2, aeq, keq);
+        return new Bend(t0, t1, t2, aeq, keq, penalty);
     }
 
     private static Torsion ReadDihedral() {
@@ -286,9 +290,12 @@ public static class FRCMODReader {
         Amber t3 = AmberCalculator.GetAmber(line.Substring(9, 2).Trim());
         int numPaths = int.Parse(line.Substring(14, 1));
 
+        float penalty = GetPenalty();
+
         bool readTorsion = true;
-        Torsion torsion = new Torsion(t0, t1, t2, t3);
+        Torsion torsion = new Torsion(t0, t1, t2, t3, penalty:penalty);
         torsion.npaths = numPaths;
+
 
         while (readTorsion) {
             t0 = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
@@ -296,13 +303,13 @@ public static class FRCMODReader {
             t2 = AmberCalculator.GetAmber(line.Substring(6, 2).Trim());
             t3 = AmberCalculator.GetAmber(line.Substring(9, 2).Trim());
 
-            if (t0 != torsion.types[0] || t1 != torsion.types[1] || t2 != torsion.types[2] || t3 != torsion.types[3]) {
+            if (!torsion.types.TypeEquivalent(t0, t1, t2, t3)) {
                 CustomLogger.LogFormat(
                     EL.ERROR,
-                    "FRCMOD file badly formatted - terms should be grouped together. Expecting ({0}-{1}-{2}-{3}), got ({4}-{5}-{6}-{7}) on line {8}.",
+                    "FRCMOD file badly formatted - terms should be grouped together. Expecting ({0}), got ({1}-{2}-{3}-{4}) on line {5}.",
                     () => {
-                        return new object[9] {
-                            torsion.types[0], torsion.types[1], torsion.types[2], torsion.types[3],
+                        return new object[6] {
+                            torsion.GetTypesString(),
                             t0, t1, t2, t3,
                             lineNum
                         };
@@ -359,7 +366,9 @@ public static class FRCMODReader {
         float phase = float.Parse(line.Substring(31, 7));
         int periodicity = Mathf.RoundToInt(float.Parse(line.Substring(45, 7)));
 
-        ImproperTorsion improper = new ImproperTorsion(t0, t1, t2, t3, barrierHeight, phase, periodicity);
+        float penalty = GetPenalty();
+
+        ImproperTorsion improper = new ImproperTorsion(t0, t1, t2, t3, barrierHeight, phase, periodicity, penalty);
 
         return improper;
     }

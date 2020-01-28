@@ -95,7 +95,7 @@ public static class Constants {
 	MOVE_SELECTION_TO_MODEL_LAYER, MOVE_SELECTION_TO_INTERMEDIATE_LAYER, MOVE_SELECTION_TO_REAL_LAYER,
 	GET_MODEL_LAYER, GET_INTERMEDIATE_LAYER, RUN_GAUSSIAN_RECIPE, LOAD_ATOMS, SAVE_ATOMS, 
 	COPY_GEOMETRY, COPY_POSITIONS, REPLACE_PARAMETERS, UPDATE_PARAMETERS, 
-	COPY_PARTIAL_CHARGES, COPY_AMBERS, ALIGN_GEOMETRIES }
+	COPY_PARTIAL_CHARGES, COPY_AMBERS, ALIGN_GEOMETRIES, COMPUTE_PARAMETER_SCORES }
 	public static Map<string, TaskID> TaskIDMap = new Map<string, TaskID> {
 		//Checker
 		{"checkGeometry", TaskID.CHECK_GEOMETRY},
@@ -125,6 +125,7 @@ public static class Constants {
 		{"mergeGeometries", TaskID.MERGE_GEOMETRIES},
 		//Parameters
 		{"calculateParameters", TaskID.CALCULATE_PARAMETERS},
+		{"computeParameterScores", TaskID.COMPUTE_PARAMETER_SCORES},
 		//Layers
 		{"moveAllToModelLayer", TaskID.MOVE_ALL_TO_MODEL_LAYER},
 		{"moveAllToIntermediateLayer", TaskID.MOVE_ALL_TO_INTERMEDIATE_LAYER},
@@ -354,7 +355,7 @@ public static class Constants {
 
 	public static Map<string, Element> ElementMap = System.Enum.GetValues(typeof(Element)).Cast<Element>().ToMap(x => x.ToString(), x => x);
 
-	public enum Amber : int {
+	public enum Amber : System.Int16 {
 
 		X, // Generic No Amber
 		_, // * - all Ambers
@@ -375,6 +376,7 @@ public static class Constants {
 	}
 	
 	public static Map<string, Amber> AmberMap = System.Enum.GetValues(typeof(Amber)).Cast<Amber>().ToMap(x => x.ToString().Replace("_", "*"), x => x);
+
 
 
 }

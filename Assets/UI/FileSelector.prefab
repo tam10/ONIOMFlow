@@ -1421,6 +1421,7 @@ MonoBehaviour:
   titleText: {fileID: 0}
   fileNameInput: {fileID: 4730212024817031198}
   confirmedText: 
+  saveMode: 0
   listItemMinHeight: 40
 --- !u!1 &1868725740792278
 GameObject:
@@ -1917,7 +1918,7 @@ MonoBehaviour:
   m_Content: {fileID: 224173508840034452}
   m_Horizontal: 0
   m_Vertical: 1
-  m_MovementType: 1
+  m_MovementType: 2
   m_Elasticity: 0.1
   m_Inertia: 1
   m_DecelerationRate: 0.135
@@ -2832,7 +2833,7 @@ PrefabInstance:
     - target: {fileID: 8537492000352917597, guid: e993e712247c84f3c9d83d8362f417cd,
         type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -100.10786
+      value: -135.49948
       objectReference: {fileID: 0}
     - target: {fileID: 8538376744566868967, guid: e993e712247c84f3c9d83d8362f417cd,
         type: 3}
@@ -2857,7 +2858,7 @@ PrefabInstance:
     - target: {fileID: 8427210812220351337, guid: e993e712247c84f3c9d83d8362f417cd,
         type: 3}
       propertyPath: m_Size
-      value: 0.5
+      value: 0.9999901
       objectReference: {fileID: 0}
     - target: {fileID: 8537656262689085337, guid: e993e712247c84f3c9d83d8362f417cd,
         type: 3}

@@ -345,5 +345,12 @@
         <description>Use the best transformation matrix to align Geometries</description>
     </task>
 
+    <task>
+        <name>computeParameterScores</name>
+        <parentClass>amberCalculator</parentClass>
+        <fullName>Compute Parameter Scores</fullName>
+        <description>Compute Parameter penalty scores for each atom</description>
+    </task>
+
     
 </tasks>

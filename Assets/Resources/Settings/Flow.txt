@@ -477,6 +477,7 @@
         <endName>pcsr</endName>
         <defaultTasks>
             <task>protonateWithPDB2PQR</task>
+            <task>standardiseWaters</task>
             <task>calculateAMBERTypes</task>
             <task>calculateConnectivity</task>
             <task>checkGeometry</task>

@@ -280,13 +280,21 @@ public class CalculationSetup : MonoBehaviour {
             PDBID linkPDBID = connectionAtomID.pdbID;
             linkPDBID.element = Element.H;
 
-            Residue residue = layerGeometry.residueDict[link.connectionAtomID.residueID];
+            ResidueID linkConnectionResidueID = link.connectionAtomID.residueID;
+            Residue residue;
+            if (!layerGeometry.TryGetResidue(linkConnectionResidueID, out residue)) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Failed to generate Link - Could not find Residue '{0}' in Geometry!",
+                    linkConnectionResidueID
+                );
+            }
             PDBID acceptedPDBID;
             residue.AddAtom(linkPDBID, linkAtom, out acceptedPDBID);
 
             //Connect link atom
             layerGeometry.Connect(
-                new AtomID(link.connectionAtomID.residueID, acceptedPDBID),
+                new AtomID(linkConnectionResidueID, acceptedPDBID),
                 connectionAtomID,
                 BT.SINGLE
             );
@@ -433,7 +441,7 @@ public class CalculationSetup : MonoBehaviour {
 
             layerGeometryDict[oniomLayerID] = layerGeometry;
             layerAtomCount[oniomLayerID] = layerGeometry.size;
-            layerResidueCount[oniomLayerID] = layerGeometry.residueDict.Count;
+            layerResidueCount[oniomLayerID] = layerGeometry.residueCount;
             layerCharges[oniomLayerID] = layerGeometry.GetCharge();
 
             //Electron count includes one electron for each link from this layer

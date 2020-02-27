@@ -103,7 +103,7 @@ public class ResidueTable : MonoBehaviour {
         yield return null;
 
         this.geometryInterfaceID = geometryInterfaceID;
-        residueIDs = geometry.residueDict.Keys.ToList();
+        residueIDs = geometry.EnumerateResidueIDs().ToList();
         residueIDs.Sort();
 
         contentShiftVector = new Vector2(
@@ -160,7 +160,7 @@ public class ResidueTable : MonoBehaviour {
             ResidueTableItem residueTableItem = Instantiate<ResidueTableItem>(residueTableItemPrefab, contentTransform);
 
             // i == 0 refers to the primary residue (using the first Residue as the primary)
-            residueTableItem.Initialise(this, geometry.residueDict[residueIDs[i]], i == 0);
+            residueTableItem.Initialise(this, geometry.GetResidue(residueIDs[i]), i == 0);
             SetRowValues(residueTableItem, i);
             residueTableItems.Add(residueTableItem);
         }
@@ -210,7 +210,7 @@ public class ResidueTable : MonoBehaviour {
     }
 
     object GetValue(GIID geometryInterfaceID, ResidueID residueID, RP residueProperty) {
-        Residue residue = Flow.GetGeometry(geometryInterfaceID).residueDict[residueID];
+        Residue residue = Flow.GetGeometry(geometryInterfaceID).GetResidue(residueID);
         switch(residueProperty) {
             case (RP.CHAINID): return residue.chainID;
             case (RP.RESIDUE_NUMBER): return residueID.residueNumber;
@@ -333,10 +333,10 @@ public class ResidueTable : MonoBehaviour {
 
     void SetRowValues(ResidueTableItem residueTableItem, ResidueID residueID) {
         //Use arrays to set values of a row
-        Residue residue = geometry.residueDict[residueID];
+        Residue residue = geometry.GetResidue(residueID);
 
         foreach(RP residueProperty in Settings.residueTableProperties) {
-            residueTableItem.SetResidue(geometry.residueDict[residueID]);
+            residueTableItem.SetResidue(geometry.GetResidue(residueID));
         }
         residueTableItem.SetPrimary(residueID == primaryResidueID);
     }

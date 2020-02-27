@@ -507,7 +507,7 @@ public class Residue {
 		float distancesq = distance * distance;
 		//Evaluate the centre once
 		float3 _centre = GetCentre();
-		foreach ((ResidueID otherResidueID, Residue otherResidue) in parent.residueDict) {
+		foreach ((ResidueID otherResidueID, Residue otherResidue) in parent.EnumerateResidues()) {
 			//Ignore this Residue
 			if (otherResidueID == residueID) continue;
 			//Yield all ResidueIDs whose Residues are within the distance
@@ -610,6 +610,31 @@ public class Residue {
 		}
 	}
 
+	public IEnumerable<PDBID> EnumerateCapSites() {
+		Atom cAtom;
+		if (
+			atoms.TryGetValue(PDBID.C, out cAtom) 
+			//Atom has no external connections
+			&& cAtom.externalConnections.Count == 0
+			//Atom only attached to 2 internal atoms (CA and C usually)
+			&& cAtom.internalConnections.Count == 2
+		) {
+			yield return PDBID.C;
+		}
+		Atom nAtom;
+		if (
+			atoms.TryGetValue(PDBID.N, out nAtom) 
+			//Atom has no external connections
+			&& nAtom.externalConnections.Count == 0
+			//Atom only attached to 1 non-H internal atom (CA)
+			&& nAtom.internalConnections
+				.Where(x => x.Key.element != Element.H)
+				.Count() == 1
+		) {
+			yield return PDBID.N;
+		}
+	}
+
 	///<summary>
 	/// Convert this Residue to an ACE Cap residue
 	///</summary>
@@ -620,42 +645,84 @@ public class Residue {
 	///<summary>
 	/// Convert this Residue to an ACE Cap residue
 	///</summary>
-	///<param name="cAtom">The PDBID of the atom that will be the central C Atom of the ACE Cap</param>
-	public Residue ConvertToACE(PDBID cAtom) {
+	///<param name="cPDBID">The PDBID of the atom that will be the central C Atom of the ACE Cap</param>
+	public Residue ConvertToACE(PDBID cPDBID) {
 		// Get the ACE cap equivalent of this residue:
 		// Translate ACE ' C  ' to this ' C  '
 		// Rotate ACE ' O  ' to this ' O  '
 		// Rotate ACE ' CH3' to this ' CA '
+		//
+		//
+		//  neigh   this   -->  neigh   ACE
+		//  -bour               -bour
+  		//         O                    O    
+		//     |   |                |   |    
+		//     CA  C   N            CA  C    
+		//  ~ / \ ~ \ / ~  -->   ~ / \ ~ \   
+		//   C   N   CA           C   N   CH3
+		//   |       |            |          
+		//   O                    O          
+		//
+		//
 		Residue ace = Data.standardResidues["ACE"][RS.CAP].Take(parent);
 
 		// Get ACE anchor PDBIDs
-		PDBID aceCAtom = new PDBID(Element.C,"",0);
-		PDBID aceOAtom = new PDBID(Element.O,"",0);
-		PDBID aceCH3Atom = new PDBID(Element.C,"H",3);
+		PDBID aceCPDBID = PDBID.C;
+		PDBID aceOPDBID = PDBID.O;
+		PDBID aceCH3PDBID = new PDBID(Element.C,"H",3);
 
-		// Get this residue's anchor PDBIDs
-		PDBID oAtom = atoms[cAtom].internalConnections
+		// Get this residue's anchor Atoms
+		Atom cAtom = atoms[cPDBID];
+		Atom oAtom = cAtom.internalConnections
 			.Where(x => x.Key.element == Element.O)
-			.Select(x => x.Key)
-			.First();
-		PDBID caAtom = atoms[cAtom].internalConnections
+			.Select(x => atoms[x.Key])
+			.FirstOrDefault();
+		if (oAtom == null) {
+			throw new SystemException(string.Format(
+				"Cannot cap Atom '{0}' with ACE - must have an internal Oxygen connection!"
+			));
+		}
+
+		Atom caAtom = cAtom.internalConnections
 			.Where(x => x.Key.element == Element.C)
-			.Select(x => x.Key)
-			.First();
+			.Select(x => atoms[x.Key])
+			.FirstOrDefault();
+		if (cAtom == null) {
+			throw new SystemException(string.Format(
+				"Cannot cap Atom '{0}' with ACE - must have an internal Carbon connection!"
+			));
+		}
+
+		float3 pC = cAtom.position;
+		float3 pCA = caAtom.position;
+		float3 pO = oAtom.position;
+
+		float3 vC_CA = pCA - pC;
+		float3 vC_O = pO - pC;
 
 		//Translate ACE ' C  ' to residue ' C  '
-		ace.TranslateTo(aceCAtom, atoms[cAtom].position);
+		ace.TranslateTo(aceCPDBID, cAtom.position);
 
 		//Align ACE [' C  '->' CH3'] to residue [' C  '-> ' CA ']
-		float3 pC = atoms[cAtom].position;
-		float3 pCA = atoms[caAtom].position;
-		float3 vC_CA = pCA - pC;
-		ace.AlignBond(aceCAtom, aceCH3Atom, vC_CA);
+		ace.AlignBond(aceCPDBID, aceCH3PDBID, vC_CA);
+		
+		//ace.AlignBond(aceCPDBID, aceOPDBID, vC_O);
 
 		//Align ACE [' C  '->' O  '] to residue [' C  '-> ' O  ']
-		float3 pO = atoms[oAtom].position;
-		float3 vC_O = pO - pC;
-		ace.AlignBond(aceCAtom, aceOAtom, vC_O);
+		CustomMathematics.DihedralRuler dihedralRuler = new CustomMathematics.DihedralRuler(
+			ace.atoms[aceOPDBID],
+			ace.atoms[aceCH3PDBID],
+			ace.atoms[aceCPDBID],
+			oAtom
+		);
+
+		ace.atoms[aceOPDBID].position = math.rotate(quaternion.AxisAngle(
+				dihedralRuler.v21n,
+				dihedralRuler.dihedral
+			), (
+			ace.atoms[aceOPDBID].position -
+			ace.atoms[aceCPDBID].position
+		)) + ace.atoms[aceCPDBID].position;
 
 		return ace;
 	}
@@ -670,32 +737,67 @@ public class Residue {
 	///<summary>
 	/// Convert this Residue to an NME Cap residue
 	///</summary>
-	///<param name="cAtom">The PDBID of the atom that will be the central N Atom of the NME Cap</param>
-	public Residue ConvertToNME(PDBID nAtom) {
+	///<param name="nPDBID">The PDBID of the atom that will be the central N Atom of the NME Cap</param>
+	public Residue ConvertToNME(PDBID nPDBID) {
 		// Get the NME cap equivalent of this residue:
 		// Translate NME ' N  ' to this ' N  '
 		// Rotate NME ' CH3' to this ' CA '
+		//
+		//
+		//   this  neigh   -->    NME  neigh
+		//  	   -bour               -bour
+  		//         O                   O    
+		//     |   |                   |    
+		//     CA  C   N           CH3 C   N 
+		//  ~ / \ ~ \ / ~  -->      \ ~ \ / ~   
+		//   C   N   CA              N   CA
+		//   |       |                   |  
+		//   O                              
+		//
+		//
 		Residue nme = Data.standardResidues["NME"][RS.CAP].Take(parent);
 
 		// Get NME anchor PDBIDs
-		PDBID nmeNAtom = new PDBID(Element.N,"",0);
-		PDBID nmeCH3Atom = new PDBID(Element.C,"H",3);
+		PDBID nmeNPDBID = PDBID.N;
+		PDBID nmeCH3PDBID = new PDBID(Element.C,"H",3);
+		PDBID nmeHPDBID = PDBID.H;
 
-		// Get this residue's anchor PDBID
-		PDBID caAtom = atoms[nAtom].internalConnections
+		// Get this residue's anchor Atoms
+		Atom nAtom = atoms[nPDBID];
+		Atom caAtom = nAtom.internalConnections
 			.Where(x => x.Key.element == Element.C)
-			.Select(x => x.Key)
-			.First();
+			.Select(x => atoms[x.Key])
+			.FirstOrDefault();
+		if (caAtom == null) {
+			throw new SystemException(string.Format(
+				"Cannot cap Atom '{0}' with NME - must have an internal Carbon connection!"
+			));
+		}
 
-		float3 pN = atoms[nAtom].position;
-		float3 pCA = atoms[caAtom].position;
+		float3 pN = nAtom.position;
+		float3 pCA = caAtom.position;
 		float3 vN_CA = pCA - pN;
 
 		//Translate NME ' N  ' to residue ' N  '
-		nme.TranslateTo(nmeNAtom, atoms[nAtom].position);
+		nme.TranslateTo(nmeNPDBID, nAtom.position);
 
 		//Align NME [' N  '->' CH3'] to residue [' N  '-> ' CA ']
-		nme.AlignBond(nmeNAtom, nmeCH3Atom, vN_CA);
+		nme.AlignBond(nmeNPDBID, nmeCH3PDBID, vN_CA);
+
+		//See if we can align the H using the neighbouring residue
+		if (nAtom.externalConnections.Count == 1) {
+			AtomID neighbourAtomID = nAtom.externalConnections.First().Key;
+			Atom neighbourAtom;
+			if (parent.TryGetAtom(neighbourAtomID, out neighbourAtom)) {
+				float3 vN_Neighbour = neighbourAtom.position - pN;
+
+				//Alignment is the negative of the average of two bonds from N.
+				float3 hAlignment = - (math.normalize(vN_Neighbour) + math.normalize(vN_CA)) * 0.5f;
+
+				nme.AlignBond(nmeNPDBID, nmeHPDBID, hAlignment);
+
+			}
+		}
 
 		return nme;
 	}
@@ -933,7 +1035,7 @@ public class Residue {
         }
 
         //Check the new Residue ID isn't already in the parent Atoms object
-        if (parent.residueDict.ContainsKey(newResidueID)) {
+        if (parent.HasResidue(newResidueID)) {
             CustomLogger.LogFormat(
                 EL.ERROR,
                 "Residue ID {0} already exists in Atoms - can't add it again as a neighbour.",
@@ -961,9 +1063,9 @@ public class Residue {
         //Get the new Residue.
         Residue newResidue;
         if (protonated) {
-            newResidue = FromString(newResidueName, state, parent);
+            newResidue = FromString(newResidueName, residueState, parent);
         } else {
-            newResidue = FromString(newResidueName, state, parent, (x) => x.pdbID.element != Element.H);
+            newResidue = FromString(newResidueName, residueState, parent, (x) => x.pdbID.element != Element.H);
         }
         if (newResidue == null) {
             CustomLogger.LogFormat(
@@ -1104,161 +1206,9 @@ public class Residue {
         }
 
         //Add the Residue to the parent
-        parent.residueDict[newResidueID] = newResidue;
+        parent.AddResidue(newResidueID, newResidue);
 
         return newResidue;
-    }
-
-
-	///<summary>
-	/// Change this Standard Residue for another.
-	///</summary>
-    /// <param name="newResidueName">The name of the new Residue. Must be a 3-letter standard Amino Acid identifier.</param>
-    public void MutateStandard(string newResidueName) {
-        IList<RS> validStates = new [] {RS.STANDARD, RS.C_TERMINAL, RS.N_TERMINAL};
-        if (! validStates.Any(x => x == state)) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Residue is not in a valid State for mutation. Must be one of: {0}",
-                string.Join(", ", validStates.Select(x => Constants.ResidueStateMap[x]))
-            );
-            return;
-        }
-
-        //Get new Residue
-        Residue newResidue = FromString(residueName, state);
-        if (newResidue == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Cannot mutate Residue '{0}' to '{1}'",
-                residueName,
-                newResidueName
-            );
-            return;
-        }
-
-        CustomLogger.LogFormat(
-            EL.VERBOSE,
-            "Mutating Residue '{0}' to '{1}'",
-            residueName,
-            newResidueName
-        );
-
-        newResidue = newResidue.Take(null);
-
-        PDBID cPDBID = new PDBID(Element.C);
-        PDBID caPDBID = new PDBID(Element.C, "A");
-        PDBID nPDBID = new PDBID(Element.N);
-		
-		bool TryGetAtom(Residue residue, PDBID pdbID, out Atom atom) {
-			atom = residue.GetSingleAtom(pdbID);
-			if (atom == null) {
-				CustomLogger.LogFormat(
-					EL.ERROR,
-					"Cannot mutate Residue '{0}' to '{1}' - Required Atom {2} is null.",
-					newResidueName,
-					residueID,
-					new AtomID(residue.residueID, pdbID)
-				);
-				return false;
-			}
-
-			if (math.all(math.isnan(atom.position))) {
-				CustomLogger.LogFormat(
-					EL.ERROR,
-					"Cannot mutate Residue '{0}' to '{1}' - Position of atom {2} is {3}.",
-					newResidueName,
-					residueID,
-					new AtomID(residue.residueID, pdbID),
-					atom.position
-				);
-				return false;
-			}
-			return true;
-		}
-
-        Atom cAtom;// = GetSingleAtom(cPDBID);
-        Atom caAtom;// = GetSingleAtom(caPDBID);
-        Atom nAtom;// = GetSingleAtom(nPDBID);
-
-        if (
-			!TryGetAtom(this, cPDBID, out cAtom) ||
-			!TryGetAtom(this, caPDBID, out caAtom) || 
-			!TryGetAtom(this, nPDBID, out nAtom)
-		) {return;}
-
-        //Move mutated Residue to current position
-        newResidue.TranslateTo(cPDBID, cAtom.position);
-
-        //Align to new bond direction
-        newResidue.AlignBond(
-            cPDBID, 
-            nPDBID, 
-            math.normalize(nAtom.position - cAtom.position)
-        );
-
-        //Align by dihedral
-        float dihedral = CustomMathematics.GetDihedral(caAtom, cAtom, nAtom, newResidue.atoms[caPDBID]);
-        Vector3 bondVector = CustomMathematics.GetVector(cAtom, nAtom);
-        newResidue.Rotate(
-            Quaternion.AngleAxis(dihedral * Mathf.Rad2Deg, bondVector), 
-            newResidue.atoms[cPDBID].position
-        );
-
-        //Delete all non-backbone atoms
-        foreach (PDBID pdbID in pdbIDs.Where(x => !Data.backbonePDBs.Contains(x)).ToList()) {
-            CustomLogger.LogFormat(
-                EL.DEBUG,
-                "Delete: {0}",
-                pdbID
-            );
-            RemoveAtom(pdbID);
-        }
-        
-        foreach (PDBID pdbID in newResidue.pdbIDs.Where(x => !Data.backbonePDBs.Contains(x)).ToList()) {
-            if (!protonated && pdbID.element == Element.H) {
-                continue;
-            }
-            CustomLogger.LogFormat(
-                EL.DEBUG,
-                "Add: {0}",
-                pdbID
-            );
-            AddAtom(pdbID, newResidue.atoms[pdbID].Copy());
-        }
-
-        //Proline exceptions
-        PDBID cdPDBID = new PDBID(Element.C, "D");
-        PDBID hPDBID = new PDBID(Element.H);
-        
-        //Add H if Proline
-        if (nAtom.EnumerateInternalConnections().Select(x => x.Item1.pdbID).Any(x => x.TypeEquals(cdPDBID))) {
-            CustomLogger.Log(
-                EL.DEBUG,
-                "Old Residue is Proline-like. Adding missing Proton."
-            );
-            AddProton(nPDBID);
-        }
-
-        if (newResidueName == "PRO") {
-            if (atoms.ContainsKey(hPDBID)){
-                CustomLogger.Log(
-                    EL.DEBUG,
-                    "New Residue is Proline. Removing Backbone Proton."
-                );
-                RemoveAtom(hPDBID);
-            }
-
-            CustomLogger.Log(
-                EL.DEBUG,
-                "New Residue is Proline. Connecting N to CD."
-            );
-
-            atoms[nPDBID].internalConnections[cdPDBID] = BT.SINGLE;
-            atoms[cdPDBID].internalConnections[nPDBID] = BT.SINGLE;
-        }
-
-        residueName = newResidueName;
     }
 
 }
@@ -1358,8 +1308,6 @@ public struct ResidueID : IComparable<ResidueID> {
 	public static bool IsEmpty(ResidueID value) {
 		return value.IsEmpty();
 	}
-
-	
 
 	///<summary>Returns the Residue ID with the same Chain ID but Residue Number + 1.</summary>
 	public ResidueID GetNextID() => new ResidueID(chainID, residueNumber + 1);

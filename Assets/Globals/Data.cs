@@ -32,7 +32,8 @@ public static class Data {
 		new PDBID(Element.C, "", 0),
 		new PDBID(Element.O, "", 0),
 		new PDBID(Element.C, "A", 0),
-		new PDBID(Element.H, "", 0)
+		new PDBID(Element.H, "", 0),
+		new PDBID(Element.H, "A", 0)
 	};
 	public static PDBID CTER_ID = new PDBID(Element.O, "XT", 0);
 	public static PDBID NTER_ID = new PDBID(Element.N, "", 2);
@@ -199,16 +200,16 @@ public static class Data {
 					standardResidueAsset.name
 				);
 			} else {
-				ResidueID residueID = geometry.residueDict.Keys.First();
+				(ResidueID residueID, Residue residue) = geometry.EnumerateResidues().First();
 
-				string residueName = geometry.residueDict[residueID].residueName;
-				RS residueState = geometry.residueDict[residueID].state;
+				string residueName = residue.residueName;
+				RS residueState = residue.state;
 
 				Dictionary<RS, Residue> stateResidues;
 				if (!standardResidues.TryGetValue(residueName, out stateResidues)) {
-					standardResidues[residueName] = new Dictionary<RS, Residue> {{residueState, geometry.residueDict.Values.First()}};
+					standardResidues[residueName] = new Dictionary<RS, Residue> {{residueState, residue}};
 				} else {
-					standardResidues[residueName][residueState] = geometry.residueDict.Values.First();
+					standardResidues[residueName][residueState] = residue;
 				}
 			}
 
@@ -250,6 +251,26 @@ public static class Data {
 
 		}
 
+		XElement dihedrals = atomsStateX.Element("dihedrals");
+
+		List<string> dihedralPDBIDs = new List<string>();
+
+		Action<string> AddPDBID = x => {
+			XElement pdbX = dihedrals.Element(x);
+			if (pdbX != null) {
+				dihedralPDBIDs.Add(pdbX.Value);
+			}
+		};
+
+		if (dihedrals != null) {
+			AddPDBID("pdb0");
+			AddPDBID("pdb1");
+			AddPDBID("pdb2");
+			AddPDBID("pdb3");
+			AddPDBID("pdb4");
+			AddPDBID("pdb5");
+		}
+
 		AminoAcidState aminoAcidState = new AminoAcidState(
 			charge,
 			residueName,
@@ -257,6 +278,7 @@ public static class Data {
 			family,
 			elements.ToArray(),
 			pdbs.ToArray(),
+			dihedralPDBIDs.ToArray(),
 			ambers.ToArray(),
 			partialCharges.ToArray(),
 			radii.ToArray()
@@ -769,6 +791,12 @@ public class AminoAcid
 		return stateDict.TryGetValue(residueState, out aminoAcidState) ? aminoAcidState.pdbIDs : null;
 	}
 	
+	public PDBID[][] GetDihedralPDBIDs(RS residueState) {
+
+		AminoAcidState aminoAcidState;
+		return stateDict.TryGetValue(residueState, out aminoAcidState) ? aminoAcidState.dihedrals : null;
+	}
+	
 	public Amber[] GetAmbersFromPDBs(RS residueState, PDBID[] pdbIDs) {
 		AminoAcidState aminoAcidState = stateDict[residueState];
 		int size = pdbIDs.Length;
@@ -810,6 +838,7 @@ public class AminoAcidState {
 	public readonly RS residueState;
 	public readonly string family;
 	public PDBID[] pdbIDs;
+	public PDBID[][] dihedrals;
 	private Amber[] ambers;
 	private float[] radii;
 	private float[] partialCharges;
@@ -822,6 +851,7 @@ public class AminoAcidState {
 		string family,
 		string[] elements,
 		string[] pdbs,
+		string[] dihedralPDBs,
 		Amber[] ambers,
 		float[] partialCharges,
 		float[] radii
@@ -850,6 +880,36 @@ public class AminoAcidState {
 			} else {
 				this.pdbIDs[i] = pdbID;
 			}
+		}
+
+		PDBID[] dihedralPDBIDs = new PDBID[dihedralPDBs.Length + 3];
+		dihedralPDBIDs[0] = PDBID.N;
+		dihedralPDBIDs[1] = PDBID.CA;
+		dihedralPDBIDs[2] = PDBID.CB;
+
+		//Build up PDBID chains from backbone - these are the flexible dihedrals
+		dihedrals = new PDBID[dihedralPDBs.Length][];
+		for (int i=0; i<dihedralPDBs.Length; i++) {
+			PDBID dihedralPDBID = PDBID.FromString(dihedralPDBs[i], residueName);
+
+			if (!pdbIDs.Contains(dihedralPDBID)) {
+				CustomLogger.LogFormat(
+					EL.WARNING,
+					"Dihedral PDBID '{0}' not present in Amino Acid State ({1} {2} {3})",
+					dihedralPDBID,
+					family,
+					residueName,
+					residueState
+				);
+			}
+
+			dihedralPDBIDs[i + 3] = dihedralPDBID;
+			dihedrals[i] = new PDBID[4] {
+				dihedralPDBIDs[i],
+				dihedralPDBIDs[i+1],
+				dihedralPDBIDs[i+2],
+				dihedralPDBIDs[i+3]
+			};
 		}
 
 		signature = new ResidueSignature(this.pdbIDs);

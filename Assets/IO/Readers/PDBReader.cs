@@ -93,12 +93,12 @@ public class PDBReader : GeometryReader {
 		);
 
 		//Add atom to residue
-		if (!geometry.residueDict.ContainsKey (residueID)) {
-			geometry.residueDict[residueID] = new Residue(residueID, residueName, geometry);
+		if (!geometry.HasResidue (residueID)) {
+			geometry.AddResidue(residueID, new Residue(residueID, residueName, geometry));
 			CustomLogger.LogFormat(EL.VERBOSE, "Adding Residue. ID: {0}. Name: {1}", residueID, residueName);
 		}
 
-		geometry.residueDict[residueID].AddAtom(pdbID, new Atom(position, residueID, Amber.X, 0f, oniomLayerID), false);
+		geometry.GetResidue(residueID).AddAtom(pdbID, new Atom(position, residueID, Amber.X, 0f, oniomLayerID), false);
 		geometry.atomMap[atomIndex++] = new AtomID(residueID, pdbID);
 		CustomLogger.LogFormat(EL.VERBOSE, "Adding Atom. ID: {0}. Position: {1}", pdbID, position);
 

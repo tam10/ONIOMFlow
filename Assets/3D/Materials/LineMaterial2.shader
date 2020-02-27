@@ -24,9 +24,15 @@
 			struct Output {
 			    float4 position : SV_POSITION;
 				float2 uv : TEXCOORD0;
-				float4 colour : COLOR; 
+				half4 colour : COLOR; 
 			};
 
+			half oscHDR (half c) {
+				if (c > 1) {
+					c = (c - 1) * (_SinTime.w * _SinTime.w) + 1;
+				}
+				return c;
+			}
 
 			Output vert (Input v) {
 			    Output o;
@@ -34,12 +40,16 @@
 			    o.position = UnityObjectToClipPos(v.vertex);
 			    o.uv = v.texcoord;
  				o.colour = v.colour;
+				 
+				o.colour.r = oscHDR(o.colour.r);
+				o.colour.g = oscHDR(o.colour.g);
+				o.colour.b = oscHDR(o.colour.b);
 			    
 			    return o;
 			}
 
 			half4 frag (Output o) : COLOR {
-				half4 c = o.colour;				
+				half4 c = o.colour;
 				return c;
 			}
 

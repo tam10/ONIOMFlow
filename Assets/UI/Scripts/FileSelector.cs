@@ -164,6 +164,8 @@ public class FileSelector : PopupWindow {
 		directoryColorBlock = ColorScheme.main.directoryCB;
 
 		yield return Populate();
+
+		Show();
 	}
 
 	IEnumerator Populate() {

@@ -302,14 +302,14 @@ public static class Bash {
 
 	public class ExternalCommand {
 
-		string name;
-		string command;
-		string commandFormat;
-		string commandPath;
-		string workingDirectory;
-		string basename;
-		string inputFileFormat;
-		string outputFileFormat;
+		public string name;
+		public string command;
+		public string commandFormat;
+		public string commandPath;
+		public string workingDirectory;
+		public string basename;
+		public string inputFileFormat;
+		public string outputFileFormat;
 
 		string inputSuffix;
 		string outputSuffix;
@@ -335,11 +335,11 @@ public static class Bash {
 			return commandFormat
 				.Replace("{COMMAND}", GetExecutable())
 				.Replace("{OPTIONS}", string.Join(" ", options))
-				.Replace("{IN}", GetInputPath())
-				.Replace("{OUT}", GetOutputPath());
+				.Replace("{IN}", IN)
+				.Replace("{OUT}", OUT);
 		}
 		public bool succeeded => result.ExitCode == 0;
-		public ProcessResult result;
+		public ProcessResult result = new ProcessResult();
 
 		public ExternalCommand(
 			string name,
@@ -368,6 +368,11 @@ public static class Bash {
 			this.outputSuffix = outputSuffix;
 			this.options = options;	
 			this.environmentVariables = environmentVariables;	
+
+			string workingPath = GetWorkingPath();
+			if (!Directory.Exists(workingPath)) {
+				Directory.CreateDirectory(workingPath);
+			}
 		}
 
 		public static IEnumerator FromXML(XElement externalCommandX, Dictionary<string, ExternalCommand> externalCommands) {
@@ -432,15 +437,12 @@ public static class Bash {
 				environmentVariables
 			);
 
-			string workingPath = externalCommand.GetWorkingPath();
-			if (!Directory.Exists(workingPath)) {
-				Directory.CreateDirectory(workingPath);
-			}
-
 			bool ignore = externalCommandX.Element("ignore") != null;
 			if (!ignore && (string.IsNullOrWhiteSpace(command) || !CommandExists(externalCommand.GetExecutable()))) {
 				yield return externalCommand.UserSetCommandPath();
 				if (command != "") {
+					externalCommandX.Element("command").Remove();
+					externalCommandX.Element("commandPath").Remove();
 					externalCommandX.Add(new XElement("command", externalCommand.command));
 					externalCommandX.Add(new XElement("commandPath", externalCommand.commandPath));;
 				} else {
@@ -471,10 +473,6 @@ public static class Bash {
 			FileSelector fileSelector = FileSelector.main;
 			
 			yield return fileSelector.Initialise(string.Format("Select executable file: {0}", name));
-			//Wait for user response
-
-			fileSelector.Show();
-
 
 			string path = "";
 			while (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) {
@@ -512,13 +510,15 @@ public static class Bash {
 
 		public IEnumerator Execute(
 			TID taskID, 
-			bool writeConnectivity,
 			bool logOutput,
 			bool logError,
 			float waitTime,
 			string inputPath=null,
 			string outputPath=null
 		) {
+
+			inputPath = inputPath ?? GetInputPath();
+			outputPath = outputPath ?? GetInputPath();
 				
         	NotificationBar.SetTaskProgress(taskID, 0f);
 			
@@ -563,8 +563,23 @@ public static class Bash {
 			string outputPath=null
 		) {	
 
-			yield return FileWriter.WriteFile(geometry, GetInputPath(), writeConnectivity);
-			yield return Execute(taskID, writeConnectivity, logOutput, logError, waitTime, inputPath, outputPath);
+			inputPath = inputPath ?? GetInputPath();
+			outputPath = outputPath ?? GetInputPath();
+
+			FileWriter fileWriter;
+			try {
+				fileWriter = new FileWriter(geometry, inputPath, writeConnectivity);
+			} catch (System.ArgumentException e) {
+				CustomLogger.LogFormat(
+					EL.ERROR,
+					"Failed to run command '{0}'! {1}",
+					command,
+					e.Message
+				);
+				yield break;
+			}
+			yield return fileWriter.WriteFile();
+			yield return Execute(taskID, logOutput, logError, waitTime, inputPath, outputPath);
 
 		}
 	}

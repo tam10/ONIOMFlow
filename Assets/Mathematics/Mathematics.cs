@@ -300,6 +300,12 @@ public static class CustomMathematics {
 	/// <summary>Get the index of the minimum value of a vector.</summary>
 	/// <param name="v">Array of floats.</param>
 	public static int IndexOfMin(in float[] v) {
+		if (v == null) {
+			throw new System.ArgumentNullException("v");
+		}
+		if (v.Length == 0) {
+			throw new System.ArgumentOutOfRangeException("v");
+		}
 		int index = 0;
 		float min = v[index];
 		for (int i=1; i<v.Length; i++) {
@@ -314,6 +320,12 @@ public static class CustomMathematics {
 	/// <summary>Get the index of the minimum value of a List of floats.</summary>
 	/// <param name="v">List of floats.</param>
 	public static int IndexOfMin(in IList<float> v) {
+		if (v == null) {
+			throw new System.ArgumentNullException("v");
+		}
+		if (!v.Any()) {
+			throw new System.ArgumentOutOfRangeException("v");
+		}
 		int index = 0;
 		float min = v[index];
 		for (int i=1; i<v.Count; i++) {
@@ -328,6 +340,9 @@ public static class CustomMathematics {
 	/// <summary>Get the key of the minimum value of a Dictionary of floats.</summary>
 	/// <param name="dictionary">Dictionary of floats.</param>
 	public static T IndexOfMin<T>(in IDictionary<T, float> dictionary) {
+		if (dictionary == null) {
+			throw new System.ArgumentNullException("dictionary");
+		}
 		T index = dictionary.First().Key;
 		float min = dictionary.First().Value;
 		foreach (KeyValuePair<T, float> kvp in dictionary) {
@@ -342,6 +357,12 @@ public static class CustomMathematics {
 	/// <summary>Get the index of the maximum value of a vector.</summary>
 	/// <param name="v">Array of floats.</param>
 	public static int IndexOfMax(in float[] v) {
+		if (v == null) {
+			throw new System.ArgumentNullException("v");
+		}
+		if (v.Length == 0) {
+			throw new System.ArgumentOutOfRangeException("v");
+		}
 		int index = 0;
 		float max = v[index];
 		for (int i=1; i<v.Length; i++) {
@@ -356,6 +377,12 @@ public static class CustomMathematics {
 	/// <summary>Get the index of the maximum value of a List of floats.</summary>
 	/// <param name="v">List of floats.</param>
 	public static int IndexOfMax(in IList<float> v) {
+		if (v == null) {
+			throw new System.ArgumentNullException("v");
+		}
+		if (!v.Any()) {
+			throw new System.ArgumentOutOfRangeException("v");
+		}
 		int index = 0;
 		float max = v[index];
 		for (int i=1; i<v.Count; i++) {
@@ -370,6 +397,9 @@ public static class CustomMathematics {
 	/// <summary>Get the key of the maximum value of a Dictionary of floats.</summary>
 	/// <param name="dictionary">Dictionary of floats.</param>
 	public static T IndexOfMax<T>(in IDictionary<T, float> dictionary) {
+		if (dictionary == null) {
+			throw new System.ArgumentNullException("dictionary");
+		}
 		T index = dictionary.First().Key;
 		float max = dictionary.First().Value;
 		foreach (KeyValuePair<T, float> kvp in dictionary) {
@@ -1454,19 +1484,28 @@ public static class CustomMathematics {
 
 	public class DihedralRuler {
 
-		//INCOMPLETE
+		/// <summary>The position of Atom 0.</summary>
 		public float3 p0;
+		/// <summary>The position of Atom 1.</summary>
 		public float3 p1;
+		/// <summary>The position of Atom 2.</summary>
 		public float3 p2;
+		/// <summary>The position of Atom 3.</summary>
 		public float3 p3;
 
+		/// <summary>The vector from Atom 0 to Atom 1.</summary>
 		public float3 v01;
+		/// <summary>The normalised vector from Atom 2 to Atom 1.</summary>
 		public float3 v21n;
+		/// <summary>The vector from Atom 3 to Atom 2.</summary>
 		public float3 v32;
 		
+		/// <summary>The vector from Atom 0 to Atom 1 projected onto the plane norm to v21n.</summary>
 		public float3 w01;
+		/// <summary>The vector from Atom 3 to Atom 2 projected onto the plane norm to v21n.</summary>
 		public float3 w32;
 
+		/// <summary>The dihedral in radians.</summary>
 		public float dihedral;
 
 		public DihedralRuler(Atom atom0, Atom atom1, Atom atom2, Atom atom3) {
@@ -1479,8 +1518,8 @@ public static class CustomMathematics {
 			v21n = math.normalize(p1 - p2);
 			v32 = p2 - p3;
 
-			w01 = v01 + v21n * math.dot(v01, v21n);
-			w32 = v32 + v21n * math.dot(v32, v21n);
+			w01 = v01 - v21n * math.dot(v01, v21n);
+			w32 = v32 - v21n * math.dot(v32, v21n);
 
 			dihedral = SignedAngleRad(w01, w32, v21n);
 		}

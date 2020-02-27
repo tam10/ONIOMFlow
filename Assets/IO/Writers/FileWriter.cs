@@ -3,25 +3,38 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
 
-public static class FileWriter {
+public class FileWriter {
+    IEnumerator writer;
 
-    public static IEnumerator WriteFile(Geometry geometry, string path, bool writeConnectivity) {
+    public FileWriter(Geometry geometry, string path, bool writeConnectivity) {
         string filetype = Path.GetExtension(path);
 
         switch (filetype) {
             case ".xat":
-                return XATWriter.WriteXATFile(geometry, path, writeConnectivity);
+                writer = XATWriter.WriteXATFile(geometry, path, writeConnectivity);
+                break;
             case ".pdb":
-                return PDBWriter.WritePDBFile(geometry, path, writeConnectivity);
+                writer = PDBWriter.WritePDBFile(geometry, path, writeConnectivity);
+                break;
             case ".p2n":
-                return new P2NWriter(geometry).WriteToFile(path, writeConnectivity);
+                writer = new P2NWriter(geometry).WriteToFile(path, writeConnectivity);
+                break;
             case ".gjf":
             case ".com":
-                return GaussianInputWriter.WriteGaussianInput(geometry, path, writeConnectivity);
+                writer = GaussianInputWriter.WriteGaussianInput(geometry, path, writeConnectivity);
+                break;
             case ".mol2":
-                return MOL2Writer.WriteMol2File(geometry, path, writeConnectivity);
+                writer = MOL2Writer.WriteMol2File(geometry, path, writeConnectivity);
+                break;
             default:
-                throw new System.Exception(string.Format("Filetype {0} not recognised", filetype));
+                throw new System.ArgumentException(string.Format("Filetype '{0}' not recognised", filetype));
         }
+    }
+
+    public IEnumerator WriteFile() {
+        if (writer == null) {
+            throw new System.NullReferenceException("Writer is not initialised!");
+        }
+        yield return writer;
     }
 }

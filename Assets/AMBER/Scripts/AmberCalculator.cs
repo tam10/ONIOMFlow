@@ -31,9 +31,9 @@ public static class AmberCalculator {
 
         //Loop through all residues
         int numProcessedResidues = 0;
-        int totalResidues = geometry.residueDict.Count;
-        foreach (ResidueID residueID in geometry.residueDict.Keys) {
-            Residue residue = geometry.residueDict[residueID];
+        int totalResidues = geometry.residueCount;
+        foreach (ResidueID residueID in geometry.EnumerateResidueIDs().ToList()) {
+            Residue residue = geometry.GetResidue(residueID);
             //Set their Amber types
             Data.SetResidueAmbers(ref residue);
 

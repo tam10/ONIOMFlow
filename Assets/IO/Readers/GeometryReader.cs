@@ -15,6 +15,7 @@ public class GeometryReader {
     public int skipLines;
 
 	public bool failed;
+	public bool stopReading;
 	
 	public delegate void LineParser();
 	public LineParser activeParser = () => {};
@@ -40,7 +41,7 @@ public class GeometryReader {
 			yield break;
 		}
 
-        path = filePath;
+        geometry.path = path = filePath;
         geometry.name = Path.GetFileName (path);
 
 		if (commentString == "") {
@@ -68,6 +69,10 @@ public class GeometryReader {
 		yield return CleanUp();
 	}
 
+	public IEnumerator ParseFile(string path) {
+		yield return ParseEnumerator(FileIO.EnumerateLines(path));
+	}
+
     public IEnumerator GeometryFromEnumerator(IEnumerable<string> lineEnumerator) {
 
 		if (geometry.atomMap != null) {
@@ -77,15 +82,21 @@ public class GeometryReader {
         	geometry.atomMap = new Map<AtomID, int>();
 		}
 
-        lineNumber = 0;
-        skipLines = 0;
+        yield return ParseEnumerator(lineEnumerator);
+    }
+
+	public IEnumerator ParseEnumerator(IEnumerable<string> lineEnumerator) {
 
         foreach (string line in lineEnumerator) {
 			
 			if (failed) {
 				GameObject.Destroy(geometry.gameObject);
 				yield break;
-			} 
+			}
+
+			if (stopReading) {
+				yield break;
+			}
 
             if (skipLines == 0) {
                 this.line = line;
@@ -93,16 +104,20 @@ public class GeometryReader {
                 	activeParser();
 				} catch (System.Exception e) {
 					//Pass error to user and close
+
+					string methodName = (activeParser == null) ? "null" : activeParser.Method.Name;
+
 					FileReader.ThrowFileReaderError(
 						path,
 						lineNumber,
 						charNum,
-						activeParser.Method.Name,
+						methodName,
 						line,
 						e
 					);
 					failed = true;
 					GameObject.Destroy(geometry.gameObject);
+
 					yield break;
 				}
             } else if (skipLines > 0) {
@@ -118,7 +133,10 @@ public class GeometryReader {
 
             lineNumber++;
         }
-    }
+
+	}
+
+	public void Pass() {}
 
 	public virtual IEnumerator CleanUp() {
 		yield break;

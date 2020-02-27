@@ -20,60 +20,6 @@ public class ProjectBuilder : MonoBehaviour {
     }
 
     IEnumerator LoadProject() {
-        
-//        ProjectSelector projectSelector = ProjectSelector.main;
-//
-//        yield return projectSelector.Initialise();
-//
-//        while (!projectSelector.userResponded) {
-//            yield return null;
-//        }
-//
-//        projectPath = projectSelector.projectPath;
-//        
-//        projectSelector.Hide();
-//
-//        if (projectSelector.cancelled) {
-//            Application.Quit();
-//            yield break;
-//        }
-//
-//        SettingsBuilder settingsBuilder = SettingsBuilder.main;
-//        
-//        yield return settingsBuilder.Initialise();
-//
-//
-//        CreateDirectory(projectPath);
-//
-//        settingsDirectory = "Settings";
-//        settingsPath = Path.Combine(projectPath, settingsDirectory);
-//
-//        CreateDirectory(settingsPath);
-//        CreateFile(settingsDirectory, "ProjectSettings", settingsPath, "ProjectSettings.xml");
-//        CreateFile(settingsDirectory, "Tasks", settingsPath, "Tasks.xml");
-//        CreateFile(settingsDirectory, "Atoms", settingsPath, "Atoms.xml");
-//        CreateFile(settingsDirectory, "Graphics", settingsPath, "Graphics.xml");
-//        CreateFile(settingsDirectory, "Flow", settingsPath, "Flow.xml");
-//        CreateFile(settingsDirectory, "ResidueTable", settingsPath, "ResidueTable.xml");
-//
-//        dataDirectory = "Data";
-//        dataPath = Path.Combine(projectPath, dataDirectory);
-//
-//        CreateDirectory(dataPath);
-//        CreateFile(dataDirectory, "Bonds", dataPath, "Bonds.xml");
-//        CreateFile(dataDirectory, "StandardResidues", dataPath, "StandardResidues.xml");
-//        CreateFile(dataDirectory, "GaussianMethods", dataPath, "GaussianMethods.xml");
-//        CreateFile(dataDirectory, "amberToElement", dataPath, "amberToElement.csv");
-//        CreateFile(dataDirectory, "pdbToElement", dataPath, "pdbToElement.csv");
-//
-//        recipeDirectory = "Recipes";
-//        recipePath = Path.Combine(projectPath, recipeDirectory);
-//
-//        CreateDirectory(recipePath);
-//        CreateFile(recipeDirectory, "resp", recipePath, "resp.xml");
-//
-//        yield return Settings.Initialise(projectPath);
-//        yield return Data.Initialise();
 
         yield return GetProjectPath();
         

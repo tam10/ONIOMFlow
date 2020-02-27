@@ -17,7 +17,7 @@ public static class MOL2Writer {
 		headerSB.Append(geometry.name + FileIO.newLine);
         string format = "{0,6} {1,-8} {2,9:.0000}{3,9:.0000}{4,9:.0000} {5,-6} {6,4} {7,10:.000000}" + FileIO.newLine;
         
-        List<ResidueID> residueIDs = geometry.residueDict.Keys.ToList();
+        List<ResidueID> residueIDs = geometry.EnumerateResidueIDs().ToList();
         residueIDs.Sort();
 
 		// Atom map for connectivity
@@ -29,7 +29,7 @@ public static class MOL2Writer {
 		int numResidues = residueIDs.Count;
 		for (int residueNum = 0; residueNum < numResidues; residueNum++) {
 			ResidueID residueID = residueIDs[residueNum];
-			Residue residue = geometry.residueDict[residueID];
+			Residue residue = geometry.GetResidue(residueID);
 			List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 			pdbIDs.Sort();
             
@@ -73,7 +73,7 @@ public static class MOL2Writer {
 
 			//Second loop for connectivity once atomMap is created
 			foreach (ResidueID residueID in residueIDs) {
-				Residue residue = geometry.residueDict[residueID];
+				Residue residue = geometry.GetResidue(residueID);
 				List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 				pdbIDs.Sort();
 				foreach (PDBID pdbID in pdbIDs) {

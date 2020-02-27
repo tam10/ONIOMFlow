@@ -8,7 +8,7 @@ using EL = Constants.ErrorLevel;
 using BT = Constants.BondType;
 using Amber = Constants.Amber;
 using System.Linq;
-using Unity.Mathematics;
+using System.Text;
 
 public class Parameters : MonoBehaviour {
 
@@ -272,6 +272,7 @@ public class Parameters : MonoBehaviour {
 			yield break;
 		}
 
+		UpdateParameters(Settings.defaultParameters);
 
 		//Loop through all connected groups
 		foreach (ResidueID[] residueGroup in parent.GetGroupedResidues().Select(x => x.ToArray())) {
@@ -322,6 +323,8 @@ public class Parameters : MonoBehaviour {
 						UpdateParameters(missingParameters, true, true);
 					}
 				}
+
+				GameObject.Destroy(missingParameters.gameObject);
 			}
 
 		}
@@ -850,7 +853,7 @@ public class Parameters : MonoBehaviour {
 			atom0.penalty += atomicParameter.penalty;
 			CustomLogger.LogFormat(
 				EL.DEBUG,
-				"Penalty: {0}, Atom ID: {1}, Amber: {2}, Atomic Parameter: {3}",
+				"Atom ID: {0}, Atomic Parameter: {1}",
 				() => new object[] {
 					atomicParameter.penalty,
 					atomID0,
@@ -901,11 +904,9 @@ public class Parameters : MonoBehaviour {
 				atom1.penalty += stretch.penalty;
 				CustomLogger.LogFormat(
 					EL.DEBUG,
-					"Penalty: {0}, Atom ID: {1}, Amber: {2}, Stretch Parameter: {3}",
+					"Atom ID: {0}, Stretch Parameter: {1}",
 					() => new object[] {
-						stretch.penalty,
 						atomID0,
-						atom0.amber,
 						stretch
 					}
 				);
@@ -946,11 +947,9 @@ public class Parameters : MonoBehaviour {
 					atom2.penalty += bend.penalty;
 					CustomLogger.LogFormat(
 						EL.DEBUG,
-						"Penalty: {0}, Atom ID: {1}, Amber: {2}, Bend Parameter: {3}",
+						"Atom ID: {0}, Bend Parameter: {1}",
 						() => new object[] {
-							stretch.penalty,
 							atomID0,
-							atom0.amber,
 							bend
 						}
 					);
@@ -997,11 +996,9 @@ public class Parameters : MonoBehaviour {
 						atom3.penalty += torsion.penalty;
 						CustomLogger.LogFormat(
 							EL.DEBUG,
-							"Penalty: {0}, Atom ID: {1}, Amber: {2}, Torsion Parameter: {3}",
+							"Atom ID: {0}, Torsion Parameter: {1}",
 							() => new object[] {
-								stretch.penalty,
 								atomID0,
-								atom0.amber,
 								torsion
 							}
 						);
@@ -1009,6 +1006,119 @@ public class Parameters : MonoBehaviour {
 				}
 			}
 		}
+	}
+
+	public string GetAtomPenaltyString(AtomID atomID0) {
+
+		StringBuilder stringBuilder = new StringBuilder();
+
+		Atom atom0 = parent.GetAtom(atomID0);
+
+		//Penalty for this atom
+		AtomicParameter atomicParameter;
+		if (TryGetAtomicParameter(atom0.amber, out atomicParameter)) {
+			stringBuilder.AppendLine(string.Format(
+				"{0,-12} {1,7}",
+				"Parameter",
+				"Penalty"
+			));
+			stringBuilder.AppendLine(string.Format(
+				"{0,-12} {1,7:F1}",
+				AmberCalculator.GetAmberString(atom0.amber),
+				atomicParameter.penalty
+			)); 
+		} else {
+			stringBuilder.AppendFormat("Missing Atomic Parameter! (Amber: {0})", atom0.amber);
+			return stringBuilder.ToString();
+		}
+
+		Amber1 type1         = new Amber1(atom0.amber);
+        Amber2 stretchTypes  = new Amber2(atom0.amber, Amber.X);
+        Amber3 bendTypes     = new Amber3(atom0.amber, Amber.X, Amber.X);
+        Amber4 dihedralTypes = new Amber4(atom0.amber, Amber.X, Amber.X, Amber.X);
+
+		foreach (AtomID atomID1 in atom0.EnumerateNeighbours()) {
+			Atom atom1;
+			if (!parent.TryGetAtom(atomID1, out atom1)) {
+				stringBuilder.AppendLine(string.Format( 
+					"Neighbour Atom '{0}' not found! Try recomputing connectivity",
+					atomID1
+				));
+				return stringBuilder.ToString();
+			}
+
+			stretchTypes.amber1 = atom1.amber;
+			bendTypes.amber1 = atom1.amber;
+			dihedralTypes.amber1 = atom1.amber;
+
+			Stretch stretch;
+			if (TryGetStretch(stretchTypes, out stretch, true)) {
+				stringBuilder.AppendLine(string.Format(
+					"{0,-12} {1,7:F1}",
+					stretch.GetTypesString(),
+					stretch.penalty
+				)); 
+			} else {
+				stringBuilder.AppendFormat("Missing Stretch Parameter! (Amber: {0}-{1})", atom0.amber, atom1.amber);
+				return stringBuilder.ToString();
+			}
+
+			foreach (AtomID atomID2 in atom1.EnumerateNeighbours()) {
+				if (atomID2 == atomID0) {continue;}
+				Atom atom2;
+				if (!parent.TryGetAtom(atomID2, out atom2)) {
+					stringBuilder.AppendLine(string.Format( 
+						"Neighbour Atom '{0}' not found! Try recomputing connectivity",
+						atomID2
+					));
+					return stringBuilder.ToString();
+				}
+
+				bendTypes.amber2 = atom2.amber;
+				dihedralTypes.amber2 = atom2.amber;
+
+
+				Bend bend;
+				if (TryGetBend(bendTypes, out bend, true)) {
+					stringBuilder.AppendLine(string.Format(
+						"{0,-12} {1,7:F1}",
+						bend.GetTypesString(),
+						bend.penalty
+					)); 
+				} else {
+					stringBuilder.AppendFormat("Missing Bend Parameter! (Amber: {0}-{1}-{2})", atom0.amber, atom1.amber, atom2.amber);
+					return stringBuilder.ToString();
+				}
+
+				
+
+				foreach (AtomID atomID3 in atom2.EnumerateNeighbours()) {
+					if (atomID3 == atomID0 || atomID3 == atomID1) {continue;}
+					Atom atom3;
+					if (!parent.TryGetAtom(atomID3, out atom3)) {
+						stringBuilder.AppendLine(string.Format( 
+							"Neighbour Atom '{0}' not found! Try recomputing connectivity",
+							atomID3
+						));
+						return stringBuilder.ToString();
+					}
+
+					dihedralTypes.amber3 = atom3.amber;
+
+
+					Torsion torsion;
+					if (TryGetTorsion(dihedralTypes, out torsion, true)) {
+						stringBuilder.AppendLine(string.Format(
+							"{0,-12} {1,7:F1}",
+							torsion.GetTypesString(),
+							torsion.penalty
+						)); 
+					}
+				}
+			}
+		}
+
+		return stringBuilder.ToString();
 	}
 }
 
@@ -1132,11 +1242,12 @@ public struct Stretch {
 
 	public override string ToString () {
 		return string.Format (
-			"Stretch({0}-{1}, req = {2}, keq = {3})", 
+			"Stretch({0}-{1}, req={2,7:F4}, keq={3,7:F4}, penalty={4,7:F4})", 
 			AmberCalculator.GetAmberString(types.amber0), 
 			AmberCalculator.GetAmberString(types.amber1),  
 			req, 
-			keq
+			keq,
+			penalty
 		);
 	}
 
@@ -1209,12 +1320,13 @@ public struct Bend {
 
 	public override string ToString () {
 		return string.Format (
-			"Bend({0}-{1}-{2}, req = {3}, keq = {4})",
+			"Bend({0}-{1}-{2}, req={3,7:F4}, keq={4,7:F4}, penalty={5,7:F4})",
 			AmberCalculator.GetAmberString(types.amber0), 
 			AmberCalculator.GetAmberString(types.amber1), 
 			AmberCalculator.GetAmberString(types.amber2), 
 			aeq, 
-			keq
+			keq,
+			penalty
 		);
 	}
 
@@ -1330,11 +1442,15 @@ public struct Torsion {
 
 	public override string ToString () {
 		return string.Format (
-			"Torsion({0}-{1}-{2}-{3})", 
+			"Torsion({0}-{1}-{2}-{3}, barriers={4}, offsets={5}, npaths={6}, penalty={7,7:F4})", 
 			AmberCalculator.GetAmberString(types.amber0), 
 			AmberCalculator.GetAmberString(types.amber1), 
 			AmberCalculator.GetAmberString(types.amber2), 
-			AmberCalculator.GetAmberString(types.amber3)
+			AmberCalculator.GetAmberString(types.amber3),
+			CustomMathematics.ToString(barrierHeights),
+			CustomMathematics.ToString(phaseOffsets),
+			npaths,
+			penalty
 		);
 	}
 
@@ -1415,11 +1531,15 @@ public struct ImproperTorsion {
 
 	public override string ToString () {
 		return string.Format (
-			"ImproperTorsion({0}-{1}-{2}-{3})", 
+			"ImproperTorsion({0}-{1}-{2}-{3}, barrier={4,7:F4}, offset={5,6:F1}, periodicity={6,4:F1}, penalty={7,7:F4})", 
 			AmberCalculator.GetAmberString(types.amber0), 
 			AmberCalculator.GetAmberString(types.amber1), 
 			AmberCalculator.GetAmberString(types.amber2), 
-			AmberCalculator.GetAmberString(types.amber3)
+			AmberCalculator.GetAmberString(types.amber3),
+			barrierHeight, 
+			phaseOffset, 
+			periodicity, 
+			penalty
 		);
 	}
 
@@ -1486,7 +1606,7 @@ public class NonBonding {
 
 	public override string ToString () {
 		return string.Format (
-			"NonBonding(vType = {0}, cType = {1}, vCutoff = {2}, cCutoff = {3}, vScale1 = {4}, vScale2 = {5}, vScale3 = {6}, cScale1 = {7}, cScale2 = {8}, cScale3 = {9})", 
+			"NonBonding(vType={0}, cType={1}, vCutoff={2}, cCutoff={3}, vScale1={4}, vScale2={5}, vScale3={6}, cScale1={7}, cScale2={8}, cScale3={9})", 
 			vdwType, 
 			coulombType, 
 			vCutoff, 
@@ -1586,47 +1706,43 @@ public struct Amber2 {
 	}
 
 	public bool TypeEquivalent(Amber2 other) {
-		//Check forward Equality
-		if (Amber1.TypeEquivalent(amber0, other.amber0)) {
-			return Amber1.TypeEquivalent(amber1, other.amber1);
-		//Check backward Equality
-		} else if (Amber1.TypeEquivalent(amber0, other.amber1)) {
-			return Amber1.TypeEquivalent(amber1, other.amber0);
-		}
-		return false;
+		return ( //Check forward Equality
+			Amber1.TypeEquivalent(amber0, other.amber0) &&
+			Amber1.TypeEquivalent(amber1, other.amber1)
+		) || ( //Check backward Equality
+			Amber1.TypeEquivalent(amber0, other.amber1) &&
+			Amber1.TypeEquivalent(amber1, other.amber0)
+		);
 	}
 
 	public bool TypeEquivalent(Amber other0, Amber other1) {
-		//Check forward Equality
-		if (Amber1.TypeEquivalent(amber0, other0)) {
-			return Amber1.TypeEquivalent(amber1, other1);
-		//Check backward Equality
-		} else if (Amber1.TypeEquivalent(amber0, other1)) {
-			return Amber1.TypeEquivalent(amber1, other0);
-		}
-		return false;
+		return ( //Check forward Equality
+			Amber1.TypeEquivalent(amber0, other0) &&
+			Amber1.TypeEquivalent(amber1, other1)
+		) || ( //Check backward Equality
+			Amber1.TypeEquivalent(amber0, other1) &&
+			Amber1.TypeEquivalent(amber1, other0)
+		);
 	}
 
 	public bool TypeEquivalentOrWild(Amber2 other) {
-		//Check forward Equality
-		if (Amber1.TypeEquivalentOrWild(amber0, other.amber0)) {
-			return Amber1.TypeEquivalentOrWild(amber1, other.amber1);
-		//Check backward Equality
-		} else if (Amber1.TypeEquivalentOrWild(amber0, other.amber1)) {
-			return Amber1.TypeEquivalentOrWild(amber1, other.amber0);
-		}
-		return false;
+		return ( //Check forward Equality
+			Amber1.TypeEquivalentOrWild(amber0, other.amber0) &&
+			Amber1.TypeEquivalentOrWild(amber1, other.amber1)
+		) || ( //Check backward Equality
+			Amber1.TypeEquivalentOrWild(amber0, other.amber1) &&
+			Amber1.TypeEquivalentOrWild(amber1, other.amber0)
+		);
 	}
 
 	public bool TypeEquivalentOrWild(Amber other0, Amber other1) {
-		//Check forward Equality
-		if (Amber1.TypeEquivalentOrWild(amber0, other0)) {
-			return Amber1.TypeEquivalentOrWild(amber1, other1);
-		//Check backward Equality
-		} else if (Amber1.TypeEquivalentOrWild(amber0, other1)) {
-			return Amber1.TypeEquivalentOrWild(amber1, other0);
-		}
-		return false;
+		return ( //Check forward Equality
+			Amber1.TypeEquivalentOrWild(amber0, other0) &&
+			Amber1.TypeEquivalentOrWild(amber1, other1)
+		) || ( //Check backward Equality
+			Amber1.TypeEquivalentOrWild(amber0, other1) &&
+			Amber1.TypeEquivalentOrWild(amber1, other0)
+		);
 	}
 
 	public Amber2 Reversed() {
@@ -1680,13 +1796,13 @@ public struct Amber3 {
 	public bool TypeEquivalent(Amber3 other) {
 		//Middle AMBER must be the same
 		if (Amber1.TypeEquivalent(amber1, other.amber1)) {
-			//Check forward Equality
-			if (Amber1.TypeEquivalent(amber0, other.amber0)) {
-				return Amber1.TypeEquivalent(amber2, other.amber2);
-			//Check backward Equality
-			} else if (Amber1.TypeEquivalent(amber0, other.amber2)) {
-				return Amber1.TypeEquivalent(amber2, other.amber0);
-			}
+			return ( //Check forward Equality
+				Amber1.TypeEquivalent(amber0, other.amber0) &&
+				Amber1.TypeEquivalent(amber2, other.amber2)
+			) || ( //Check backward Equality
+				Amber1.TypeEquivalent(amber0, other.amber2) &&
+				Amber1.TypeEquivalent(amber2, other.amber0)
+			);
 		}
 		return false;
 	}
@@ -1694,13 +1810,13 @@ public struct Amber3 {
 	public bool TypeEquivalent(Amber other0, Amber other1, Amber other2) {
 		//Middle AMBER must be the same
 		if (Amber1.TypeEquivalent(amber1, other1)) {
-			//Check forward Equality
-			if (Amber1.TypeEquivalent(amber0, other0)) {
-				return Amber1.TypeEquivalent(amber2, other2);
-			//Check backward Equality
-			} else if (Amber1.TypeEquivalent(amber0, other2)) {
-				return Amber1.TypeEquivalent(amber2, other0);
-			}
+			return ( //Check forward Equality
+				Amber1.TypeEquivalent(amber0, other0) &&
+				Amber1.TypeEquivalent(amber2, other2)
+			) || ( //Check backward Equality
+				Amber1.TypeEquivalent(amber0, other2) &&
+				Amber1.TypeEquivalent(amber2, other0)
+			);
 		}
 		return false;
 	}
@@ -1708,13 +1824,13 @@ public struct Amber3 {
 	public bool TypeEquivalentOrWild(Amber3 other) {
 		//Middle AMBER must be the same
 		if (Amber1.TypeEquivalentOrWild(amber1, other.amber1)) {
-			//Check forward Equality
-			if (Amber1.TypeEquivalentOrWild(amber0, other.amber0)) {
-				return Amber1.TypeEquivalentOrWild(amber2, other.amber2);
-			//Check backward Equality
-			} else if (Amber1.TypeEquivalentOrWild(amber0, other.amber2)) {
-				return Amber1.TypeEquivalentOrWild(amber2, other.amber0);
-			}
+			return ( //Check forward Equality
+				Amber1.TypeEquivalentOrWild(amber0, other.amber0) &&
+				Amber1.TypeEquivalentOrWild(amber2, other.amber2)
+			) || ( //Check backward Equality
+				Amber1.TypeEquivalentOrWild(amber0, other.amber2) &&
+				Amber1.TypeEquivalentOrWild(amber2, other.amber0)
+			);
 		}
 		return false;
 	}
@@ -1722,13 +1838,13 @@ public struct Amber3 {
 	public bool TypeEquivalentOrWild(Amber other0, Amber other1, Amber other2) {
 		//Middle AMBER must be the same
 		if (Amber1.TypeEquivalentOrWild(amber1, other1)) {
-			//Check forward Equality
-			if (Amber1.TypeEquivalentOrWild(amber0, other0)) {
-				return Amber1.TypeEquivalentOrWild(amber2, other2);
-			//Check backward Equality
-			} else if (Amber1.TypeEquivalentOrWild(amber0, other2)) {
-				return Amber1.TypeEquivalentOrWild(amber2, other0);
-			}
+			return ( //Check forward Equality
+				Amber1.TypeEquivalentOrWild(amber0, other0) &&
+				Amber1.TypeEquivalentOrWild(amber2, other2)
+			) || ( //Check backward Equality
+				Amber1.TypeEquivalentOrWild(amber0, other2) &&
+				Amber1.TypeEquivalentOrWild(amber2, other0)
+			);
 		}
 		return false;
 	}
@@ -1783,65 +1899,61 @@ public struct Amber4 {
 	public override int GetHashCode() {
 		return CustomMathematics.GetCombinedHash((int)amber0, (int)amber1, (int)amber2, (int)amber3);
 	}
-	
+
 	public bool TypeEquivalent(Amber4 other) {
-		//Check forward Equality
-		if (Amber1.TypeEquivalent(amber0, other.amber0)) {
-			return Amber1.TypeEquivalent(amber1, other.amber1)
-				&& Amber1.TypeEquivalent(amber2, other.amber2)
-				&& Amber1.TypeEquivalent(amber3, other.amber3);
-		//Check backward Equality
-		} else if (Amber1.TypeEquivalent(amber0, other.amber3)) {
-			return Amber1.TypeEquivalent(amber1, other.amber2)
-				&& Amber1.TypeEquivalent(amber2, other.amber1)
-				&& Amber1.TypeEquivalent(amber3, other.amber0);
-		}
-		return false;
+		return ( //Check forward Equality
+			Amber1.TypeEquivalent(amber0, other.amber0) &&
+			Amber1.TypeEquivalent(amber1, other.amber1) &&
+			Amber1.TypeEquivalent(amber2, other.amber2) &&
+			Amber1.TypeEquivalent(amber3, other.amber3)
+		) || ( //Check backward Equality
+		 	Amber1.TypeEquivalent(amber0, other.amber3) &&
+			Amber1.TypeEquivalent(amber1, other.amber2) &&
+			Amber1.TypeEquivalent(amber2, other.amber1) &&
+			Amber1.TypeEquivalent(amber3, other.amber0)
+		);
 	}
 	
 	public bool TypeEquivalent(Amber other0, Amber other1, Amber other2, Amber other3) {
-		//Check forward Equality
-		if (Amber1.TypeEquivalent(amber0, other0)) {
-			return Amber1.TypeEquivalent(amber1, other1)
-				&& Amber1.TypeEquivalent(amber2, other2)
-				&& Amber1.TypeEquivalent(amber3, other3);
-		//Check backward Equality
-		} else if (Amber1.TypeEquivalent(amber0, other3)) {
-			return Amber1.TypeEquivalent(amber1, other2)
-				&& Amber1.TypeEquivalent(amber2, other1)
-				&& Amber1.TypeEquivalent(amber3, other0);
-		}
-		return false;
+		return ( //Check forward Equality
+			Amber1.TypeEquivalent(amber0, other0) &&
+			Amber1.TypeEquivalent(amber1, other1) &&
+			Amber1.TypeEquivalent(amber2, other2) &&
+			Amber1.TypeEquivalent(amber3, other3)
+		) || ( //Check backward Equality
+		 	Amber1.TypeEquivalent(amber0, other3) &&
+			Amber1.TypeEquivalent(amber1, other2) &&
+			Amber1.TypeEquivalent(amber2, other1) &&
+			Amber1.TypeEquivalent(amber3, other0)
+		);
 	}
 	
 	public bool TypeEquivalentOrWild(Amber4 other) {
-		//Check forward Equality
-		if (Amber1.TypeEquivalentOrWild(amber0, other.amber0)) {
-			return Amber1.TypeEquivalentOrWild(amber1, other.amber1)
-				&& Amber1.TypeEquivalentOrWild(amber2, other.amber2)
-				&& Amber1.TypeEquivalentOrWild(amber3, other.amber3);
-		//Check backward Equality
-		} else if (Amber1.TypeEquivalentOrWild(amber0, other.amber3)) {
-			return Amber1.TypeEquivalentOrWild(amber1, other.amber2)
-				&& Amber1.TypeEquivalentOrWild(amber2, other.amber1)
-				&& Amber1.TypeEquivalentOrWild(amber3, other.amber0);
-		}
-		return false;
+		return ( //Check forward Equality
+			Amber1.TypeEquivalentOrWild(amber0, other.amber0) &&
+			Amber1.TypeEquivalentOrWild(amber1, other.amber1) &&
+			Amber1.TypeEquivalentOrWild(amber2, other.amber2) &&
+			Amber1.TypeEquivalentOrWild(amber3, other.amber3)
+		) || ( //Check backward Equality
+		 	Amber1.TypeEquivalentOrWild(amber0, other.amber3) &&
+			Amber1.TypeEquivalentOrWild(amber1, other.amber2) &&
+			Amber1.TypeEquivalentOrWild(amber2, other.amber1) &&
+			Amber1.TypeEquivalentOrWild(amber3, other.amber0)
+		);
 	}
 	
 	public bool TypeEquivalentOrWild(Amber other0, Amber other1, Amber other2, Amber other3) {
-		//Check forward Equality
-		if (Amber1.TypeEquivalentOrWild(amber0, other0)) {
-			return Amber1.TypeEquivalentOrWild(amber1, other1)
-				&& Amber1.TypeEquivalentOrWild(amber2, other2)
-				&& Amber1.TypeEquivalentOrWild(amber3, other3);
-		//Check backward Equality
-		} else if (Amber1.TypeEquivalentOrWild(amber0, other3)) {
-			return Amber1.TypeEquivalentOrWild(amber1, other2)
-				&& Amber1.TypeEquivalentOrWild(amber2, other1)
-				&& Amber1.TypeEquivalentOrWild(amber3, other0);
-		}
-		return false;
+		return ( //Check forward Equality
+			Amber1.TypeEquivalentOrWild(amber0, other0) &&
+			Amber1.TypeEquivalentOrWild(amber1, other1) &&
+			Amber1.TypeEquivalentOrWild(amber2, other2) &&
+			Amber1.TypeEquivalentOrWild(amber3, other3)
+		) || ( //Check backward Equality
+		 	Amber1.TypeEquivalentOrWild(amber0, other3) &&
+			Amber1.TypeEquivalentOrWild(amber1, other2) &&
+			Amber1.TypeEquivalentOrWild(amber2, other1) &&
+			Amber1.TypeEquivalentOrWild(amber3, other0)
+		);
 	}
 
 	public Amber4 Reversed() {

@@ -22,9 +22,9 @@ public static class GaussianInputWriter {
             // Atom map for connectivity and links
             geometry.atomMap = new Map<AtomID, int>();
             int atomNum = 1;
-            IEnumerable<ResidueID> residueIDs = geometry.residueDict.Keys.OrderBy(x => x);
+            IEnumerable<ResidueID> residueIDs = geometry.EnumerateResidueIDs().OrderBy(x => x);
             foreach (ResidueID residueID in residueIDs) {
-                IEnumerable<PDBID> pdbIDs = geometry.residueDict[residueID].pdbIDs.OrderBy(x => x);
+                IEnumerable<PDBID> pdbIDs = geometry.GetResidue(residueID).pdbIDs.OrderBy(x => x);
                 foreach (PDBID pdbID in pdbIDs) {
                     AtomID atomID = new AtomID(residueID, pdbID);
                     geometry.atomMap[atomID] = atomNum++;
@@ -47,7 +47,7 @@ public static class GaussianInputWriter {
             atomNum = 1;
             StringBuilder connectivitySB = new StringBuilder();
             foreach (ResidueID residueID in residueIDs) {
-                Residue residue  = geometry.residueDict[residueID];
+                Residue residue  = geometry.GetResidue(residueID);
                 IEnumerable<PDBID> pdbIDs = residue.pdbIDs.OrderBy(x => x);
                 foreach (PDBID pdbID in pdbIDs) {
                     AtomID atomID = new AtomID(residueID, pdbID);

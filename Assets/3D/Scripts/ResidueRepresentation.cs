@@ -66,7 +66,7 @@ public class ResidueRepresentation : MonoBehaviour {
     public void SetGeometry(GIID geometryInterfaceID) {
         this.geometryInterfaceID = geometryInterfaceID;
         geometry = Flow.GetGeometry(geometryInterfaceID);
-        residueIDs = geometry.residueDict.Keys.ToList();
+        residueIDs = geometry.EnumerateResidueIDs().ToList();
     }
 
     public void SetRepresentationResidue(ResidueID residueID, bool translate=false) {
@@ -96,7 +96,16 @@ public class ResidueRepresentation : MonoBehaviour {
 
     IEnumerator GetRepresentationResidueIEnumerator(ResidueID residueID, bool translate=false) {
         
-        Residue residue = geometry.residueDict[residueID];
+        Residue residue;
+        if (!geometry.TryGetResidue(residueID, out residue)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Could not find Residue '{0}'! Failed to get Representation.",
+                residueID
+            );
+            yield break;
+        }
+
         float3 newOffset = residue.GetCentre();
 
         if (translate) {
@@ -119,10 +128,20 @@ public class ResidueRepresentation : MonoBehaviour {
             AddResidue(linkedResidueID, primary:false);
             linkedResidueIDs.Add(linkedResidueID);
 
+            Residue residue1;
+            if (!geometry.TryGetResidue(linkedResidueID, out residue1)) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Could not add Linker to Representation - Could not find Residue '{0}' in Geometry!",
+                    linkedResidueID
+                );
+                continue;
+            }
+
             //Add the linker
             AddLinker(
-                geometry.residueDict[residueID], 
-                geometry.residueDict[linkedResidueID], 
+                residue, 
+                residue1, 
                 hostAtomID.pdbID, 
                 linkerAtomID.pdbID, 
                 -offset,
@@ -135,7 +154,7 @@ public class ResidueRepresentation : MonoBehaviour {
         List<ResidueID> neabyResidueIDs = new List<ResidueID>();
         foreach (ResidueID nearbyResidueID0 in residue.ResiduesWithinDistance(8f)) {
             Residue nearbyResidue;
-            if (! geometry.residueDict.TryGetValue(nearbyResidueID0, out nearbyResidue)) {
+            if (! geometry.TryGetResidue(nearbyResidueID0, out nearbyResidue)) {
                 continue;
             }
 
@@ -146,13 +165,20 @@ public class ResidueRepresentation : MonoBehaviour {
             //See if we need to display a linker between nearby residues
             foreach ((AtomID hostAtomID, AtomID linkerAtomID) in nearbyResidue.NeighbouringAtomIDs()) {
                 ResidueID linkerResidueID = linkerAtomID.residueID;
+                
+                Residue linkerResidue;
+                if (! geometry.TryGetResidue(linkerResidueID, out linkerResidue)) {
+                    continue;
+                }
+                
                 foreach (ResidueID nearbyResidueID1 in neabyResidueIDs) {
                     if (linkerResidueID != nearbyResidueID1) {
                         continue;
                     }
+                    
                     AddLinker(
-                        geometry.residueDict[nearbyResidueID0], 
-                        geometry.residueDict[linkerResidueID], 
+                        nearbyResidue, 
+                        linkerResidue, 
                         hostAtomID.pdbID, 
                         linkerAtomID.pdbID, 
                         -offset,

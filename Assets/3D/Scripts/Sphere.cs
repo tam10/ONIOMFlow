@@ -3,7 +3,6 @@ using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Burst;
 using Unity.Jobs;
-using System.Linq;
 
 ///<summary>Icosphere Generator Singleton Class</summary>
 /// <remarks>

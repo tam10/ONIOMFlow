@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Text;
+using System.IO;
 using System;
 using System.Linq;
 using OLID = Constants.OniomLayerID;
@@ -10,6 +11,7 @@ using GOT = Constants.GaussianOptTarget;
 using GCT = Constants.GaussianConvergenceThreshold;
 using GFC = Constants.GaussianForceConstant;
 using EL = Constants.ErrorLevel;
+using TID = Constants.TaskID;
 
 /*
 A Gaussian user from Leiben
@@ -27,6 +29,7 @@ public class GaussianCalculator : MonoBehaviour {
 	public int jobMemoryMB;
 
 	public string checkpointPath;
+	public string formattedCheckpointPath;
 	public string oldCheckpointPath;
 
 	public string killJobLink;
@@ -50,6 +53,9 @@ public class GaussianCalculator : MonoBehaviour {
 	public GFC forceConstantOption;
 	public int forceConstantRecalcEveryNSteps;
 	public GOT optTarget;
+
+	public bool orbitalsAvailable;
+	public int numOrbitalsAvailable;
 
 	public List<string> GetOptimisationOptions() {
 		List<string> options = new List<string>();
@@ -129,12 +135,15 @@ public class GaussianCalculator : MonoBehaviour {
 		jobMemoryMB = 4000;
 
 		checkpointPath = "";
+		formattedCheckpointPath = "";
 		oldCheckpointPath = "";
 
 		killJobLink = "";
 		killJobAfter = 1;
 
 		doFreq = false;
+
+		orbitalsAvailable = false;
 
 		oniomOptions = new List<string> ();
 		guessOptions = new List<string> ();
@@ -209,6 +218,9 @@ public class GaussianCalculator : MonoBehaviour {
 			layer.multiplicity = multiplicity;
 
 			if (getChargesFromUser) {
+
+				tempGeometry.name = string.Join("-",tempGeometry.EnumerateResidues().Select(x => x.residue.residueName));
+
 				// Get user to confirm or edit charges
 				MultiPrompt multiPrompt = MultiPrompt.main;
 
@@ -277,6 +289,8 @@ public class GaussianCalculator : MonoBehaviour {
 			layer.charge = formalCharge;
 			layer.multiplicity = multiplicity;
 
+			GameObject.Destroy(tempGeometry);
+
 		}
     }
 
@@ -299,6 +313,264 @@ public class GaussianCalculator : MonoBehaviour {
 			} catch (KeyNotFoundException) {}
 		}
 		return null;
+	}
+
+	public IEnumerator CheckOrbitalsAvailable(bool logError=false) {
+		orbitalsAvailable = false;
+
+		string checkpointPath = File.Exists(this.checkpointPath) 
+			? this.checkpointPath
+			: Path.ChangeExtension(parent.path, ".fchk");
+			
+
+		//Make sure there's an fchk file to read
+		formattedCheckpointPath = Path.ChangeExtension(checkpointPath, ".fchk");
+
+		if (!File.Exists(formattedCheckpointPath)) {
+			if (File.Exists(checkpointPath)) {
+				yield return Formchk(checkpointPath);
+			} else if (logError) {
+				CustomLogger.LogFormat(
+					EL.ERROR,
+					"Cannot find files {0} or {1} - cannot generate Cube file!",
+					checkpointPath,
+					formattedCheckpointPath
+				);
+				yield break;
+			} else {
+				yield break;
+			}
+		}
+
+
+		FChkReader fchkReader = new FChkReader();
+		yield return fchkReader.ParseFile(formattedCheckpointPath);
+
+		//Check basis functions 
+		if (fchkReader.numBasisFunctions == 0) {
+			if (logError) {
+				CustomLogger.LogFormat(
+					EL.ERROR,
+					"No basis functions in {0} - cannot generate Cube file!",
+					formattedCheckpointPath
+				);
+			}
+			yield break;
+		}
+
+		//Check electrons
+		if (fchkReader.numElectrons == 0) {
+			if (logError) {
+				CustomLogger.LogFormat(
+					EL.ERROR,
+					"No electrons in {0} - cannot generate Cube file!",
+					formattedCheckpointPath
+				);
+			}
+			yield break;
+		}
+
+		numOrbitalsAvailable = fchkReader.numElectrons;
+		orbitalsAvailable = true;
+
+		yield return null;
+	}
+
+	public IEnumerator Formchk() {
+		return Formchk(checkpointPath);
+	}
+
+	public static IEnumerator Formchk(string checkpointPath) {
+
+		if (!File.Exists(checkpointPath)) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"Cannot find file {0} - cannot generate Formatted Checkpoint file!",
+				checkpointPath
+			);
+			yield break;
+		}
+
+		Bash.ExternalCommand gaussian = GetGaussian();
+
+        Bash.ExternalCommand formchk = new Bash.ExternalCommand(
+            "formchk",
+            "formchk",
+            gaussian.commandPath,
+            "{COMMAND} {IN}",
+            "Formchk",
+            "geo",
+            ".chk",
+            ".fchk",
+            "",
+            "",
+            new List<string>(),
+            new Dictionary<string, string>()
+        );
+
+		yield return formchk.Execute(
+			TID.FORMAT_CHECKPOINT,
+			true,
+			true,
+			0.1f,
+			checkpointPath,
+			Path.ChangeExtension(checkpointPath, ".fchk")
+		);
+	}
+
+	public IEnumerator CubeGen(CubeReader cubeReader) {
+
+		//Check Geometry only has one layer
+		List<OLID> layers = parent.GetLayers().ToList();
+		if (layers.Count != 1) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"Geometry can only have one Layer - Cannot generate Cube file!"
+			);
+			yield break;
+		}
+		
+		//Check Gaussian
+		Bash.ExternalCommand gaussian = GetGaussian();
+
+		string checkpointPath = File.Exists(this.checkpointPath) 
+			? this.checkpointPath
+			: Path.ChangeExtension(parent.path, ".fchk");
+
+		//Make sure there's an fchk file to read
+		formattedCheckpointPath = Path.ChangeExtension(checkpointPath, ".fchk");
+
+		if (!File.Exists(formattedCheckpointPath)) {
+			if (File.Exists(checkpointPath)) {
+				yield return Formchk(checkpointPath);
+			} else {
+				CustomLogger.LogFormat(
+					EL.ERROR,
+					"Cannot find files {0} or {1} - cannot generate Cube file!",
+					checkpointPath,
+					formattedCheckpointPath
+				);
+				yield break;
+			}
+		}
+
+		yield return CheckOrbitalsAvailable(true);
+
+		//Get MO Number
+		bool cancelled = false;
+
+		MultiPrompt multiPrompt = MultiPrompt.main;
+		multiPrompt.Initialise(
+			"Select Orbital",
+			string.Format(
+				"Input Molecular Orbital Number ({0} electrons)",
+				numOrbitalsAvailable
+			),
+			new ButtonSetup("Confirm", () => {}),
+			new ButtonSetup("Cancel", () => {cancelled=true;}),
+			input:true
+		);
+
+		//Get MO Number
+		int moNum = 0;
+		bool validInput = false;
+		while (!validInput) {
+
+			//Wait for user response
+			while (!multiPrompt.userResponded) {
+				yield return null;
+			}
+
+			if (multiPrompt.cancelled || cancelled) {
+				multiPrompt.Hide();
+				yield break;
+			}
+
+			yield return null;
+
+			if (!int.TryParse(multiPrompt.inputField.text, out moNum)) {
+				multiPrompt.description.text = "Molecular Orbital Number must be an integer!";
+			} else if (moNum > numOrbitalsAvailable || moNum <= 0) {
+				multiPrompt.description.text = string.Format(
+					"Molecular Orbital Number must between 1 and number of electrons {0}!",
+					numOrbitalsAvailable
+				);
+			} else {
+				validInput = true;
+			}
+		}
+
+		//Get number of points 
+		multiPrompt.title.text = "Define Grid";
+		multiPrompt.description.text = "Points per edge:";
+		multiPrompt.inputField.text = "-3";
+		multiPrompt.userResponded = false;
+		int pointsPerEdge = 0;
+		validInput = false;
+		while (!validInput) {
+
+			//Wait for user response
+			while (!multiPrompt.userResponded) {
+				yield return null;
+			}
+
+			if (multiPrompt.cancelled || cancelled) {
+				multiPrompt.Hide();
+				yield break;
+			}
+
+			yield return null;
+
+			if (!int.TryParse(multiPrompt.inputField.text, out pointsPerEdge)) {
+				multiPrompt.description.text = "Input must be an integer!";
+			} else {
+				validInput = true;
+			}
+		}
+
+		multiPrompt.Hide();
+
+
+        Bash.ExternalCommand cubegen = new Bash.ExternalCommand(
+            "cubegen",
+            "cubegen",
+            gaussian.commandPath,
+            string.Format(
+				"{0} 1 mo={1} {2} {3} {4}",
+				"{COMMAND}",
+				moNum,
+				"{IN}",
+				"{OUT}",
+				pointsPerEdge
+			),
+            "CubeGen",
+            "mo",
+            ".fchk",
+            ".cub",
+            "",
+            string.Format("_{0}", moNum),
+            new List<string>(),
+            new Dictionary<string, string>()
+        );
+
+		yield return cubegen.Execute(
+			TID.CUBE_GEN,
+			true,
+			true,
+			0.1f,
+			formattedCheckpointPath
+		);
+
+		if (cubegen.succeeded) {
+			yield return cubeReader.GeometryFromFile(cubegen.GetOutputPath());
+		} else {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"CubeGen Failed!",
+				formattedCheckpointPath
+			);
+			yield break;
+		}
 	}
 }
 

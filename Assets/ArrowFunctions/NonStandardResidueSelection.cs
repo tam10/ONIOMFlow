@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 using RS = Constants.ResidueState;
+using EL = Constants.ErrorLevel;
 using System.Linq;
 
 public class NonStandardResidueSelection : MonoBehaviour {
@@ -43,7 +43,7 @@ public class NonStandardResidueSelection : MonoBehaviour {
         userResponded = false;
         cancelled = false;
         
-        residueStateDict = geometry.residueDict.ToDictionary(x => x.Key, x => x.Value.state);
+        residueStateDict = geometry.EnumerateResidues().ToDictionary(x => x.residueID, x => x.residue.state);
 
         changesDict = new Dictionary<ResidueID, RS>();
         residueIDs = residueStateDict.Keys.OrderBy(x => x).ToList();
@@ -78,7 +78,16 @@ public class NonStandardResidueSelection : MonoBehaviour {
     }
 
     string GetResidueString(Geometry geometry, ResidueID residueID) {
-        return string.Format("{0}({1})", residueID, geometry.residueDict[residueID].residueName);
+        Residue residue;
+        if (!geometry.TryGetResidue(residueID, out residue)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Could not find Residue '{0}' in Geometry",
+                residueID
+            );
+            return string.Empty;
+        }
+        return string.Format("{0}({1})", residueID, residue.residueName);
     }
 
     void DropdownValueChanged(ResidueStateDropdown residueStateDropdown) {

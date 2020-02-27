@@ -2,10 +2,18 @@
 using System.Collections.Generic;
 using UnityEngine;
 using BT = Constants.BondType;
+using RS = Constants.ResidueState;
+using EL = Constants.ErrorLevel;
 using System.Linq;
 using Unity.Mathematics;
 
 public class LineDrawer : MonoBehaviour {
+
+
+    public static Color glowRedColour = new Color(1.5f, 0, 0);
+    public static Color glowGreenColour = new Color(0, 1.5f, 0);
+    public static Color glowBlueColour = new Color(0.5f, 0.5f, 2f);
+    public static Color disabledColour = Color.gray;
 
     Camera activeCamera;
 	public Material lineMaterial;
@@ -14,8 +22,8 @@ public class LineDrawer : MonoBehaviour {
     private Dictionary<(AtomID, AtomID), LinkerWireFrame> linkerWireFrames = new Dictionary<(AtomID, AtomID), LinkerWireFrame>();
     public List<Arc> arcs = new List<Arc>();
 
-    public enum AtomColour: int {ELEMENT, CHARGE, HAS_AMBER, PARAMETERS}
-    public static int numAtomColourTypes = 4; //Must be the length of the above enum
+    public enum AtomColour: int {ELEMENT, CHARGE, HAS_AMBER, PARAMETERS, CAP, MUTATE, REMOVE}
+    public static int numAtomColourTypes = 7; //Must be the length of the above enum
 
     void Start() {
         activeCamera = Camera.main;
@@ -30,16 +38,91 @@ public class LineDrawer : MonoBehaviour {
     }
 
     public void AddResidue(Residue residue, float3 offset) {
+        if (residue == null) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot add Residue to LineDrawer - Residue is null!"
+            );
+            return;
+        }
         residueWireFrames[residue.residueID] = new ResidueWireFrame(this.transform, residue, offset);
     }
 
     public void AddLinker(Atom atom0, Atom atom1, AtomID atomID0, AtomID atomID1, float3 offset) {
+        
+        if (atom0 == null) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot add Linker to LineDrawer - atom0 ('{0}') is null!",
+                atomID0
+            );
+            return;
+        }
+        
+        if (atom1 == null) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot add Linker to LineDrawer - atom1 ('{0}') is null!",
+                atomID1
+            );
+            return;
+        }
+
         if (atomID1 > atomID0) {
             linkerWireFrames[(atomID0, atomID1)] = new LinkerWireFrame(this.transform, atom0, atom1, atomID0, atomID1, offset);
         } else {
             linkerWireFrames[(atomID1, atomID0)] = new LinkerWireFrame(this.transform, atom1, atom0, atomID1, atomID0, offset);
 
         }
+    }
+
+    public void RemoveResidue(ResidueID residueID) {
+        if (!residueWireFrames.ContainsKey(residueID)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot remove Residue '{0}' from LineDrawer - Residue not present in LineDrawer!",
+                residueID
+            );
+            return;
+        }
+        residueWireFrames.Remove(residueID);
+    }
+
+    public void UpdateCapSites(ResidueID residueID, Residue residue) {
+        
+        if (residue == null) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot update cap site in LineDrawer - Residue is null!"
+            );
+            return;
+        }
+
+        ResidueWireFrame residueWireFrame;
+        if (residueWireFrames.TryGetValue(residueID, out residueWireFrame)) {
+            float3 offset = residueWireFrame.offset;
+            residueWireFrames[residueID] = new ResidueWireFrame(this.transform, residue, offset);
+        } else {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot update cap site in LineDrawer - ResidueWireFrame for Residue ID '{0}' is not present!"
+            );
+        }
+    }
+
+    public void RemoveLinker((AtomID, AtomID) key) {
+        
+        if (!linkerWireFrames.ContainsKey(key)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot remove Linker '{0}'-'{1}' from LineDrawer - key not present in LinkerWireFrames!",
+                key.Item1,
+                key.Item2
+            );
+            return;
+        }
+
+        linkerWireFrames.Remove(key);
     }
 
     public void UpdatePosition(AtomID atomID, float3 newPosition) {
@@ -54,40 +137,19 @@ public class LineDrawer : MonoBehaviour {
         }
     }
 
-    public void SetColoursByCharge() {
+    public void SetColours(AtomColour atomColour) {
         foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
-            residueWireFrame.colourType = AtomColour.CHARGE;
+            residueWireFrame.colourType = atomColour;
         }
         foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
-            linkerWireFrame.colourType = AtomColour.CHARGE;
+            linkerWireFrame.colourType = atomColour;
         }
     }
 
-    public void SetColoursByElement() {
-        foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
-            residueWireFrame.colourType = AtomColour.ELEMENT;
-        }
-        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
-            linkerWireFrame.colourType = AtomColour.ELEMENT;
-        }
-    }
-
-    public void SetColoursByAMBER() {
-        foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
-            residueWireFrame.colourType = AtomColour.HAS_AMBER;
-        }
-        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
-            linkerWireFrame.colourType = AtomColour.HAS_AMBER;
-        }
-    }
-
-
-    public void SetColoursByParameters() {
-        foreach (ResidueWireFrame residueWireFrame in residueWireFrames.Values) {
-            residueWireFrame.colourType = AtomColour.PARAMETERS;
-        }
-        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
-            linkerWireFrame.colourType = AtomColour.PARAMETERS;
+    public void SetResidueColour(AtomColour atomColour, ResidueID residueID) {
+        ResidueWireFrame residueWireFrame;
+        if (residueWireFrames.TryGetValue(residueID, out residueWireFrame)) {
+            residueWireFrame.colourType = atomColour;
         }
     }
 
@@ -264,12 +326,16 @@ class ResidueWireFrame {
     int[] nonBondedAtoms;
     PDBID[] pdbIDs;
 
+    public float3 offset;
+
     public ResidueWireFrame(Transform parentTransform, Residue residue, float3 offset) {
         this.parentTransform = parentTransform;
         pdbIDs = residue.atoms.Keys.ToArray();
         int numAtoms = pdbIDs.Length;
 
         positions = new float3[numAtoms];
+
+        this.offset = offset;
 
         atomColours = Enumerable.Range(0, LineDrawer.numAtomColourTypes)
             .ToDictionary(
@@ -289,10 +355,15 @@ class ResidueWireFrame {
         List<int> nonBondedAtomList = new List<int>();
         List<BT> bondTypeList = new List<BT>();
 
-        Color[] elementColours = atomColours[LineDrawer.AtomColour.ELEMENT];
-        Color[] chargeColours = atomColours[LineDrawer.AtomColour.ELEMENT];
-        Color[] amberColours = atomColours[LineDrawer.AtomColour.HAS_AMBER];
-        Color[] parameterColours = atomColours[LineDrawer.AtomColour.PARAMETERS];
+        bool standard = residue.state == RS.STANDARD;
+        Color standardColour = standard ? LineDrawer.glowGreenColour : LineDrawer.disabledColour;
+
+        List<int> capSites = residue.EnumerateCapSites()
+            .Select(x => System.Array.IndexOf(pdbIDs, x))
+            .ToList();
+        bool canCap = capSites.Count > 0;
+
+
 
         for (int atomNum=0; atomNum < numAtoms; atomNum++) {
             PDBID pdbID = pdbIDs[atomNum];
@@ -304,6 +375,15 @@ class ResidueWireFrame {
             atomColours[LineDrawer.AtomColour.CHARGE][atomNum] = Settings.GetAtomColourFromCharge(atom.partialCharge);
             atomColours[LineDrawer.AtomColour.HAS_AMBER][atomNum] = Settings.GetAtomColourFromAMBER(atom.amber);
             atomColours[LineDrawer.AtomColour.PARAMETERS][atomNum] = Settings.GetAtomColourFromPenalty(atom.penalty);
+            if (canCap) {
+                atomColours[LineDrawer.AtomColour.CAP][atomNum] = capSites.Contains(atomNum) 
+                    ? LineDrawer.glowGreenColour
+                    : LineDrawer.glowBlueColour;
+            } else {
+                atomColours[LineDrawer.AtomColour.CAP][atomNum] = LineDrawer.disabledColour;
+            }
+            atomColours[LineDrawer.AtomColour.MUTATE][atomNum] = standardColour;
+            atomColours[LineDrawer.AtomColour.REMOVE][atomNum] = LineDrawer.glowRedColour;
 
             radii[atomNum] = Settings.GetAtomRadiusFromElement(pdbID.element);
             widths[atomNum] = Settings.layerLineThicknesses[atom.oniomLayer] * parentTransform.lossyScale.x;
@@ -366,6 +446,28 @@ class ResidueWireFrame {
         }
     }
 
+    public void UpdateCapSites(Residue residue) {
+        
+        List<int> capSites = residue.EnumerateCapSites()
+            .Select(x => System.Array.IndexOf(pdbIDs, x))
+            .ToList();
+        bool canCap = capSites.Count > 0;
+
+        Debug.LogFormat("canCap {0}", canCap);
+
+        int numAtoms = pdbIDs.Length;
+
+        for (int atomNum=0; atomNum < numAtoms; atomNum++) {
+            if (canCap) {
+                atomColours[LineDrawer.AtomColour.CAP][atomNum] = capSites.Contains(atomNum) 
+                    ? LineDrawer.glowGreenColour
+                    : LineDrawer.glowBlueColour;
+            } else {
+                atomColours[LineDrawer.AtomColour.CAP][atomNum] = LineDrawer.disabledColour;
+            }
+        }
+    }
+
     public void UpdatePosition(PDBID pdbID, float3 position) {
         int index = System.Array.IndexOf (pdbIDs, pdbID);
         positions[index] = position;
@@ -404,6 +506,9 @@ class ResidueWireFrame {
         bondColours[LineDrawer.AtomColour.CHARGE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CHARGE][i0];
         bondColours[LineDrawer.AtomColour.HAS_AMBER][bondAtomIndex] = atomColours[LineDrawer.AtomColour.HAS_AMBER][i0];
         bondColours[LineDrawer.AtomColour.PARAMETERS][bondAtomIndex] = atomColours[LineDrawer.AtomColour.PARAMETERS][i0];
+        bondColours[LineDrawer.AtomColour.CAP][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CAP][i0];
+        bondColours[LineDrawer.AtomColour.MUTATE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.MUTATE][i0];
+        bondColours[LineDrawer.AtomColour.REMOVE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.REMOVE][i0];
 
         bondAtomIndex++;
 
@@ -417,6 +522,9 @@ class ResidueWireFrame {
         bondColours[LineDrawer.AtomColour.CHARGE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CHARGE][i1];
         bondColours[LineDrawer.AtomColour.HAS_AMBER][bondAtomIndex] = atomColours[LineDrawer.AtomColour.HAS_AMBER][i1];
         bondColours[LineDrawer.AtomColour.PARAMETERS][bondAtomIndex] = atomColours[LineDrawer.AtomColour.PARAMETERS][i1];
+        bondColours[LineDrawer.AtomColour.CAP][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CAP][i1];
+        bondColours[LineDrawer.AtomColour.MUTATE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.MUTATE][i1];
+        bondColours[LineDrawer.AtomColour.REMOVE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.REMOVE][i1];
         
         bondAtomIndex++;
         bondVertices[bondVertexIndex++] = positions[i1++];
@@ -435,6 +543,9 @@ class ResidueWireFrame {
         nonBondedColours[LineDrawer.AtomColour.CHARGE][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.CHARGE][nonBondedAtomIndex];
         nonBondedColours[LineDrawer.AtomColour.HAS_AMBER][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.HAS_AMBER][nonBondedAtomIndex];
         nonBondedColours[LineDrawer.AtomColour.PARAMETERS][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.PARAMETERS][nonBondedAtomIndex];
+        nonBondedColours[LineDrawer.AtomColour.CAP][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.CAP][nonBondedAtomIndex];
+        nonBondedColours[LineDrawer.AtomColour.MUTATE][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.MUTATE][nonBondedAtomIndex];
+        nonBondedColours[LineDrawer.AtomColour.REMOVE][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.REMOVE][nonBondedAtomIndex];
 
         nonBondedWidths[nonBondedAtomNum] = widths[nonBondedAtomIndex];
         float radius = radii[nonBondedAtomIndex] * 0.5f * Settings.atomicRadiusToSphereRatio;
@@ -591,6 +702,15 @@ class LinkerWireFrame {
         
         startColours[LineDrawer.AtomColour.PARAMETERS] = Settings.GetAtomColourFromPenalty(atom0.penalty);
         endColours[LineDrawer.AtomColour.PARAMETERS] = Settings.GetAtomColourFromPenalty(atom1.penalty);
+        
+        startColours[LineDrawer.AtomColour.CAP] = LineDrawer.disabledColour;
+        endColours[LineDrawer.AtomColour.CAP] = LineDrawer.disabledColour;
+        
+        startColours[LineDrawer.AtomColour.MUTATE] = LineDrawer.disabledColour;
+        endColours[LineDrawer.AtomColour.MUTATE] = LineDrawer.disabledColour;
+        
+        startColours[LineDrawer.AtomColour.REMOVE] = LineDrawer.disabledColour;
+        endColours[LineDrawer.AtomColour.REMOVE] = LineDrawer.disabledColour;
 
         bondWidth = math.min(
             Settings.layerLineThicknesses[atom0.oniomLayer],

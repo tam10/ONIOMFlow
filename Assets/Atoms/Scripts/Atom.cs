@@ -138,6 +138,16 @@ public class Atom {
 		atom.internalConnections = this.internalConnections.ToDictionary(x => x.Key, x => x.Value);
 		return atom;
 	}
+
+	public override string ToString() {
+		return string.Format(
+			"Atom(AMBER: {0}, Position: {1}, Layer: {2}, Charge: {3})",
+			amber,
+			position,
+			oniomLayer,
+			partialCharge
+		);
+	}
 }
 
 /// <summary>PDB ID Structure</summary>
@@ -194,8 +204,25 @@ public struct PDBID : IComparable<PDBID> {
 
 	public static PDBID C => new PDBID(Element.C);
 	public static PDBID CA => new PDBID(Element.C, "A");
+	public static PDBID CB => new PDBID(Element.C, "B");
+	public static PDBID CG => new PDBID(Element.C, "G");
+	public static PDBID CD => new PDBID(Element.C, "D");
+	public static PDBID CE => new PDBID(Element.C, "E");
+	public static PDBID CZ => new PDBID(Element.C, "Z");
 	public static PDBID N => new PDBID(Element.N);
+	public static PDBID NA => new PDBID(Element.N, "A");
+	public static PDBID NB => new PDBID(Element.N, "B");
+	public static PDBID NG => new PDBID(Element.N, "C");
+	public static PDBID ND => new PDBID(Element.N, "D");
+	public static PDBID NE => new PDBID(Element.N, "E");
+	public static PDBID NZ => new PDBID(Element.N, "Z");
 	public static PDBID O => new PDBID(Element.O);
+	public static PDBID OA => new PDBID(Element.O, "A");
+	public static PDBID OB => new PDBID(Element.O, "B");
+	public static PDBID OG => new PDBID(Element.O, "C");
+	public static PDBID OD => new PDBID(Element.O, "D");
+	public static PDBID OE => new PDBID(Element.O, "E");
+	public static PDBID OZ => new PDBID(Element.O, "Z");
 	public static PDBID H => new PDBID(Element.H);
 
 	/// <summary>Returns true if this PDB ID's Element matches other.</summary>

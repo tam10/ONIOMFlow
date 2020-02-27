@@ -122,12 +122,27 @@ public class Flow :
 			if (geometry != null) {
 				string fileName = string.Format("{0}.xat", geometryInterface.id);
 				string path = Path.Combine(stateDirectory, fileName);
-				yield return FileWriter.WriteFile(geometry, path, true);
+				
+				FileWriter fileWriter;
+				try {
+					fileWriter = new FileWriter(geometry, path, true);
+				} catch (System.ArgumentException e) {
+					CustomLogger.LogFormat(
+						EL.ERROR,
+						"Failed to save state! {0}",
+						e.Message
+					);
+					yield break;
+				}
+				yield return fileWriter.WriteFile();
+				
 			}
 		}
 	}
 
 	public static IEnumerator LoadState() {
+
+		Settings.currentDirectory = Settings.projectPath;
 
 		string[] directories = Directory.GetDirectories(
 			Settings.projectPath,
@@ -142,6 +157,8 @@ public class Flow :
 		fileSelector.cancelled = false;
 		fileSelector.SetFileTypes(new List<string>());
 
+		fileSelector.Show();
+
 		while (fileSelector.isBusy) {
 			yield return null;
 		}
@@ -154,12 +171,10 @@ public class Flow :
 
 		foreach (string path in directories) {
 			string directory = Path.GetFileName(path);
-			Debug.Log(directory);
 			DateTime timeStamp;
 			try {
 				timeStamp = DateTime.Parse(directory.TrimStart(new char[] {'.'}).Replace(".", ":"));
 			} catch {
-				Debug.Log(directory.TrimStart(new char[] {'.'}).Replace(".", ":"));
 				continue;
 			}
 			string timeStampString = timeStamp.ToString();

@@ -59,7 +59,7 @@ public class GeometryChecker : MonoBehaviour {
         }
         this.geometry = geometry;
         this.size = geometry.size;
-        this.numResidues = geometry.residueDict.Count;
+        this.numResidues = geometry.residueCount;
         this.errorLevel = GIS.OK;
     }
 
@@ -89,13 +89,13 @@ public class GeometryChecker : MonoBehaviour {
 
         GIS result;
 
-        foreach (ResidueID residueID in geometry.residueDict.Keys.ToList()) {
+        foreach (ResidueID residueID in geometry.EnumerateResidueIDs().ToList()) {
             foreach (RCID rcid in residueCheckerOrder) {
                 result = residueCheckers[rcid].Check(geometry, residueID);
                 errorLevel = (GIS)Mathf.Max((int)result, (int)errorLevel);
             }
 
-            foreach (PDBID pdbID in geometry.residueDict[residueID].pdbIDs) {
+            foreach (PDBID pdbID in geometry.GetResidue(residueID).pdbIDs) {
                 foreach (ACID acid in atomCheckerOrder) {
                     result = atomCheckers[acid].Check(geometry, residueID, pdbID);
                     errorLevel = (GIS)Mathf.Max((int)result, (int)errorLevel);
@@ -152,7 +152,7 @@ public class ResidueChecker {
     }
 
     private GIS Protonated(Geometry geometry, ResidueID residueID) {
-        if (geometry.residueDict[residueID].protonated) {
+        if (geometry.GetResidue(residueID).protonated) {
             return GIS.OK;
         }
         Fail(string.Format("Residue {0} is not protonated in Geometry {1}", residueID, geometry.name));
@@ -160,7 +160,7 @@ public class ResidueChecker {
     }
 
     private GIS NoRepeatedPDBS(Geometry geometry, ResidueID residueID) {
-        List<PDBID> pdbIDs = geometry.residueDict[residueID].pdbIDs.ToList();
+        List<PDBID> pdbIDs = geometry.GetResidue(residueID).pdbIDs.ToList();
         if (new HashSet<PDBID>(pdbIDs).Count == pdbIDs.Count) {
             return GIS.OK;
         }
@@ -204,7 +204,7 @@ public class ResidueChecker {
     }
 
     private GIS ResiduesAreStandard(Geometry geometry, ResidueID residueID) {
-        if (geometry.residueDict[residueID].standard) {
+        if (geometry.GetResidue(residueID).standard) {
             return GIS.OK;
         }
         Fail(string.Format("Residue {0} is non-standard in Geometry {1}", residueID, geometry.name));
@@ -269,7 +269,7 @@ public class AtomChecker {
     }
 
     private GIS HasAmber(Geometry geometry, ResidueID residueID, PDBID pdbID) {
-        Amber amber = geometry.residueDict[residueID].atoms[pdbID].amber;
+        Amber amber = geometry.GetResidue(residueID).atoms[pdbID].amber;
         if (amber != Amber._ && amber != Amber.X) {
             return GIS.OK;
         }
@@ -278,7 +278,7 @@ public class AtomChecker {
     }
 
     private GIS HasValidAmber(Geometry geometry, ResidueID residueID, PDBID pdbID) {
-        Amber amber = geometry.residueDict[residueID].atoms[pdbID].amber;
+        Amber amber = geometry.GetResidue(residueID).atoms[pdbID].amber;
         if (amber != Amber.DU) {
             return GIS.OK;
         }

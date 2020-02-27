@@ -56,7 +56,7 @@ public class GaussianInputReader : GeometryReader {
 	}
 
 	void ExpectConnectivity() {
-		skipLines = 1;
+		//skipLines = 1;
 		activeParser = ParseConnectivity;
 	}
 
@@ -225,7 +225,7 @@ public class GaussianInputReader : GeometryReader {
 	void ParseParameters() {
 		string line = this.line.Trim();
 		if (line == "") {
-			activeParser = null;
+			activeParser = Pass;
 		}
 
 		PRMReader.UpdateParameterFromLine(line, geometry.parameters);
@@ -240,6 +240,11 @@ public class GaussianInputReader : GeometryReader {
 				string printLevelString = keywordItem.Replace ("#", "");
 				if (!Constants.GaussianPrintLevelMap.TryGetValue(printLevelString.ToUpper(), out geometry.gaussianCalculator.gaussianPrintLevel)) {
 					geometry.gaussianCalculator.gaussianPrintLevel = Constants.GaussianPrintLevel.NORMAL;
+					CustomLogger.LogFormat(
+						EL.DEBUG,
+						"Setting Gaussian Print Level to {0}",
+						geometry.gaussianCalculator.gaussianPrintLevel
+					);
 				}
 
 				//Method
@@ -249,29 +254,62 @@ public class GaussianInputReader : GeometryReader {
 
 				string[] oniomOptions = oniomOptionsStr.Split (new []{ "," }, System.StringSplitOptions.RemoveEmptyEntries);
 
-				foreach (string oniomOption in oniomOptions)
+				foreach (string oniomOption in oniomOptions) {
 					geometry.gaussianCalculator.oniomOptions.Add (oniomOption);
+					CustomLogger.LogFormat(
+						EL.DEBUG,
+						"Adding ONIOM option: {0}",
+						oniomOption
+					);
+				}
 
 				string[] methods = oniomMethodsStr.Split (new []{ ":" }, System.StringSplitOptions.RemoveEmptyEntries);
 
 				string[] highMBO = GetMethodFromString (methods [0]);
 				geometry.gaussianCalculator.AddLayer (highMBO [0], highMBO [1], new List<string> (highMBO [2].Split(new[] {','})), OLID.MODEL);
+				CustomLogger.LogFormat(
+					EL.DEBUG,
+					"Adding Layer {0}",
+					OLID.MODEL
+				);
 
 				if (methods.Length == 2) {
 					string[] lowMBO = GetMethodFromString (methods [1]);
 					geometry.gaussianCalculator.AddLayer (lowMBO [0], lowMBO [1], new List<string> (lowMBO [2].Split(new[] {','})), OLID.REAL);
+					CustomLogger.LogFormat(
+						EL.DEBUG,
+						"Adding Layer {0}",
+						OLID.REAL
+					);
 				} else if (methods.Length == 3) {
 					string[] mediumMBO = GetMethodFromString (methods [1]);
 					geometry.gaussianCalculator.AddLayer (mediumMBO [0], mediumMBO [1], new List<string> (mediumMBO [2].Split(new[] {','})), OLID.INTERMEDIATE);
+					CustomLogger.LogFormat(
+						EL.DEBUG,
+						"Adding Layer {0}",
+						OLID.INTERMEDIATE
+					);
 
 					string[] lowMBO = GetMethodFromString (methods [2]);
 					geometry.gaussianCalculator.AddLayer (lowMBO [0], lowMBO [1], new List<string> (lowMBO [2].Split(new[] {','})), OLID.REAL);
+					CustomLogger.LogFormat(
+						EL.DEBUG,
+						"Adding Layer {0}",
+						OLID.REAL
+					);
 				}
 			} else if (keywordItem.StartsWith ("guess")) {
 				string guessOptionsStr = GetStringInParentheses (GetValueFromPair (keywordItem, checkEnclosed: true));
 				string[] guessOptions = guessOptionsStr.Split (new []{ "," }, System.StringSplitOptions.RemoveEmptyEntries);
-				foreach (string guessOption in guessOptions)
+				foreach (string guessOption in guessOptions) {
 					geometry.gaussianCalculator.guessOptions.Add (guessOption);
+					CustomLogger.LogFormat(
+						EL.DEBUG,
+						"Adding SCF Guess option: {0}",
+						guessOption
+					);
+					
+				}
 			} else if (keywordItem.StartsWith ("geom")) {
 				string geomOptionsStr = GetStringInParentheses (GetValueFromPair (keywordItem, checkEnclosed: true));
 				string[] geomOptions = geomOptionsStr.Split (new []{ "," }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -279,6 +317,10 @@ public class GaussianInputReader : GeometryReader {
 					geometry.gaussianCalculator.geomOptions.Add (geomOption);
 					if (geomOption == "connectivity") {
 						readConnectivity = true;
+						CustomLogger.LogFormat(
+							EL.DEBUG,
+							"Switching on connectivity reader"
+						);
 					}
 				}
 			} else {
@@ -286,6 +328,11 @@ public class GaussianInputReader : GeometryReader {
 					if (keywordItem.StartsWith (methodName)) {
 						string[] highMBO = GetMethodFromString (keywordItem);
 						geometry.gaussianCalculator.AddLayer (highMBO [0], highMBO [1], new List<string> (highMBO [2].Split(new[] {','})), OLID.MODEL);
+						CustomLogger.LogFormat(
+							EL.DEBUG,
+							"Adding Layer {0}",
+							OLID.MODEL
+						);
 						break;
 					}
 				}
@@ -310,9 +357,21 @@ public class GaussianInputReader : GeometryReader {
 				Layer layer = gc.layerDict[oniomLayerID];
 				layer.charge = charge;
 				layer.multiplicity = multiplicity;
+				CustomLogger.LogFormat(
+					EL.DEBUG,
+					"Setting ({0}) Layer Charge: {1}, Multiplicity: {2}",
+					oniomLayerID,
+					charge,
+					multiplicity
+				);
 			}
 
 			if (oniomLayers.Count != 0) {
+				CustomLogger.LogFormat(
+					EL.DEBUG,
+					"Removing Layer: {0}",
+					oniomLayers[0]
+				);
 				oniomLayers.RemoveAt(0);
 			}
 		}
@@ -445,7 +504,7 @@ public static class GaussianPDBLineReader {
 	enum PDBOption {PDBNAME,RESNAME,RESNUM}
 	static PDBOption pdbOption;
 
-	static string element;
+	static string elementStr;
 	static string pdbName;
 	static string amberName;
 	static ResidueID residueID;
@@ -461,8 +520,10 @@ public static class GaussianPDBLineReader {
 		GaussianPDBLineReader.line = line;
 		pdbOption = PDBOption.PDBNAME;
 		charNum = -1;
-		residueID = new ResidueID("", 0);
+		residueID = ResidueID.Empty;
 		partialCharge = 0f;
+		pdbName = "";
+		amberName = "";
 		failed = false;
 		mobile = true;
 
@@ -479,8 +540,11 @@ public static class GaussianPDBLineReader {
 			return AtomID.Empty;
 		}
 		
-		if (!geometry.residueDict.ContainsKey (residueID)) {
-			geometry.residueDict[residueID] = new Residue(residueID, residueName, geometry);
+		//See if residue is already present
+		Residue residue;
+		if (!geometry.TryGetResidue (residueID, out residue)) {
+			//Not present - create a new one
+			geometry.AddResidue(residueID, new Residue(residueID, residueName, geometry));
 		}
 
 		Amber amber;
@@ -490,10 +554,25 @@ public static class GaussianPDBLineReader {
 			amber = AmberCalculator.GetAmber(amberName);
 		}
 		
-		PDBID pdbID = PDBID.FromGaussString(pdbName, element, residueName);
+		PDBID pdbID;
+		if (string.IsNullOrEmpty(pdbName)) {
+			pdbID = PDBID.FromGaussString(elementStr, elementStr, residueName);
+		} else {
+			pdbID = PDBID.FromGaussString(pdbName, elementStr, residueName);	
+		} 
 		Atom newAtom = new Atom(position, residueID, amber, partialCharge, oniomLayerID);
+
+		CustomLogger.LogFormat(
+			EL.DEBUG,
+			"Adding Atom (ID: {0}): {1}",
+			() => new object[] {
+				new AtomID(residueID, pdbID),
+				newAtom
+			}
+		);
+		
 		newAtom.mobile = mobile;
-		geometry.residueDict[residueID].AddAtom(pdbID, newAtom, out pdbID);
+		residue.AddAtom(pdbID, newAtom, out pdbID);
 
 		return new AtomID(residueID, pdbID);
 	}
@@ -513,11 +592,11 @@ public static class GaussianPDBLineReader {
 			return;
 		}
 
-		element = "";
+		elementStr = "";
 		while (++charNum <= line.Length) {
 			lineChar = line [charNum];
 			if (lineChar != ' ') {
-				element += lineChar;
+				elementStr += lineChar;
 				charParser = ReadElement;
 				break;
 			}
@@ -553,13 +632,13 @@ public static class GaussianPDBLineReader {
 					charParser = null;
 					return;
 				default:
-					element += lineChar;
+					elementStr += lineChar;
 					break;
 			}
 		}
 
 		void CheckElement() {
-			if (element == "") {
+			if (elementStr == "") {
 				throw new System.Exception("Element is empty!");
 			}
 		}

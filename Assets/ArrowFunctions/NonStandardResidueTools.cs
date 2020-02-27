@@ -168,20 +168,30 @@ public static class NonStandardResidueTools {
         if (!nsrSelection.cancelled) {
             //User didn't cancel
             //Loop through all the residues that have been changed
-            foreach (KeyValuePair<ResidueID, RS> keyValuePair in nsrSelection.changesDict) {
+            foreach ((ResidueID residueID , RS newState) in nsrSelection.changesDict) {
+
+                Residue residue;
+                if (!geometry.TryGetResidue(residueID, out residue)) {
+                    CustomLogger.LogFormat(
+                        EL.ERROR,
+                        "Could not change Residue State of {0} - Residue not found!",
+                        residueID
+                    );
+                    continue;
+                }
 
                 CustomLogger.LogFormat(
                     EL.INFO,
                     "Changing Residue State of {0}: {1} => {2}",
                     () => new object[] { 
-                        keyValuePair.Key,
-                        Constants.ResidueStateMap[geometry.residueDict[keyValuePair.Key].state],
-                        Constants.ResidueStateMap[keyValuePair.Value]
+                        residueID,
+                        Constants.ResidueStateMap[residue.state],
+                        Constants.ResidueStateMap[newState]
                     }
                 );
 
                 //Set the States of the Geometry's Residues based on the user's choice
-                geometry.residueDict[keyValuePair.Key].state = keyValuePair.Value;
+                residue.state = newState;
             }
 
             if (nsrSelection.changesDict.Count == 0) {
@@ -208,14 +218,25 @@ public static class NonStandardResidueTools {
         GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
 
         //Convert the List of ResidueIDs to a Residue Dictionary
-        Dictionary<ResidueID, Residue> newResidues = residueIDs
-            .ToDictionary(
-                x => x, 
-                x => geometryInterface.geometry.residueDict[x].Take(geometryInterface.geometry)
-            );
-
+        Dictionary<ResidueID, Residue> newResidues = new Dictionary<ResidueID, Residue>();
+        
         //Keep track of progress 
-        int totalResidues = newResidues.Count;
+        int totalResidues = 0;
+
+        foreach (ResidueID residueID in residueIDs) {
+            Residue residue;
+            if (!geometryInterface.geometry.TryGetResidue(residueID, out residue)) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Could not cap Residue '{0}' - Residue not found in Geometry!",
+                    residueID
+                );
+            } else {
+                newResidues[residueID] = residue.Take(geometryInterface.geometry);
+                totalResidues++;
+            }
+        }
+
         int numProcessedResidues = 0;
 
         foreach (ResidueID newResidueID in residueIDs) {
@@ -257,7 +278,7 @@ public static class NonStandardResidueTools {
             numProcessedResidues++;
         }
         
-        geometryInterface.geometry.SetResidueDict(newResidues);
+        geometryInterface.geometry.SetResidues(newResidues);
 
     }
 
@@ -267,14 +288,30 @@ public static class NonStandardResidueTools {
     /// <param name="taskID">The ID of the current Task.</param>
     public static IEnumerator CapAtoms(Geometry geometry, Geometry parent, TID taskID) {
 
-        List<ResidueID> residueIDs = geometry.residueDict.Keys.ToList();
-        Dictionary<ResidueID, Residue> newResidues = geometry.residueDict.ToDictionary(x => x.Key, x => x.Value);
-
+        List<ResidueID> residueIDs = geometry.EnumerateResidueIDs().ToList();
+        
+        Dictionary<ResidueID, Residue> newResidues = new Dictionary<ResidueID, Residue>();
+        
         //Keep track of progress 
-        int totalResidues = geometry.residueDict.Count;
+        int totalResidues = 0;
+        
+        foreach (ResidueID residueID in residueIDs) {
+            Residue residue;
+            if (!geometry.TryGetResidue(residueID, out residue)) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Could not cap Residue '{0}' - Residue not found in Geometry!",
+                    residueID
+                );
+            } else {
+                newResidues[residueID] = residue.Take(geometry);
+                totalResidues++;
+            }
+        }
+
         int numProcessedResidues = 0;
 
-        foreach ((ResidueID residueID, Residue residue) in geometry.residueDict) {
+        foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
             
             //Loop through each Atom
             foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
@@ -313,7 +350,7 @@ public static class NonStandardResidueTools {
             numProcessedResidues++;
         }
         
-        geometry.SetResidueDict(newResidues);
+        geometry.SetResidues(newResidues);
 
     }
 
@@ -331,7 +368,10 @@ public static class NonStandardResidueTools {
 
         GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
         if (siteResidueDict == null) {
-            siteResidueDict = geometryInterface.geometry.residueDict;
+            siteResidueDict = geometryInterface.
+                geometry
+                .EnumerateResidues()
+                .ToDictionary(x => x.residueID, x => x.residue);
         }
         Residue siteResidue = siteResidueDict[siteID.residueID];
         //Disconnect - will be reconnected to Cap
@@ -398,7 +438,9 @@ public static class NonStandardResidueTools {
     ) {
 
         if (siteResidueDict == null) {
-            siteResidueDict = geometry.residueDict;
+            siteResidueDict = geometry
+                .EnumerateResidues()
+                .ToDictionary(x => x.residueID, x => x.residue);
         }
         Residue siteResidue = siteResidueDict[siteID.residueID];
         //Disconnect - will be reconnected to Cap
@@ -472,7 +514,7 @@ public static class NonStandardResidueTools {
             :neighbourID.residueID;
 
         Residue nme;
-        if (! geometryInterface.geometry.residueDict.TryGetValue(neighbourID.residueID, out nme)) {
+        if (! geometryInterface.geometry.TryGetResidue(neighbourID.residueID, out nme)) {
             CustomLogger.LogFormat(
                 EL.ERROR,
                 "Couldn't find neighbouring residue: {0}",
@@ -490,7 +532,7 @@ public static class NonStandardResidueTools {
             }
         );
 
-        nme = geometryInterface.geometry.residueDict[neighbourID.residueID].ConvertToNME(neighbourID.pdbID);
+        nme = nme.ConvertToNME(neighbourID.pdbID);
         PDBID nmeNID = PDBID.N;
         nme.atoms[nmeNID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
         siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, nmeNID), BT.SINGLE);
@@ -521,7 +563,7 @@ public static class NonStandardResidueTools {
             :neighbourID.residueID;
 
         Residue nme;
-        if (! geometry.residueDict.TryGetValue(neighbourID.residueID, out nme)) {
+        if (! geometry.TryGetResidue(neighbourID.residueID, out nme)) {
             CustomLogger.LogFormat(
                 EL.ERROR,
                 "Couldn't find neighbouring residue: {0}",
@@ -539,7 +581,7 @@ public static class NonStandardResidueTools {
             }
         );
 
-        nme = geometry.residueDict[neighbourID.residueID].ConvertToNME(neighbourID.pdbID);
+        nme = nme.ConvertToNME(neighbourID.pdbID);
         PDBID nmeNID = PDBID.N;
         nme.atoms[nmeNID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
         siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, nmeNID), BT.SINGLE);
@@ -570,7 +612,7 @@ public static class NonStandardResidueTools {
             :neighbourID.residueID;
 
         Residue ace;
-        if (! geometryInterface.geometry.residueDict.TryGetValue(neighbourID.residueID, out ace)) {
+        if (! geometryInterface.geometry.TryGetResidue(neighbourID.residueID, out ace)) {
             CustomLogger.LogFormat(
                 EL.ERROR,
                 "Couldn't find neighbouring residue: {0}",
@@ -588,7 +630,7 @@ public static class NonStandardResidueTools {
             }
         );
 
-        ace = geometryInterface.geometry.residueDict[neighbourID.residueID].ConvertToACE(neighbourID.pdbID);
+        ace = ace.ConvertToACE(neighbourID.pdbID);
         PDBID aceCID = PDBID.C;
         ace.atoms[aceCID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
         siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, aceCID), BT.SINGLE);
@@ -616,7 +658,7 @@ public static class NonStandardResidueTools {
             :neighbourID.residueID;
 
         Residue ace;
-        if (!geometry.residueDict.TryGetValue(neighbourID.residueID, out ace)) {
+        if (!geometry.TryGetResidue(neighbourID.residueID, out ace)) {
             CustomLogger.LogFormat(
                 EL.ERROR,
                 "Couldn't find neighbouring residue: {0}",
@@ -634,7 +676,7 @@ public static class NonStandardResidueTools {
             }
         );
 
-        ace = geometry.residueDict[neighbourID.residueID].ConvertToACE(neighbourID.pdbID);
+        ace = ace.ConvertToACE(neighbourID.pdbID);
         PDBID aceCID = PDBID.C;
         ace.atoms[aceCID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
         siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, aceCID), BT.SINGLE);
@@ -718,7 +760,7 @@ public static class NonStandardResidueTools {
 
             //New Residue is from the first residue
             ResidueID newResidueID = groupEnumerator.Current;
-            Residue newResidue = geometry.residueDict[newResidueID];
+            Residue newResidue = geometry.GetResidue(newResidueID);
             CustomLogger.LogFormat(
                 EL.DEBUG,
                 "Residue {0} contains PDBIDs: '{1}'",
@@ -736,7 +778,7 @@ public static class NonStandardResidueTools {
             //Add neighbouring atoms to this residue
             while (groupEnumerator.MoveNext()) {
                 ResidueID neighbourResidueID = groupEnumerator.Current;
-                Residue neighbourResidue = geometry.residueDict[neighbourResidueID];
+                Residue neighbourResidue = geometry.GetResidue(neighbourResidueID);
                 CustomLogger.LogFormat(
                     EL.DEBUG,
                     "Neighbour Residue {0} contains PDBIDs: '{1}'",
@@ -932,7 +974,7 @@ public static class NonStandardResidueTools {
                 }
 
                 //Delete old residue
-                geometry.residueDict.Remove(groupEnumerator.Current);
+                geometry.RemoveResidue(groupEnumerator.Current);
             }
 
             numProcessedResidues++;
@@ -1002,7 +1044,7 @@ public static class NonStandardResidueTools {
         List<(AtomID, AtomID)> oldConnections = new List<(AtomID, AtomID)>();
         
         Dictionary<ResidueID, Residue> mergedResidueDict = new Dictionary<ResidueID, Residue>();
-        foreach ((ResidueID residueID, Residue residue) in geometryInterfaceLeft.geometry.residueDict) {
+        foreach ((ResidueID residueID, Residue residue) in geometryInterfaceLeft.geometry.EnumerateResidues()) {
             if (residue.state == RS.CAP) {
                 //Left Residue is a capping residue
                 //Get the atom that the cap was connected to
@@ -1016,8 +1058,8 @@ public static class NonStandardResidueTools {
 
 
         int numProcessedResidues = 0;
-        int numResidues = geometryInterfaceRight.geometry.residueDict.Count;
-        foreach ((ResidueID residueID, Residue residue) in geometryInterfaceRight.geometry.residueDict) {
+        int numResidues = geometryInterfaceRight.geometry.residueCount;
+        foreach ((ResidueID residueID, Residue residue) in geometryInterfaceRight.geometry.EnumerateResidues()) {
             if (residue.state == RS.CAP) {
                 // Right Residue is a capping residue
                 //Get the atom that the cap was connected to
@@ -1086,7 +1128,7 @@ public static class NonStandardResidueTools {
         }
 
         NotificationBar.SetTaskProgress(TID.MERGE_GEOMETRIES, 0.9f);
-        geometryInterfaceMerged.geometry.SetResidueDict(mergedResidueDict);
+        geometryInterfaceMerged.geometry.SetResidues(mergedResidueDict);
         yield return geometryInterfaceMerged.SetGeometry();
 
         Parameters.Copy(geometryInterfaceLeft.geometry, geometryInterfaceMerged.geometry);

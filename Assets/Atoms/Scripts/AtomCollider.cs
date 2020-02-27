@@ -28,11 +28,13 @@ public class AtomCollider : MonoBehaviour {
     }
 
     public void SetColor(Color color) {
+        if (mesh == null) {return;}
         Color[] colors = Enumerable.Repeat(color, mesh.vertices.Count()).ToArray();
         mesh.colors = colors;
     }
 
     public void OnTriggerEnter(Collider other) {
+        if (other == null) {return;}
         if (isEligible) {
             if (isActive && other.tag == "Pointer") {
                 AtomsVisualiser.NextEligible();
@@ -50,11 +52,16 @@ public class AtomCollider : MonoBehaviour {
     }
 
     public IEnumerator FadeAndDestroy(Color fadeTo, float fadeTime) {
-        GetComponent<SphereCollider>().enabled = false;
+        SphereCollider collider = GetComponent<SphereCollider>();
+        if (collider == null) {yield break;}
+        collider.enabled = false;
 
         Color originalColor = mesh.colors[0];
         yield return Fade(originalColor, fadeTo, fadeTime);
-        GameObject.Destroy(this.gameObject);
+
+        if (this != null) {
+            GameObject.Destroy(gameObject);
+        }
     }
 
     public IEnumerator Fade(Color fadeFrom, Color fadeTo, float fadeTime) {

@@ -151,6 +151,11 @@ public class NotificationBar : MonoBehaviour {
         UpdateTaskBar();
     }
 
+    public static IEnumerator UpdateClearTask(TID taskID) {
+        ClearTask(taskID);
+        if (Timer.yieldNow) {yield return null;}
+    }
+
     public static void UpdateTaskBar() {
         if (main == null) {return;}
         int count = _main.activeTasks.Count;
@@ -178,6 +183,13 @@ public class NotificationBar : MonoBehaviour {
         }
 
         UpdateTaskBar();
+        
+    }
+
+    public static IEnumerator UpdateTaskProgress(TID taskID, float progressRatio) {
+
+        SetTaskProgress(taskID, progressRatio);
+        if (Timer.yieldNow) {yield return null;}
         
     }
 }

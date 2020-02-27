@@ -48,7 +48,17 @@ public static class XATReader {
     /// <param name="geometry">The Geometry object to populate.</param>
     public static IEnumerator ParseGeometry(Geometry geometry) {
         
-        xDocument = XDocument.Parse(text);
+        try {
+            xDocument = XDocument.Parse(text);
+        } catch (System.Xml.XmlException e) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to parse '{0}': {1}",
+                path,
+                e
+            );
+            yield break;
+        }
 
         //Get the root element
         XElement atomsX = xDocument.Element("geometry");
@@ -113,7 +123,7 @@ public static class XATReader {
         }
 
         //Add the Residue to the Geometry object
-        geometry.residueDict[residueID] = residue;
+        geometry.AddResidue(residueID, residue);
     }
 
     /// <summary>Reads an Atom XElement and creates an Atom from it.</summary>

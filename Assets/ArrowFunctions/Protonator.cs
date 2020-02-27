@@ -90,7 +90,11 @@ public static class Protonator {
         );
 
         if (externalCommand.succeeded) {
-            tempGeometry.residueDict = new Dictionary<ResidueID, Residue>();
+
+            //Clear geometry
+            tempGeometry.SetResidues(new Dictionary<ResidueID, Residue>());
+
+            //Repopulate
             yield return FileReader.LoadGeometry(
                 tempGeometry,
                 externalCommand.GetOutputPath(),
@@ -155,7 +159,7 @@ public static class Protonator {
             );
             groupGeometry.GenerateAtomMap();
 
-            List<ResidueID> sortedResidueIDs = groupGeometry.residueDict.Keys.OrderBy(x => x).ToList();
+            List<ResidueID> sortedResidueIDs = groupGeometry.EnumerateResidueIDs().OrderBy(x => x).ToList();
             string suffix;
             if (sortedResidueIDs.Count == 1) {
                 suffix = string.Format(
@@ -182,7 +186,7 @@ public static class Protonator {
             );
 
             if (externalCommand.succeeded) {
-                groupGeometry.residueDict = new Dictionary<ResidueID, Residue>();
+                groupGeometry.SetResidues(new Dictionary<ResidueID, Residue>());
                 yield return FileReader.LoadGeometry(
                     groupGeometry,
                     externalCommand.GetOutputPath(),
@@ -242,7 +246,7 @@ public static class Protonator {
             );
             groupGeometry.GenerateAtomMap();
 
-            List<ResidueID> sortedResidueIDs = groupGeometry.residueDict.Keys.OrderBy(x => x).ToList();
+            List<ResidueID> sortedResidueIDs = groupGeometry.EnumerateResidueIDs().OrderBy(x => x).ToList();
             string suffix;
             if (sortedResidueIDs.Count == 1) {
                 suffix = string.Format(
@@ -269,7 +273,7 @@ public static class Protonator {
             );
 
             if (externalCommand.succeeded) {
-                groupGeometry.residueDict = new Dictionary<ResidueID, Residue>();
+                groupGeometry.SetResidues(new Dictionary<ResidueID, Residue>());
                 yield return FileReader.LoadGeometry(
                     groupGeometry,
                     externalCommand.GetOutputPath(),
@@ -310,7 +314,7 @@ public static class Protonator {
             ? "" 
             : string.Format("(Group {0})", groupName);
         
-        foreach ((ResidueID protonatedResidueID, Residue protonatedResidue) in residueGroup.residueDict) {
+        foreach ((ResidueID protonatedResidueID, Residue protonatedResidue) in residueGroup.EnumerateResidues()) {
 
             //Check Residue hasn't changed its ID and cannot be mapped
             Residue originalResidue;
@@ -355,7 +359,7 @@ public static class Protonator {
             }
 
             //Set the Residue
-            geometryInterface.geometry.SetResidue(protonatedResidueID, protonatedResidue);
+            geometryInterface.geometry.AddResidue(protonatedResidueID, protonatedResidue);
         }
     }
 

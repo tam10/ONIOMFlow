@@ -24,6 +24,8 @@ public class GeometryWriter {
 
     public IEnumerator WriteToFile(string filePath, bool writeConnectivity) {
 		this.writeConnectivity = writeConnectivity;
+
+        geometry.path = filePath;
         
 		atomNum = 0;
 

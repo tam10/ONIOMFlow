@@ -170,7 +170,7 @@ public class P2NWriter : GeometryWriter {
 			"Set Charge/Multiplicity", 
 			string.Format(
 				"Set the charge and multiplicity, separated by a space, for ({0}).",
-				string.Join("-",geometry.residueDict.Select(x => x.Value.residueName))
+				string.Join("-",geometry.EnumerateResidues().Select(x => x.residue.residueName))
 			), 
 			new ButtonSetup(text:"Confirm", action:() => {}),
 			new ButtonSetup(text:"Skip", action:() => multiPrompt.Cancel()),

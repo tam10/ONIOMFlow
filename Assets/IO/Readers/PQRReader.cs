@@ -77,10 +77,10 @@ public class PQRReader : GeometryReader {
 		float vdwRadius = float.Parse(line.Substring(63, 6));
 
 		//Add atom to residue
-		if (!geometry.residueDict.ContainsKey (residueID)) {
-			geometry.residueDict[residueID] = new Residue(residueID, residueName, geometry);
+		if (!geometry.HasResidue (residueID)) {
+			geometry.AddResidue(residueID, new Residue(residueID, residueName, geometry));
 		}
-		geometry.residueDict[residueID].AddAtom(pdbID, new Atom(position, residueID, Amber.X, partialCharge), false);
+		geometry.GetResidue(residueID).AddAtom(pdbID, new Atom(position, residueID, Amber.X, partialCharge), false);
 
 		geometry.atomMap[atomIndex++] = new AtomID(residueID, pdbID);
 

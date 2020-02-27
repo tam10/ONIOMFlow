@@ -10,6 +10,9 @@
         <loadType>mol2</loadType>
         <loadType>pqr</loadType>
         <loadType>xat</loadType>
+        <loadType>chk</loadType>
+        <loadType>fchk</loadType>
+        <loadType>cub</loadType>
     </loadTypes>
 
     <saveTypes>

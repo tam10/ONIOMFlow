@@ -111,13 +111,21 @@ public class Graph {
             return -1;
         }
 
-        foreach ((ResidueID residueID, Residue residue) in geometry.residueDict) {
+        foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
             bool mobile = mobileResidueIDs == null ? true : mobileResidueIDs.Contains(residueID);
 
             if (mobile) {
                 foreach (ResidueID nearbyResidueID in residue.ResiduesWithinDistance(Settings.maxNonBondingCutoff)) {
                     if (!nearbyResidueIDs.Contains(nearbyResidueID)) {
-                        AddNearbyResidue(nearbyResidueID, geometry.residueDict[nearbyResidueID], mobile);
+                        Residue nearbyResidue;
+                        if (!geometry.TryGetResidue(nearbyResidueID, out nearbyResidue)) {
+                            CustomLogger.LogFormat(
+                                EL.ERROR,
+                                "Could not add Nearby Residue '{0}' - Residue not present in Geometry!",
+                                nearbyResidueID
+                            );
+                        }
+                        AddNearbyResidue(nearbyResidueID, nearbyResidue, mobile);
                     }
                 }
             }
@@ -128,7 +136,7 @@ public class Graph {
         int currentResidueNum = 0;
         //Copy across partial charges
         foreach (ResidueID residueID in nearbyResidueIDs) {
-            Residue forceFieldResidue = geometry.residueDict[residueID];
+            Residue forceFieldResidue = geometry.GetResidue(residueID);
 
             Dictionary<RS, Residue> standardFamily;
             if (! Data.standardResidues.TryGetValue(forceFieldResidue.residueName, out standardFamily)) {

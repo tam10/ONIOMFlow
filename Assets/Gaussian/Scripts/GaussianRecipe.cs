@@ -719,7 +719,7 @@ public static class GaussianRecipe {
                     failed = true;
                     return "";
                 } else {
-                    return string.Join("-", geometry.residueDict.Keys);
+                    return string.Join("-", geometry.EnumerateResidueIDs().Select(x => x.ToString()));
                 }
             default:
                 CustomLogger.LogFormat(

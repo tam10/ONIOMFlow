@@ -166,7 +166,7 @@ public static class Cleaner {
 
 
         //Get all the water residues in the Geometry
-        IEnumerable<Residue> waterResidues = geometry.residueDict.Where(x => x.Value.isWater).Select(x => x.Value);
+        IEnumerable<Residue> waterResidues = geometry.EnumerateResidues().Where(x => x.Item2.isWater).Select(x => x.Item2);
 
         //Keep track of progress
         int numProcessedResidues = 0;
@@ -309,12 +309,11 @@ public static class Cleaner {
         //Track progress
         int changeCount = 0;
         int numProcessedResidues = 0;
-        int totalResidues = geometry.residueDict.Count;
-        foreach (KeyValuePair<ResidueID, Residue> keyValuePair in geometry.residueDict) {
-            ResidueID residueID = keyValuePair.Key;
+        int totalResidues = geometry.residueCount;
+        foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
 
             //Create a new list - PDBIDs are being modified
-            List<PDBID> pdbIDs = geometry.residueDict[residueID].pdbIDs.ToList();
+            List<PDBID> pdbIDs = residue.pdbIDs.ToList();
             
             foreach (PDBID pdbID in pdbIDs) {
                 StringBuilder newIdentifier = new StringBuilder();
@@ -343,14 +342,14 @@ public static class Cleaner {
                         EL.INFO,
                         "Changing PDBID in residue {0}: {1} => {2}",
                         () => new object[] { 
-                            keyValuePair.Key,
+                            residueID,
                             pdbID,
                             newPDBID
                         }
                     );
                     
                     //ChangePDBID function will take care of any duplicates created
-                    geometry.residueDict[residueID].ChangePDBID(pdbID, newPDBID);
+                    residue.ChangePDBID(pdbID, newPDBID);
                     changeCount++;
                 }
             }
@@ -433,11 +432,11 @@ public static class Cleaner {
 
         //Remove Residues not in chain
         int numProcessedResidues = 0;
-        int totalResidues = geometry.residueDict.Count;
-        List<ResidueID> residueIDs = geometry.residueDict.Keys.ToList();
+        int totalResidues = geometry.residueCount;
+        List<ResidueID> residueIDs = geometry.EnumerateResidueIDs().ToList();
         foreach (ResidueID residueID in residueIDs) {
             if (residueID.chainID != chainID) {
-                geometry.residueDict.Remove(residueID);
+                geometry.RemoveResidue(residueID);
             }
 
             numProcessedResidues++;
@@ -457,7 +456,7 @@ public static class Cleaner {
                 geometry.missingResidues.Remove(missingResidueID);
             }
         }
-        geometry.SetResidueDict(geometry.residueDict);
+        geometry.SetOwnResidues();
         
         NotificationBar.ClearTask(TID.GET_CHAIN);
         yield return null;
@@ -493,7 +492,10 @@ public static class Cleaner {
 
         NotificationBar.SetTaskProgress(TID.CALCULATE_CONNECTIVITY, 0f);
         yield return null;
-        Dictionary<ResidueID, Residue> residueDict = geometryInterface.geometry.residueDict;
+        Dictionary<ResidueID, Residue> residueDict = geometryInterface
+            .geometry
+            .EnumerateResidues()
+            .ToDictionary(x => x.Item1, x => x.Item2);
 
 		List<AtomID> connectionPoints = new List<AtomID>(); 
 
@@ -582,7 +584,9 @@ public static class Cleaner {
 
         NotificationBar.SetTaskProgress(TID.CALCULATE_CONNECTIVITY, 0f);
         yield return null;
-        Dictionary<ResidueID, Residue> residueDict = geometry.residueDict;
+        Dictionary<ResidueID, Residue> residueDict = geometry
+            .EnumerateResidues()
+            .ToDictionary(x => x.Item1, x => x.Item2);
 
 		List<AtomID> connectionPoints = new List<AtomID>(); 
 
@@ -771,12 +775,12 @@ public static class Cleaner {
         geometryInterface.activeTasks++;
 
         int numProcessedResidues = 0;
-        int totalResidues = geometryInterface.geometry.residueDict.Count;
-		foreach (KeyValuePair<ResidueID, Residue> residueItem in geometryInterface.geometry.residueDict) {
+        int totalResidues = geometryInterface.geometry.residueCount;
+		foreach ((ResidueID residueID, Residue residue) in geometryInterface.geometry.EnumerateResidues()) {
 
-			List<PDBID> pdbIDs = residueItem.Value.pdbIDs.ToList();
+			List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 			foreach (PDBID pdbID0 in pdbIDs) {
-                Atom atom = geometryInterface.geometry.residueDict[residueItem.Key].atoms[pdbID0];
+                Atom atom = residue.atoms[pdbID0];
 				atom.internalConnections.Clear();
 				atom.externalConnections.Clear();
 			}
@@ -797,12 +801,12 @@ public static class Cleaner {
 	public static IEnumerator DisconnectAll(Geometry geometry) {
         
         int numProcessedResidues = 0;
-        int totalResidues = geometry.residueDict.Count;
-		foreach (KeyValuePair<ResidueID, Residue> residueItem in geometry.residueDict) {
+        int totalResidues = geometry.residueCount;
+		foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
 
-			List<PDBID> pdbIDs = residueItem.Value.pdbIDs.ToList();
+			List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 			foreach (PDBID pdbID0 in pdbIDs) {
-                Atom atom = geometry.residueDict[residueItem.Key].atoms[pdbID0];
+                Atom atom = residue.atoms[pdbID0];
 				atom.internalConnections.Clear();
 				atom.externalConnections.Clear();
 			}
@@ -867,9 +871,8 @@ public static class Cleaner {
                             EL.ERROR,
                             "No start or end Residue to attach Missing Residues to."
                         );
+                        break;
                     }
-
-                    //UnityEngine.Debug.LogFormat("End {0} {1}", endResidue.GetResidueID(), endResidue.GetCentre());
 
                     //This is the residue to attach to
                     //It will be updated in the case of segments longer than 1
@@ -901,8 +904,6 @@ public static class Cleaner {
                     }
                 } else if (endResidue == null) {
                     //This segment has no end Residue so it hangs off the end of a chain
-
-                    //UnityEngine.Debug.LogFormat("Start {0} {1}", startResidue.GetResidueID(), startResidue.GetCentre());
 
                     //This is the residue to attach to
                     //It will be updated in the case of segments longer than 1
@@ -1101,7 +1102,14 @@ public static class Cleaner {
 
     public static IEnumerator CalculateInternalConnectivity(Geometry geometry, ResidueID residueID) {
 
-        Residue residue = geometry.residueDict[residueID];
+        Residue residue;
+        if (!geometry.TryGetResidue(residueID, out residue)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to compute internal connectivity of Residue '{0}' - Residue not found!",
+                residueID
+            );
+        }
         List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 
         foreach (PDBID pdbID0 in pdbIDs) {
@@ -1156,8 +1164,17 @@ public static class Cleaner {
 
 	private static void DisconnectInternal(Geometry geometry, ResidueID residueID) {
 
-        foreach (PDBID pdbID0 in geometry.residueDict[residueID].pdbIDs) {
-            geometry.residueDict[residueID].atoms[pdbID0].internalConnections.Clear();
+        Residue residue;
+        if (!geometry.TryGetResidue(residueID, out residue)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to disconnect internal connectivity of Residue '{0}' - Residue not found!",
+                residueID
+            );
+        }
+
+        foreach (PDBID pdbID0 in residue.pdbIDs) {
+            residue.atoms[pdbID0].internalConnections.Clear();
         }
 	}
     private static void UniquatePDBs(string[] pdbs, List<int> atomNums) {
@@ -1314,7 +1331,7 @@ static class ParallelConnectivityCalculator {
 
         connectionPoints = new List<AtomID>();
 
-        residueIDs = geometryInterface.geometry.residueDict.Keys.ToList();
+        residueIDs = geometryInterface.geometry.EnumerateResidueIDs().ToList();
         int totalResidues = residueIDs.Count();
 
         //Process internal connections
@@ -1359,7 +1376,7 @@ static class ParallelConnectivityCalculator {
 
         public void Execute(int residueNumber) {
             ResidueID residueID = residueIDs[residueNumber];
-            Residue residue = Flow.GetGeometry(geometryInterfaceID).residueDict[residueID];
+            Residue residue = Flow.GetGeometry(geometryInterfaceID).GetResidue(residueID);
 
             if (residue.standard) {
                 ProcessStandard(residueID, residue);
@@ -1513,7 +1530,7 @@ static class ParallelConnectivityCalculator {
     
     private static Atom DisconnectCaps(Atom atom, Geometry geometry) {
         atom.externalConnections = atom.externalConnections
-            .Where(x => geometry.residueDict[x.Key.residueID].state != RS.CAP)
+            .Where(x => geometry.GetResidue(x.Key.residueID).state != RS.CAP)
             .ToDictionary(x => x.Key, x => x.Value);
         return atom;
     }

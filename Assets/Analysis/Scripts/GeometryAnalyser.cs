@@ -296,19 +296,19 @@ public class GeometryAnalyser : MonoBehaviour {
     IEnumerator GetCentres() {
 
         Residue previousResidue = null;
-        numResidues = geometry.residueDict.Count;
+        numResidues = geometry.residueCount;
         covalentConnections = new bool[numResidues - 1];
 
         StringBuilder sb = new StringBuilder();
 
-        List<ResidueID> residueIDs = geometry.residueDict.Keys.OrderBy(x => x).ToList();
+        List<ResidueID> residueIDs = geometry.EnumerateResidueIDs().OrderBy(x => x).ToList();
         int residueIndex = 0;
         residueMap = residueIDs.ToMap(x => residueIndex++, x => x);
 
         int residueCount = 0;
         foreach (ResidueID residueID in residueIDs) {
 
-            Residue residue = geometry.residueDict[residueID];
+            Residue residue = geometry.GetResidue(residueID);
 
             //Is this residue connected to the previous?
             if (residueCount != 0) {
@@ -608,25 +608,17 @@ public class GeometryAnalyser : MonoBehaviour {
     }
 
     public static List<Element> GetUniqueElements(Geometry geometry) {
-        List<Element> uniqueElements = new List<Element>();
-        foreach (Residue residue in geometry.residueDict.Values) {
-            foreach (PDBID pdbID in residue.pdbIDs) {
-                if (! uniqueElements.Contains(pdbID.element))
-                    uniqueElements.Add(pdbID.element);
-            }
-        }
-        return uniqueElements;
+        return geometry
+            .EnumerateAtomIDs()
+            .Select(x => x.pdbID.element)
+            .Distinct()
+            .ToList();
     }
 
     public static int CountElement(Geometry geometry, Element element) {
-        int count = 0;
-        foreach (Residue residue in geometry.residueDict.Values) {
-            foreach (PDBID pdbID in residue.pdbIDs) {
-                if (pdbID.element == element)
-                    count++;
-            }
-        }
-        return count;
+        return geometry
+            .EnumerateAtomIDs()
+            .Count(x => x.pdbID.element == element);
     }
 
     public Color GetResidueColour(string residueName) {

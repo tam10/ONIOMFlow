@@ -42,6 +42,11 @@
         <fullName>AMBER</fullName>
     </parentClass>
 
+    <parentClass>
+        <name>mutationTools</name>
+        <fullName>Mutation</fullName>
+    </parentClass>
+
     <task>
         <name>loadAtoms</name>
         <parentClass>geometryInterface</parentClass>
@@ -220,6 +225,13 @@
     </task>
 
     <task>
+        <name>mutateResidue</name>
+        <parentClass>mutationTools</parentClass>
+        <fullName>Mutate Standard Residue</fullName>
+        <description>Mutate a Standard Residue to another Standard Residue</description>
+    </task>
+
+    <task>
         <name>moveAllToModelLayer</name>
         <parentClass>layers</parentClass>
         <fullName>Move All to Model Layer</fullName>
@@ -280,6 +292,20 @@
         <parentClass>gaussian</parentClass>
         <fullName>Run Gaussian Recipe</fullName>
         <description>Load an XML file containing a sequence of Gaussian Calculations and actions</description>
+    </task>
+
+    <task>
+        <name>formchk</name>
+        <parentClass>gaussian</parentClass>
+        <fullName>Format Checkpoint File (formchk)</fullName>
+        <description>Converts a .chk file to an .fchk file</description>
+    </task>
+
+    <task>
+        <name>cubegen</name>
+        <parentClass>gaussian</parentClass>
+        <fullName>Generate Cube File (cubegen)</fullName>
+        <description>Extracts Orbital or density information from a Gaussian (F)CHK file</description>
     </task>
 
     <task>

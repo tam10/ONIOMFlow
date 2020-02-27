@@ -314,12 +314,12 @@ public static class PartialChargeCalculator {
         Dictionary<Element, int> elementCountDict = new Dictionary<Element, int>();
         Dictionary<ResidueID, Residue> newResidueDict = new Dictionary<ResidueID, Residue>();
 
-        List<ResidueID> newResidueIDs = groupGeometry.residueDict.Keys.ToList();
+        List<ResidueID> newResidueIDs = groupGeometry.EnumerateResidueIDs().ToList();
         newResidueIDs.Sort();
 
         int atomNum = 0;
         foreach (ResidueID nsrResidueID in newResidueIDs) {
-            Residue residue = groupGeometry.residueDict[nsrResidueID];
+            Residue residue = groupGeometry.GetResidue(nsrResidueID);
             Residue newResidue = new Residue(nsrResidueID, residue.residueName, newNSR);
             List<PDBID> pdbIDs = residue.pdbIDs.ToList();
             pdbIDs.Sort();
@@ -343,7 +343,7 @@ public static class PartialChargeCalculator {
             newResidueDict[nsrResidueID] = newResidue;
             newResidueDict[nsrResidueID].state = residue.state;
         }
-        newNSR.SetResidueDict(newResidueDict);
+        newNSR.SetResidues(newResidueDict);
 
         return p2nMap;
     }
@@ -355,7 +355,21 @@ public static class PartialChargeCalculator {
     ) {
         //Write P2N file for R.E.D.
         string p2nFile = string.Format("{0}.p2n", Settings.redCalcPath);
-        yield return FileWriter.WriteFile(newNSR, p2nFile, true);
+
+        FileWriter fileWriter;
+        try {
+            fileWriter = new FileWriter(newNSR, p2nFile, true);
+        } catch (System.ArgumentException e) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to run RED! {0}",
+                e.Message
+            );
+            yield break;
+        }
+        yield return fileWriter.WriteFile();
+
+
         
         if (!File.Exists(p2nFile)) {
             CustomLogger.LogFormat(
@@ -455,7 +469,7 @@ public static class PartialChargeCalculator {
 
         int electrons = groupGeometry.EnumerateAtomIDs().Select(x => x.pdbID.atomicNumber).Sum();
 
-        gaussian.WriteInputAndExecute(
+        yield return gaussian.WriteInputAndExecute(
             groupGeometry,
             taskID,
             true,
@@ -480,7 +494,7 @@ public static class PartialChargeCalculator {
 
         yield return CalculationSetup.SetupCalculation(groupGeometry);
 
-        gaussian.WriteInputAndExecute(
+        yield return gaussian.WriteInputAndExecute(
             groupGeometry,
             taskID,
             true,
@@ -512,7 +526,7 @@ public static class PartialChargeCalculator {
 
         yield return CalculationSetup.SetupCalculation(groupGeometry);
 
-        gaussian.WriteInputAndExecute(
+        yield return gaussian.WriteInputAndExecute(
             groupGeometry,
             taskID,
             true,
@@ -539,7 +553,7 @@ public static class PartialChargeCalculator {
 
         int maxDepth = chargeDistributions.Count;
 
-        foreach ((ResidueID residueID, Residue capResidue) in groupGeometry.residueDict) {
+        foreach ((ResidueID residueID, Residue capResidue) in groupGeometry.EnumerateResidues()) {
             
             //Ignore residues that aren't caps
             if (capResidue.state != RS.CAP) {
@@ -618,7 +632,6 @@ public static class PartialChargeCalculator {
                 yield return null;
             }
         }
-
     }
 
     ///<summary>Redistributes the charge on a Residue to create an overall integer charge.</summary>
@@ -627,7 +640,7 @@ public static class PartialChargeCalculator {
         Geometry groupGeometry
     ) {
         
-        foreach ((ResidueID residueID, Residue residue) in groupGeometry.residueDict) {
+        foreach ((ResidueID residueID, Residue residue) in groupGeometry.EnumerateResidues()) {
             float residueCharge = residue.GetCharge();
             float chargeDifference = Mathf.RoundToInt(residueCharge) - residueCharge;
             int numAtoms = residue.atoms.Count;

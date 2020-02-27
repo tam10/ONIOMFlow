@@ -25,14 +25,14 @@ public static class PDBWriter {
 
 		if (generateAtomMap) {
 			
-			List<ResidueID> residueIDs = geometry.residueDict.Keys.ToList();
+			List<ResidueID> residueIDs = geometry.EnumerateResidueIDs().ToList();
 			residueIDs.Sort();
 
 			int numResidues = residueIDs.Count;
 			int atomNum = 0;
 			for (int residueNum = 0; residueNum < numResidues; residueNum++) {
 				ResidueID residueID = residueIDs[residueNum];
-				Residue residue = geometry.residueDict[residueID];
+				Residue residue = geometry.GetResidue(residueID);
 				List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 				pdbIDs.Sort();
 				foreach (PDBID pdbID in pdbIDs) {

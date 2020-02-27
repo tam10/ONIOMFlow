@@ -67,3 +67,8 @@ Sphere - Done
 Multiprompt - Done
 Arrow
 Clean
+
+Cap Residue in AtomsVisualiser - AddNeighbourResidue (exists)
+Mutate Residue in AtomsVisualiser - MutateStandard (exists)
+Test FCHK reader, then CHK reader
+Make a Task to generate orbitals for Models, then ONIOM

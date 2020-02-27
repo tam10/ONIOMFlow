@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine.EventSystems;
+using System.Linq;
 using UnityEngine.UI;
 using CS = Constants.ColourScheme;
 using COL = Constants.Colour;
@@ -65,6 +67,7 @@ public class ContextMenu : MonoBehaviour, IPointerExitHandler, IPointerEnterHand
 
     /// <summary>Remove all the buttons and spacers from the Menu.</summary>
     public void Clear() {
+        buttonGroups.Clear();
         foreach (Transform child in contentTransform) {
             Destroy(child.gameObject);
         }
@@ -169,7 +172,9 @@ public class ContextMenu : MonoBehaviour, IPointerExitHandler, IPointerEnterHand
     /// <param name="enabled">Whether this button is interactable or not.</param>
     public ContextButtonGroup AddButtonGroup(string buttonText, bool enabled) {
         ContextButton buttonGroupButton = AddButton(() => {}, buttonText, enabled, contentTransform);
-        return buttonGroupButton.AddButtonGroup();
+        ContextButtonGroup buttonGroup = buttonGroupButton.AddButtonGroup();
+        buttonGroups.Add(buttonGroup);
+        return buttonGroup;
     }
 
     /// <summary>Called by Unity when the cursor leaves the menu.</summary>
@@ -238,9 +243,11 @@ public class ContextMenu : MonoBehaviour, IPointerExitHandler, IPointerEnterHand
         }
 
     }
-    
-}
 
-public class ButtonGroup : MonoBehaviour {
+    List<ContextButtonGroup> buttonGroups = new List<ContextButtonGroup>();
+
+    void Update() {
+        hideable = ! buttonGroups.Any(x => x.canvas.enabled);
+    }
     
 }

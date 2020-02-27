@@ -94,18 +94,18 @@ public static class Settings {
 
 	public static Color GetAtomColourFromAMBER(Amber amber) {
 		switch (amber) {
-			case Amber._: return Color.red;
-			case Amber.X: return Color.red;
+			case Amber._: return maxPenaltyColour;
+			case Amber.X: return maxPenaltyColour;
 			case Amber.DU: return Color.yellow;
 		}
-		return Color.green;
+		return zeroPenaltyColour;
 	}
 
 	public static Color GetAtomColourFromPenalty(float penalty, float max=100f) {
 		if (penalty > max) {
-			return Color.red;
+			return maxPenaltyColour;
 		} else {
-			return Color.Lerp(Color.green, Color.red, penalty / max);
+			return Color.Lerp(zeroPenaltyColour, maxPenaltyColour, penalty / max);
 		}
 	}
 
@@ -113,6 +113,9 @@ public static class Settings {
 	public static Color neutralColour = new Color(0.5f, 0.5f, 0.5f, 0.5f);
 	public static Color positiveColour = new Color(1f, 0f, 0f, 1f);
 	public static Color nochargeColour = new Color(0.7f, 0.7f, 0.5f, 1f);
+
+	public static Color zeroPenaltyColour = new Color(0f, 0.5f, 0f, 1f);
+	public static Color maxPenaltyColour = new Color(1.5f, 0f, 0f, 1f);
 
 	public static List<float> chargeDistributions = new List<float> {0.4f, 0.3f, 0.2f, 0.1f};
 

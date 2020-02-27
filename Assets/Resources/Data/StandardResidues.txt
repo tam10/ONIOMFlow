@@ -305,6 +305,13 @@
 	</residue>
 	<residue name="ARG" family="ARG">
 		<atoms state="STANDARD" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> NE </pdb2>
+				<pdb3> CZ </pdb3>
+				<pdb4> NH1</pdb4>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -485,6 +492,13 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> NE </pdb2>
+				<pdb3> CZ </pdb3>
+				<pdb4> NH1</pdb4>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -672,6 +686,13 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="2.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> NE </pdb2>
+				<pdb3> CZ </pdb3>
+				<pdb4> NH1</pdb4>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -871,6 +892,10 @@
 	</residue>
 	<residue name="ASH" family="ASP">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> OD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -968,6 +993,10 @@
 	</residue>
 	<residue name="ASN" family="ASN">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> OD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -1072,6 +1101,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> OD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -1183,6 +1216,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> OD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -1306,6 +1343,10 @@
 	</residue>
 	<residue name="ASP" family="ASP">
 		<atoms state="STANDARD" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> OD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -1394,6 +1435,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-2.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> OD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -1489,6 +1534,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> OD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -1596,6 +1645,9 @@
 	</residue>
 	<residue name="CYM" family="CYS">
 		<atoms state="STANDARD" charge="-1.0">
+			<dihedrals>
+				<pdb0> SG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -1672,6 +1724,9 @@
 	</residue>
 	<residue name="CYS" family="CYS">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> SG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -1753,6 +1808,9 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> SG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -1841,6 +1899,9 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> SG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -1941,6 +2002,9 @@
 	</residue>
 	<residue name="CYX" family="CYS">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> SG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -2015,6 +2079,9 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> SG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -2096,6 +2163,9 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> SG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -2189,6 +2259,11 @@
 	</residue>
 	<residue name="GLH" family="GLU">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> OE1</pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -2309,6 +2384,11 @@
 	</residue>
 	<residue name="GLN" family="GLN">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> OE1</pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -2436,6 +2516,11 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> OE1</pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -2570,6 +2655,11 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> OE1</pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -2716,6 +2806,11 @@
 	</residue>
 	<residue name="GLU" family="GLU">
 		<atoms state="STANDARD" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> OE1</pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -2827,6 +2922,11 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-2.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> OE1</pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -2945,6 +3045,11 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> OE1</pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -3260,6 +3365,10 @@
 	</residue>
 	<residue name="HID" family="HID">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> ND1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -3383,6 +3492,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> ND1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -3513,6 +3626,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> ND1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -3655,6 +3772,10 @@
 	</residue>
 	<residue name="HIE" family="HID">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> ND1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -3778,6 +3899,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> ND1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -3908,6 +4033,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> ND1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -4050,6 +4179,10 @@
 	</residue>
 	<residue name="HIP" family="HIP">
 		<atoms state="STANDARD" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> ND1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -4180,6 +4313,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> ND1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -4317,6 +4454,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="2.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> ND1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -4466,6 +4607,10 @@
 	</residue>
 	<residue name="ILE" family="ILE">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG1</pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -4609,6 +4754,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG1</pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -4759,6 +4908,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG1</pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -4921,6 +5074,10 @@
 	</residue>
 	<residue name="LEU" family="LEU">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -5064,6 +5221,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -5214,6 +5375,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -5376,6 +5541,12 @@
 	</residue>
 	<residue name="LYN" family="LYS">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> CE </pdb2>
+				<pdb3> NZ </pdb3>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -5537,6 +5708,12 @@
 	</residue>
 	<residue name="LYS" family="LYS">
 		<atoms state="STANDARD" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> CE </pdb2>
+				<pdb3> NZ </pdb3>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -5704,6 +5881,12 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> CE </pdb2>
+				<pdb3> NZ </pdb3>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -5878,6 +6061,12 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="2.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD </pdb1>
+				<pdb2> CE </pdb2>
+				<pdb3> NZ </pdb3>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -6064,6 +6253,11 @@
 	</residue>
 	<residue name="MET" family="MET">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> SD </pdb1>
+				<pdb2> CE </pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -6192,6 +6386,11 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> SD </pdb1>
+				<pdb2> CE </pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -6327,6 +6526,11 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> SD </pdb1>
+				<pdb2> CE </pdb2>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -6548,6 +6752,10 @@
 	</residue>
 	<residue name="PHE" family="PHE">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -6692,6 +6900,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -6843,6 +7055,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -7349,6 +7565,9 @@
 	</residue>
 	<residue name="SER" family="SER">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> OG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -7430,6 +7649,9 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> OG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -7518,6 +7740,9 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> OG </pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -7618,6 +7843,9 @@
 	</residue>
 	<residue name="THR" family="THR">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> OG1</pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -7721,6 +7949,9 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> OG1</pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -7831,6 +8062,9 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> OG1</pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -7953,6 +8187,10 @@
 	</residue>
 	<residue name="TRP" family="TRP">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -8125,6 +8363,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -8304,6 +8546,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -8495,6 +8741,10 @@
 	</residue>
 	<residue name="TYR" family="TYR">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -8646,6 +8896,10 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -8804,6 +9058,10 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG </pdb0>
+				<pdb1> CD1</pdb1>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>
@@ -8974,6 +9232,9 @@
 	</residue>
 	<residue name="VAL" family="VAL">
 		<atoms state="STANDARD" charge="0.0">
+			<dihedrals>
+				<pdb0> CG1</pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -9094,6 +9355,9 @@
 			</atom>
 		</atoms>
 		<atoms state="C_TER" charge="-1.0">
+			<dihedrals>
+				<pdb0> CG1</pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N</amber>
@@ -9221,6 +9485,9 @@
 			</atom>
 		</atoms>
 		<atoms state="N_TER" charge="1.0">
+			<dihedrals>
+				<pdb0> CG1</pdb0>
+			</dihedrals>
 			<atom>
 				<pdb> N  </pdb>
 				<amber>N3</amber>

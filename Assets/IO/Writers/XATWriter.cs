@@ -4,6 +4,7 @@ using UnityEngine;
 using System.Xml;
 using System.Linq;
 using BT = Constants.BondType;
+using EL = Constants.ErrorLevel;
 
 public static class XATWriter {
 
@@ -17,7 +18,7 @@ public static class XATWriter {
 
         x = XmlWriter.Create(fileName, xmlWriterSettings);
 
-        List<ResidueID> residueIDs = geometry.residueDict.Keys.ToList();
+        List<ResidueID> residueIDs = geometry.EnumerateResidueIDs().ToList();
         residueIDs.Sort();
         x.WriteStartDocument();
 
@@ -40,13 +41,32 @@ public static class XATWriter {
 
     static void WriteResidue(Geometry geometry, ResidueID residueID, bool writeConnectivity) {
 
-        Residue residue = geometry.residueDict[residueID];
+        Residue residue;
+        if (!geometry.TryGetResidue(residueID, out residue)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Could not write Residue '{0}' - Residue not present in Geometry!",
+                residueID
+            );
+            return;
+        }
+
+        string residueName;
+        float charge;
+
+        if (residue == null) {
+            residueName = "";
+            charge = 0f;
+        } else {
+            residueName = residue.residueName;
+            charge = residue.GetCharge();
+        }
 
         //<residue ID="ID" charge="CHARGE" state="STATE">
         x.WriteStartElement("residue");
         x.WriteAttributeString("ID", residueID.ToString());
-        x.WriteAttributeString("name", residue.residueName.ToString());
-        x.WriteAttributeString("charge", string.Format("{0:0.0000}", residue.GetCharge()));
+        x.WriteAttributeString("name", residueName);
+        x.WriteAttributeString("charge", string.Format("{0:0.0000}", charge));
         x.WriteAttributeString("state", Constants.ResidueStateMap[residue.state]);
 
 		foreach (PDBID pdbID in residue.pdbIDs) {

@@ -296,12 +296,12 @@ public static class FRCMODReader {
         Torsion torsion = new Torsion(t0, t1, t2, t3, penalty:penalty);
         torsion.npaths = numPaths;
 
-
         while (readTorsion) {
             t0 = AmberCalculator.GetAmber(line.Substring(0, 2).Trim());
             t1 = AmberCalculator.GetAmber(line.Substring(3, 2).Trim());
             t2 = AmberCalculator.GetAmber(line.Substring(6, 2).Trim());
             t3 = AmberCalculator.GetAmber(line.Substring(9, 2).Trim());
+
 
             if (!torsion.types.TypeEquivalent(t0, t1, t2, t3)) {
                 CustomLogger.LogFormat(

@@ -46,7 +46,6 @@ public class ContextButtonGroup : MonoBehaviour {
         contextButton.button.onClick.AddListener(
             delegate {
                 callback(); 
-                ContextMenu.main.hideable = true;
                 Hide();
             }
         );
@@ -78,21 +77,18 @@ public class ContextButtonGroup : MonoBehaviour {
 
             if (Input.GetMouseButtonDown(0)) {
                 Hide();
-                ContextMenu.main.hideable = true;
                 yield break;
             }
 
             yield return null;
         }
         Hide();
-        ContextMenu.main.hideable = true;
     }
 
 
     IEnumerator FadeIn() {
 
         Show();
-        ContextMenu.main.hideable = false;
 
         float alphaValue = canvasGroup.alpha;
         float timer = 0.25f;
@@ -101,7 +97,6 @@ public class ContextButtonGroup : MonoBehaviour {
             yield return null;
         }
 
-        ContextMenu.main.hideable = false;
 
     }
 

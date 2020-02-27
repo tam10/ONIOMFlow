@@ -36,8 +36,6 @@ public class Tooltip : MonoBehaviour {
     public float expandTimeSeconds;
     /// <value>How long it takes to shrink the Tooltip.</value>
     public float shrinkTimeSeconds; 
-    /// <value>How long to wait before expanding the Tooltip.</value>
-    public float delayTime;
     /// <value>Is the cursor hovering over the target?</value>
     private bool hovering;
 
@@ -73,9 +71,9 @@ public class Tooltip : MonoBehaviour {
     }
 
 	/// <summary>Shows the tooltip after delayTime seconds near the cursor position.</summary>
-    public void Show(string title, string info) {
+    public void Show(string title, string info, float delayTime=2f) {
         hovering = true;
-        StartCoroutine(WarmUp(title, info));
+        StartCoroutine(WarmUp(title, info, delayTime));
     }
 
     /// <summary>
@@ -84,7 +82,7 @@ public class Tooltip : MonoBehaviour {
     /// <remarks>
     /// Starts the AnimateFadeIn Coroutine if the cursor is still hovering.
     /// </remarks>
-    private IEnumerator WarmUp(string title, string info) {
+    private IEnumerator WarmUp(string title, string info, float delayTime) {
         // Start the timer. Keep ticking unless the cursor stops hovering over the target
         float timer = 0f;
         while (timer < delayTime && hovering) {

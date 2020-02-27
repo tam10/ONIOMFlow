@@ -32,6 +32,12 @@ public static class FileReader {
 			return XATReader.GeometryFromXATFile (path, geometry);
 		case ".mol2":
 			return new Mol2Reader(geometry).GeometryFromFile(path);
+		case ".chk":
+			return GetCHKLoader(geometry, path);
+		case ".fchk":
+			return new FChkReader(geometry).GeometryFromFile(Path.ChangeExtension(path, ".fchk"));
+		case ".cub":
+			return new CubeReader(geometry).GeometryFromFile(path);
 		default:
 			throw new ErrorHandler.FileTypeNotRecognisedException (string.Format("Filetype {0} not recognised", filetype), filetype);
 		}
@@ -59,6 +65,11 @@ public static class FileReader {
 		default:
 			throw new ErrorHandler.FileTypeNotRecognisedException (string.Format("Filetype {0} not recognised", filetype), filetype);
 		}
+	}
+
+	static IEnumerator GetCHKLoader(Geometry geometry, string path) {
+		yield return GaussianCalculator.Formchk(path);
+		yield return new FChkReader(geometry).GeometryFromFile(Path.ChangeExtension(path, ".fchk"));
 	}
 
 	public static IEnumerator UpdateGeometry(
@@ -108,6 +119,8 @@ public static class FileReader {
 	public static IEnumerator LoadGeometry(Geometry geometry, string path, string loaderName=null) {
 
 		IEnumerator atomLoader = GetGeometryLoader(geometry, path);
+
+		geometry.path = path;
 		
 		while (true) {
 			object current;

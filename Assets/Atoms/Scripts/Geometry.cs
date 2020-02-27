@@ -84,28 +84,36 @@ public class Geometry : MonoBehaviour {
 			//Return the sum
 			.Sum();
 
+	/// <summary>Enumerate Residues.</summary>
+	public IEnumerable<(ResidueID residueID, Residue residue)> EnumerateResidues() =>
+		//Loop through residueDict
+		residueDict.Select(x => (x.Key,x.Value));
+
+	/// <summary>Enumerate Residue IDs.</summary>
+	public IEnumerable<ResidueID> EnumerateResidueIDs() =>
+		//Loop through residueDict
+		residueDict.Select(x => x.Key);
+
 	/// <summary>Enumerate Residues whose ResidueIDs meet a condition.</summary>
 	/// <param name="residueIDCondition">The Condition Delegate that the ResidueID must meet.</param>
-	public IEnumerable<(ResidueID, Residue)> EnumerateResidues(Func<ResidueID, bool> residueIDCondition) =>
+	public IEnumerable<(ResidueID residueID, Residue residue)> EnumerateResidues(Func<ResidueID, bool> residueIDCondition) =>
 		//Loop through residueDict
 		residueDict
 			//Select items whose Residues have the requested Residue State
 			.Where(x => residueIDCondition(x.Key))
-			//Return the ResidueIDs
 			.Select(x => (x.Key,x.Value));
 
 	/// <summary>Enumerate Residues that meet a condition.</summary>
 	/// <param name="residueIDCondition">The Condition Delegate that the Residue must meet.</param>
-	public IEnumerable<(ResidueID, Residue)> EnumerateResidues(Func<Residue, bool> residueCondition) =>
+	public IEnumerable<(ResidueID residueID, Residue residue)> EnumerateResidues(Func<Residue, bool> residueCondition) =>
 		//Loop through residueDict
 		residueDict
 			//Select items whose Residues have the requested Residue State
 			.Where(x => residueCondition(x.Value))
-			//Return the ResidueIDs
 			.Select(x => (x.Key,x.Value));
 
 	/// <summary>Dictionary of all Residues in this Geometry object.</summary>
-	public Dictionary<ResidueID, Residue> residueDict = new Dictionary<ResidueID, Residue> ();
+	private Dictionary<ResidueID, Residue> residueDict = new Dictionary<ResidueID, Residue> ();
 
 	/// <summary>Dictionary of Residues that are missing in this Geometry object.</summary>
 	public Dictionary<ResidueID, string> missingResidues = new Dictionary<ResidueID, string> ();
@@ -123,6 +131,7 @@ public class Geometry : MonoBehaviour {
 	public GaussianCalculator gaussianCalculator;
 	/// <summary>The reference to this Geometry's Molecular Mechanics Parameters.</summary>
 	public Parameters parameters;
+	public string path;
 	
 	void Awake () {
 		parameters = PrefabManager.InstantiateParameters(transform);
@@ -170,15 +179,32 @@ public class Geometry : MonoBehaviour {
 		Data.SetResidueProperties(ref residue);
 	}
 
-	public void SetResidue(ResidueID residueID, Residue residue) {
-		this.residueDict[residueID] = residue;
-		residue.parent = this;
+	public bool HasResidue(ResidueID residueID) => residueDict.ContainsKey(residueID);
+
+	public void AddResidue(ResidueID residueID, Residue residue) {
+		if (residue != null) {
+			residueDict[residueID] = residue;
+			residue.parent = this;
+		}
 	}
 
-	public void SetResidueDict(Dictionary<ResidueID, Residue> residueDict) {
-		this.residueDict = residueDict;
-		foreach (Residue residue in this.residueDict.Values) {
-			residue.parent = this;
+	public void SetResidues(Dictionary<ResidueID, Residue> residueDict) {
+		this.residueDict.Clear();
+		foreach ((ResidueID residueID, Residue residue) in residueDict) {
+			AddResidue(residueID, residue);
+		}
+	}
+
+	public void SetOwnResidues() {
+		List<ResidueID> residueIDs = residueDict.Select(x => x.Key).ToList();
+		foreach (ResidueID residueID in residueIDs) {
+			Residue residue = GetResidue(residueID);
+			if (residue == null) {
+				residueDict.Remove(residueID);
+			} else {
+				residueDict[residueID] = residue;
+				residue.parent = this;
+			}
 		}
 	}
 
@@ -187,8 +213,9 @@ public class Geometry : MonoBehaviour {
 		Parameters.Copy(this, newGeometry);
 		newGeometry.missingResidues = missingResidues
 			.ToDictionary(x => x.Key, x => x.Value);
-		newGeometry.SetResidueDict(
+		newGeometry.SetResidues(
 			residueDict
+				.Where(x => x.Value != null)
 				.ToDictionary(x => x.Key, x => x.Value.Take(newGeometry))
 		);
 		return newGeometry;
@@ -200,8 +227,9 @@ public class Geometry : MonoBehaviour {
 	) {
 		Geometry newGeometry = PrefabManager.InstantiateGeometry(transform);
 		Parameters.Copy(this, newGeometry);
-		newGeometry.SetResidueDict(
+		newGeometry.SetResidues(
 			residueDict
+				.Where(x => x.Value != null)
 				.ToDictionary(x => x.Key, x => x.Value.Take(newGeometry, atomCondition))
 		);
 		return newGeometry;
@@ -211,8 +239,10 @@ public class Geometry : MonoBehaviour {
 		Parameters.Copy(this, newGeometry);
 		newGeometry.missingResidues = missingResidues
 			.ToDictionary(x => x.Key, x => x.Value);
-		newGeometry.SetResidueDict(
+		
+		newGeometry.SetResidues(
 			residueDict
+				.Where(x => x.Value != null)
 				.ToDictionary(x => x.Key, x => x.Value.Take(newGeometry))
 		);
 		return newGeometry;
@@ -221,9 +251,9 @@ public class Geometry : MonoBehaviour {
 	public Geometry TakeResidue(ResidueID residueID, Transform transform) {
 		Geometry newGeometry = PrefabManager.InstantiateGeometry(transform);
 		Parameters.Copy(this, newGeometry);
-		newGeometry.SetResidueDict(
+		newGeometry.SetResidues(
 			residueDict
-				.Where(x => x.Key == residueID)
+				.Where(x => x.Key == residueID && x.Value != null)
 				.ToDictionary(x => x.Key, x => x.Value.Take(newGeometry))
 		);
 		return newGeometry;
@@ -232,9 +262,9 @@ public class Geometry : MonoBehaviour {
 	public Geometry TakeResidues(IEnumerable<ResidueID> residueIDs, Transform transform) {
 		Geometry newGeometry = PrefabManager.InstantiateGeometry(transform);
 		Parameters.Copy(this, newGeometry);
-		newGeometry.SetResidueDict(
+		newGeometry.SetResidues(
 			residueDict
-				.Where(x => residueIDs.Contains(x.Key))
+				.Where(x => residueIDs.Contains(x.Key) && x.Value != null)
 				.ToDictionary(x => x.Key, x => x.Value.Take(newGeometry))
 		);
 		return newGeometry;
@@ -247,9 +277,9 @@ public class Geometry : MonoBehaviour {
 	) {
 		Geometry newGeometry = PrefabManager.InstantiateGeometry(transform);
 		Parameters.Copy(this, newGeometry);
-		newGeometry.SetResidueDict(
+		newGeometry.SetResidues(
 			residueDict
-				.Where(x => residueIDs.Contains(x.Key))
+				.Where(x => residueIDs.Contains(x.Key) && x.Value != null)
 				.ToDictionary(x => x.Key, x => x.Value.Take(newGeometry, atomCondition))
 		);
 		return newGeometry;
@@ -258,7 +288,7 @@ public class Geometry : MonoBehaviour {
 	public Geometry TakeLayer(OLID oniomLayer, Transform transform) {
 		Geometry newGeometry = PrefabManager.InstantiateGeometry(transform);
 		Parameters.Copy(this, newGeometry);
-		newGeometry.SetResidueDict(
+		newGeometry.SetResidues(
 			residueDict
 				.ToDictionary(x => x.Key, x => x.Value.TakeLayer(oniomLayer, newGeometry))
 				.Where(x => x.Value != null)
@@ -273,9 +303,9 @@ public class Geometry : MonoBehaviour {
 		newGeometry.missingResidues = missingResidues
 			.Where(x => x.Key.chainID == chainID)
 			.ToDictionary(x => x.Key, x => x.Value);
-		newGeometry.SetResidueDict(
+		newGeometry.SetResidues(
 			residueDict
-				.Where(x => x.Key.chainID == chainID)
+				.Where(x => x.Key.chainID == chainID && x.Value != null)
 				.ToDictionary(x => x.Key, x => x.Value)
 		);
 		return newGeometry;
@@ -284,9 +314,9 @@ public class Geometry : MonoBehaviour {
 	public Geometry TakeDry(Transform transform) {
 		Geometry newGeometry = PrefabManager.InstantiateGeometry(transform);
 		Parameters.Copy(this, newGeometry);
-		newGeometry.SetResidueDict(
+		newGeometry.SetResidues(
 			residueDict
-				.Where(x => x.Value.state != RS.WATER)
+				.Where(x => x.Value != null &&  x.Value.state != RS.WATER)
 				.ToDictionary(x => x.Key, x => x.Value)
 		);
 		return newGeometry;
@@ -317,6 +347,24 @@ public class Geometry : MonoBehaviour {
 
 	public bool ContainsResidue(ResidueID residueID) {
 		return residueDict.ContainsKey(residueID);
+	}
+
+	public void RemoveResidue(ResidueID residueID) {
+		Residue residue;
+		if (!TryGetResidue(residueID, out residue)) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"Cannot remove Residue '{0}' - Residue not found",
+				residueID
+			);
+			return;
+		}
+		foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+			foreach (AtomID neighbourID in atom.externalConnections.Keys.ToList()) {
+				Disconnect(neighbourID, new AtomID(residueID, pdbID));
+			}
+		}
+		residueDict.Remove(residueID);
 	}
 
 	public bool ContainsAtom(AtomID atomID) {

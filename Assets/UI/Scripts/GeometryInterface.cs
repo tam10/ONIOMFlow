@@ -119,7 +119,7 @@ public class GeometryInterface :
 	}
 
 	private GIS _status;
-	/// <summary>Gets/Sets the Status (e.g. errror/ok/disabled/loading) of this Geometry Interface.</summary>
+	/// <summary>Gets/Sets the Status (e.g. error/ok/disabled/loading) of this Geometry Interface.</summary>
 	public GIS status {
 		get {return _status;}
 		set {
@@ -130,7 +130,7 @@ public class GeometryInterface :
 
 	//INPUT HANDLING
 
-	/// <summary>Was the pointer pressed down on this Geometry Interface?</summary>
+	/// <summary>Is the pointer being pressed down on this Geometry Interface?</summary>
 	private bool pointerDown;
 	/// <summary>Is this Geometry Interface being dragged?</summary>
 	private bool isBeingDragged;
@@ -259,7 +259,7 @@ public class GeometryInterface :
 			//Set the parent transform of geometry to this transform
 			geometry.transform.parent = transform;
 			//Set the parent of each residue in geometry to the geometry (in case setting from a Residue Dictionary)
-			foreach (Residue residue in geometry.residueDict.Values) {
+			foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
 				residue.parent = geometry;
 				if (Timer.yieldNow) {yield return null;}
 			}
@@ -341,15 +341,14 @@ public class GeometryInterface :
 		}
 
 		//Use numResidues and residueNum to track progress for Task Progress
-		int numResidues = geometry.residueDict.Count;
+		int numResidues = geometry.residueCount;
 		int residueNum = 0;
 
-		foreach (ResidueID residueID in geometry.residueDict.Keys) {
-			Residue thisResidue = geometry.residueDict[residueID];
+		foreach ((ResidueID residueID, Residue thisResidue) in geometry.EnumerateResidues()) {
 
 			//Continue to next Residue if copyToGeometry does not contain residueID
 			Residue otherResidue;
-			if (!copyToGeometry.residueDict.TryGetValue(residueID, out otherResidue)) {
+			if (!copyToGeometry.TryGetResidue(residueID, out otherResidue)) {
 				continue;
 			}
 
@@ -700,7 +699,18 @@ public class GeometryInterface :
 		GameObject.Destroy(savePrompt.gameObject);
 
 		//Write the file
-		yield return FileWriter.WriteFile(geometry, path, true);
+        FileWriter fileWriter;
+        try {
+            fileWriter = new FileWriter(geometry, path, true);
+        } catch (System.ArgumentException e) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to save Geometry! {0}",
+                e.Message
+            );
+            yield break;
+        }
+        yield return fileWriter.WriteFile();
 
 		CustomLogger.LogFormat(
 			EL.INFO, 
@@ -858,15 +868,22 @@ public class GeometryInterface :
 		//Run the checks
 		yield return checker.Check();
 
+		NotificationBar.SetTaskProgress(TID.CHECK_GEOMETRY,0.90f);
+		yield return null;
+
 		//Get information about residues
-		List<ResidueID> residueIDs = geometry.residueDict.Keys.ToList();
+		List<ResidueID> residueIDs = geometry.EnumerateResidueIDs().ToList();
         foreach (ResidueID residueID in residueIDs) {
 			geometry.SetResidueProperties(residueID);
 		}
 
 		NotificationBar.SetTaskProgress(TID.CHECK_GEOMETRY,0.95f);
-
 		yield return null;
+
+		if (geometry.gaussianCalculator != null) {
+			yield return geometry.gaussianCalculator.CheckOrbitalsAvailable();
+		}
+
 
 		//Set status
 		status = (GIS)Mathf.Max((int)checker.errorLevel, (int)status);

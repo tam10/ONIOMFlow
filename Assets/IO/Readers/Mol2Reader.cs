@@ -78,12 +78,12 @@ public class Mol2Reader : GeometryReader {
                     partialCharge = float.Parse(splitLine[8]);
                 }
                 
-                if (!geometry.residueDict.ContainsKey (residueID)) {
-                    geometry.residueDict[residueID] = new Residue(residueID, residueName, geometry);
+                if (!geometry.HasResidue(residueID)) {
+                    geometry.AddResidue(residueID, new Residue(residueID, residueName, geometry));
                     CustomLogger.LogFormat(EL.VERBOSE, "Adding Residue. ID: {0}. Name: {1}", residueID, residueName);
                 }
                 Atom atom = new Atom(position, residueID, AmberCalculator.GetAmber(amber), partialCharge);
-                geometry.residueDict[residueID].AddAtom(pdbID, atom, false);
+                geometry.GetResidue(residueID).AddAtom(pdbID, atom, false);
                 CustomLogger.LogFormat(EL.VERBOSE, "Adding Atom. ID: {0}. Position: {1}", pdbID, position);
                 
                 atomIndex++;

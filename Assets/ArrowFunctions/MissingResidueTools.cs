@@ -21,7 +21,7 @@ public class MissingResidueTools : MonoBehaviour {
 
     public IEnumerable<(Residue, Residue, List<string>, List<ResidueID>)> EnumerateMissingSegments(Geometry geometry) {
         
-        List<ResidueID> residueIDs = geometry.residueDict.Keys.ToList();
+        List<ResidueID> residueIDs = geometry.EnumerateResidueIDs().ToList();
         List<ResidueID> missingResidueIDs = geometry.missingResidues.Keys.ToList();
         
         List<string> segmentNames = new List<string>();
@@ -51,7 +51,7 @@ public class MissingResidueTools : MonoBehaviour {
                     missingResidueID
                 );
 
-                string existingResidueName = geometry.residueDict[missingResidueID].residueName;
+                string existingResidueName = geometry.GetResidue(missingResidueID).residueName;
                 if (existingResidueName != missingResidueName) {
                     CustomLogger.LogFormat(
                         EL.ERROR,
@@ -66,8 +66,8 @@ public class MissingResidueTools : MonoBehaviour {
                 //End the segment if it exists
                 if (segmentNames.Count > 0) {
                     yield return (
-                        residueIDs.Contains(startResidueID) ? geometry.residueDict[startResidueID] : null,
-                        residueIDs.Contains(missingResidueID) ? geometry.residueDict[missingResidueID] : null,
+                        residueIDs.Contains(startResidueID) ? geometry.GetResidue(startResidueID) : null,
+                        residueIDs.Contains(missingResidueID) ? geometry.GetResidue(missingResidueID) : null,
                         segmentNames,
                         segmentIDs
                     );
@@ -97,13 +97,13 @@ public class MissingResidueTools : MonoBehaviour {
             ) {
                 //Terminate the segment
                 Residue startResidue = residueIDs.Contains(startResidueID) 
-                    ? geometry.residueDict[startResidueID] 
+                    ? geometry.GetResidue(startResidueID) 
                     : null;
                 Residue endResidue = !residueIDs.Contains(nextID) 
                     ? null 
-                    : geometry.residueDict[nextID].isWater 
+                    : geometry.GetResidue(nextID).isWater 
                         ? null 
-                        : geometry.residueDict[nextID];
+                        : geometry.GetResidue(nextID);
 
                 yield return (
                     startResidue,

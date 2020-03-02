@@ -16,18 +16,35 @@ public static class XATWriter {
 
     public static IEnumerator WriteXATFile(Geometry geometry, string fileName, bool writeConnectivity) {
 
-        x = XmlWriter.Create(fileName, xmlWriterSettings);
+        if (geometry == null) {
+            CustomLogger.LogFormat(
+                EL.WARNING,
+                "Cannot save .XAT file with null Geometry!"
+            );
+            yield break;
+        }
 
-        List<ResidueID> residueIDs = geometry.EnumerateResidueIDs().ToList();
-        residueIDs.Sort();
+        x = XmlWriter.Create(fileName, xmlWriterSettings);
         x.WriteStartDocument();
 
-        x.WriteStartElement("geometry");
+        List<ResidueID> residueIDs = geometry.EnumerateResidueIDs()?.ToList();
 
-        foreach(ResidueID residueID in residueIDs) {
-            WriteResidue(geometry, residueID, writeConnectivity);
-            if (Timer.yieldNow) {yield return null;}
+        if (residueIDs == null) {
+            CustomLogger.LogFormat(
+                EL.WARNING,
+                "Saving .XAT file with no residues!"
+            );
+        } else {
+            residueIDs.Sort();
+
+            x.WriteStartElement("geometry");
+
+            foreach(ResidueID residueID in residueIDs) {
+                WriteResidue(geometry, residueID, writeConnectivity);
+                if (Timer.yieldNow) {yield return null;}
+            }
         }
+        
 
 
         x.WriteStartElement("parameters");

@@ -252,6 +252,9 @@ public static class MutationTools {
 
             for (int atomIndex=0; atomIndex<newResidue.size; atomIndex++) {
                 PDBID pdbID = dihedralScanner.residuePDBIDs[atomIndex];
+                if (Data.backbonePDBs.Contains(pdbID)) {
+                    continue;
+                }
                 Atom atom;
                 if (!oldResidue.atoms.TryGetValue(pdbID, out atom)) {
                     CustomLogger.LogFormat(
@@ -263,6 +266,7 @@ public static class MutationTools {
                     yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
                     yield break;
                 }
+
                 oldResidue.atoms[pdbID].position = bestPositions[atomIndex];
             }
 

@@ -5,8 +5,9 @@ using UnityEngine.EventSystems;
 using GIID = Constants.GeometryInterfaceID;
 using GIS = Constants.GeometryInterfaceStatus;
 using EL = Constants.ErrorLevel;
-using Unity.Mathematics;
+using System.Text;
 using System.Xml.Linq;
+using System.Linq;
 using System.IO;
 using System;
 
@@ -104,40 +105,89 @@ public class Flow :
 	}
 
 	public static IEnumerator SaveState() {
-		string stateDirectory = Path.Combine(
+
+		if (main.geometryDict.All(x => x.Value.geometry == null)) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"Cannot save empty State!"
+			);
+		}
+
+		FileSelector fileSelector = FileSelector.main;
+		while (fileSelector.isBusy) {
+			yield return null;
+		}
+
+		string currentDirectory = Settings.currentDirectory;
+		float oldAlpha = fileSelector.fullPathText.alpha;
+
+		void CleanUp() {
+			Settings.currentDirectory = currentDirectory;
+			fileSelector.fullPathText.alpha = oldAlpha;
+			fileSelector.fileNameInput.text = "";
+		}
+
+		Settings.currentDirectory = Settings.projectPath;
+
+		string[] directories = Directory.GetDirectories(
 			Settings.projectPath,
-			DateTime.Now.ToString(".yyyy-MM-ddTHH.mm.ss")
+			".*",
+			searchOption:SearchOption.TopDirectoryOnly
 		);
 
-		if (!Directory.Exists(stateDirectory)) {
-			Directory.CreateDirectory(stateDirectory);
-			DirectoryInfo directoryInfo = new DirectoryInfo(stateDirectory);
-			directoryInfo.Attributes |= FileAttributes.Hidden;
-		}
-
-		foreach ((GIID geometryInterfaceID, GeometryInterface geometryInterface) in main.geometryDict) {
-			Geometry geometry = geometryInterface.geometry;
 
 
-			if (geometry != null) {
-				string fileName = string.Format("{0}.xat", geometryInterface.id);
-				string path = Path.Combine(stateDirectory, fileName);
-				
-				FileWriter fileWriter;
-				try {
-					fileWriter = new FileWriter(geometry, path, true);
-				} catch (System.ArgumentException e) {
-					CustomLogger.LogFormat(
-						EL.ERROR,
-						"Failed to save state! {0}",
-						e.Message
-					);
-					yield break;
-				}
-				yield return fileWriter.WriteFile();
-				
+		fileSelector.saveMode = true;
+		fileSelector.cancelled = false;
+		fileSelector.SetFileTypes(new List<string>());
+
+		fileSelector.Show();
+
+		fileSelector.Clear();
+
+		fileSelector.fullPathText.text = Settings.projectPath;
+
+		fileSelector.fullPathText.alpha = 0;
+		fileSelector.fileNameInput.text = "";
+		fileSelector.SetPromptText("Select Save State name:");
+
+		foreach (string directory in directories) {
+			try {
+				string name = Path.GetFileName(directory).Replace(".", "");
+				FlowState state = FlowState.FromName(name);
+
+				fileSelector.AddItem(name, true, true, name);
+			} catch (System.Exception e){
+				CustomLogger.LogFormat(
+					EL.VERBOSE,
+					"Skipping invalid directory {0} in Save State: {1}",
+					directory,
+					e.Message
+				);
+				continue;
 			}
 		}
+
+		while (!fileSelector.userResponded) {
+			yield return null;
+		}
+
+		fileSelector.Hide();
+		if (fileSelector.cancelled) {
+			CleanUp();
+			yield break;
+		}
+
+		FlowState flowState = FlowState.FromFlow(
+			Path.GetFileNameWithoutExtension(
+				fileSelector.confirmedText
+					.Replace(".", "")
+					.Replace(":", "")
+			)
+		);
+
+		CleanUp();
+		yield return flowState.Save();
 	}
 
 	public static IEnumerator LoadState() {
@@ -150,37 +200,49 @@ public class Flow :
 			searchOption:SearchOption.TopDirectoryOnly
 		);
 
-		List<string> stateDirectories = new List<string>();
-
 		FileSelector fileSelector = FileSelector.main;
+		while (fileSelector.isBusy) {
+			yield return null;
+		}
+
+		string currentDirectory = Settings.currentDirectory;
+		float oldAlpha = fileSelector.fullPathText.alpha;
+
+		void CleanUp() {
+			Settings.currentDirectory = currentDirectory;
+			fileSelector.fullPathText.alpha = oldAlpha;
+			fileSelector.fileNameInput.text = "";
+		}
+
 		fileSelector.saveMode = true;
 		fileSelector.cancelled = false;
 		fileSelector.SetFileTypes(new List<string>());
 
 		fileSelector.Show();
 
-		while (fileSelector.isBusy) {
-			yield return null;
-		}
-
 		fileSelector.Clear();
 
-		fileSelector.SetPromptText("Load a previously saved State");
+		fileSelector.fullPathText.alpha = 0;
+		fileSelector.fileNameInput.text = "";
+		fileSelector.SetPromptText("Load a previously saved State:");
 
 		Dictionary<string, string> timeStampToDirectory = new Dictionary<string, string>();
 
-		foreach (string path in directories) {
-			string directory = Path.GetFileName(path);
-			DateTime timeStamp;
+		foreach (string directory in directories) {
 			try {
-				timeStamp = DateTime.Parse(directory.TrimStart(new char[] {'.'}).Replace(".", ":"));
-			} catch {
+				string name = Path.GetFileName(directory).Replace(".", "");
+				FlowState state = FlowState.FromName(name);
+
+				fileSelector.AddItem(name, true, true, name);
+			} catch (System.Exception e){
+				CustomLogger.LogFormat(
+					EL.VERBOSE,
+					"Skipping invalid directory {0} in Load State: {1}",
+					directory,
+					e.Message
+				);
 				continue;
 			}
-			string timeStampString = timeStamp.ToString();
-			timeStampToDirectory[timeStampString] = directory;
-			stateDirectories.Add(directory);
-			fileSelector.AddItem(directory, true, true, timeStampString);
 		}
 
 		while (!fileSelector.userResponded) {
@@ -189,32 +251,36 @@ public class Flow :
 
 		fileSelector.Hide();
 		if (fileSelector.cancelled) {
+			Settings.currentDirectory = currentDirectory;
+			fileSelector.fileNameInput.text = "";
 			yield break;
 		}
 
-		string statePath = fileSelector.confirmedText;
+		string stateName = Path.GetFileNameWithoutExtension(
+			fileSelector.confirmedText
+				.Replace(".", "")
+				.Replace(":", "")
+		);
 
 		yield return null;
 
-		if (!Directory.Exists(statePath)) {
+		FlowState flowState;
+		try {
+			flowState = FlowState.FromName(stateName);
+
+		} catch (System.Exception e) {
 			CustomLogger.LogFormat(
 				EL.ERROR,
-				"Directory does not exist: {0}",
-				statePath
+				"Unable to load State '{0}': {1}",
+				stateName,
+				e.Message
 			);
+			CleanUp();
 			yield break;
 		}
 
-		foreach ((GIID geometryInterfaceID, GeometryInterface geometryInterface) in main.geometryDict) {
-
-			string fileName = string.Format("{0}.xat", geometryInterface.id);
-			string path = Path.Combine(statePath, fileName);
-			if (File.Exists(path)) {
-				geometryInterface.InitialiseEmptyGeometry();
-				yield return FileReader.LoadGeometry(geometryInterface.geometry, path);
-				yield return geometryInterface.CheckAll();
-			}
-		}
+		CleanUp();
+		yield return flowState.Load();
 	}
 
 	/// <summary>Return the reference to a Geometry Interface using a GeometryInterfaceID.</summary>
@@ -465,7 +531,7 @@ public class Flow :
 		contextMenu.AddButton(
             () => {StartCoroutine(SaveState());}, 
             "Save State", 
-            true
+            ! main.geometryDict.All(x => x.Value.geometry == null)
         );
 		contextMenu.AddButton(
 			() => {StartCoroutine(LoadState());},
@@ -477,5 +543,215 @@ public class Flow :
 		contextMenu.Show();
 	}
 
+}
+
+public struct FlowState {
+
+	public DateTime timeStamp;
+	public string path;
+	public string name;
+	public Dictionary<GIID, string> geometryNames;
+
+	public static FlowState FromName(string name) {
+
+		FlowState flowState = new FlowState();
+		if (string.IsNullOrEmpty(name)) {
+			throw new ArgumentException("State Name argument cannot be null or empty!");
+		}
+		flowState.name = name;
+
+		//Find State File
+		flowState.path = Path.Combine(Settings.projectPath, "." + name);
+		string stateFile = Directory.GetFiles(flowState.path)
+			.FirstOrDefault(x => Path.GetFileName(x) == ".state");
+			
+		if (string.IsNullOrEmpty(stateFile)) {
+			throw new Exception("Directory has no state file!");
+		}
+
+		//Open State File
+		string[] lines = FileIO.Readlines(stateFile);
+
+		//Get Time Stamp from file
+		if (!DateTime.TryParse(lines.FirstOrDefault().Replace(".", ":"), out flowState.timeStamp)) {
+			throw new Exception("Invalid Timestamp in state file!");
+		}
+
+		//Initialise dictionary of GIID to file path
+		flowState.geometryNames = Flow.main.geometryDict
+			.ToDictionary(x => x.Key, x => "");
+
+		//Loop through State File skipping first line
+		foreach ((string line, int lineNumber) in lines.Select((x,i) => (x,i)).Skip(1)) {
+			string[] splitLine = line.Split(new char[] {':'}, 2);
+
+			//Get GIID
+			GIID geometryInterfaceID;
+			if (!Constants.GeometryInterfaceIDMap.TryGetValue(splitLine[0], out geometryInterfaceID)) {
+				CustomLogger.LogFormat(
+					EL.WARNING,
+					"Failed to get Geometry Interface ID from string '{0}'. state file {1}:{2}",
+					splitLine[0],
+					stateFile,
+					lineNumber + 1
+				);
+				continue;
+			}
+
+			string geometryPath = Path.Combine(
+				flowState.path,
+				geometryInterfaceID.ToString() + ".xat"
+			);
+			if (!File.Exists(geometryPath)) {
+				CustomLogger.LogFormat(
+					EL.WARNING,
+					"Failed to get Geometry from Path '{0}'. state file {1}:{2}",
+					geometryPath,
+					stateFile,
+					lineNumber + 1
+				);
+				continue;
+
+			}
+
+			//Get Name
+			string geometryName = Path.Combine(flowState.path, splitLine[1]);
+
+			flowState.geometryNames[geometryInterfaceID] = geometryName;
+		}
+		
+		return flowState;
+	}
+
+
+	public static FlowState FromFlow(string name) {
+
+		FlowState flowState = new FlowState();
+		if (string.IsNullOrEmpty(name)) {
+			throw new ArgumentException("State Name argument cannot be null or empty!");
+		}
+		flowState.name = name;
+
+		flowState.timeStamp = DateTime.Now;
+
+		flowState.path = Path.Combine(Settings.projectPath, "." + name);
+
+		flowState.geometryNames = Flow.main.geometryDict
+			.ToDictionary(
+				x => x.Key, 
+				x => x.Value.geometry != null 
+					 ? x.Value.geometry.name
+					 : ""
+			);
+
+		return flowState;
+
+	}
+
+	public IEnumerator Load() {
+
+		if (geometryNames == null) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"Cannot load state - Geometry Paths Dictionary is null!"
+			);
+		}
+
+		foreach ((GIID geometryInterfaceID, string geometryName) in geometryNames) {
+
+			if (string.IsNullOrEmpty(geometryName)) {
+				continue;
+			}
+
+			GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
+
+			string geometryPath = Path.Combine(
+				path,
+				geometryInterfaceID.ToString() + ".xat"
+			);
+
+			if (File.Exists(geometryPath)) {
+				geometryInterface.InitialiseEmptyGeometry();
+				yield return FileReader.LoadGeometry(geometryInterface.geometry, geometryPath);
+				yield return geometryInterface.CheckAll();
+			} else {
+				CustomLogger.LogFormat(
+					EL.ERROR,
+					"Geometry '{0}' not found in path: {1}",
+					Constants.GeometryInterfaceIDMap[geometryInterfaceID],
+					geometryPath
+				);
+			}
+
+			if (Timer.yieldNow) {
+				yield return null;
+			}
+		}
+	}
+
+	public IEnumerator Save() {
+
+		if (geometryNames == null) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"Cannot save state - Geometry Paths Dictionary is null!"
+			);
+		}
+
+		if (!Directory.Exists(path)) {
+			Directory.CreateDirectory(path);
+			DirectoryInfo directoryInfo = new DirectoryInfo(path);
+			directoryInfo.Attributes |= FileAttributes.Hidden;
+		}
+
+		StringBuilder mapping = new StringBuilder();
+		mapping.AppendLine(timeStamp.ToString("yyyy-MM-ddTHH.mm.ss"));
+
+		foreach ((GIID geometryInterfaceID, string geometryName) in geometryNames) {
+
+			if (string.IsNullOrEmpty(geometryName)) {
+				continue;
+			}
+
+			string geometryPath = Path.Combine(
+				path,
+				geometryInterfaceID.ToString() + ".xat"
+			);
+			if (string.IsNullOrEmpty(geometryPath)) {
+				continue;
+			}
+
+			Geometry geometry = Flow.GetGeometry(geometryInterfaceID);
+
+			FileWriter fileWriter;
+			try {
+				fileWriter = new FileWriter(geometry, geometryPath, true);
+			} catch (System.ArgumentException e) {
+				CustomLogger.LogFormat(
+					EL.ERROR,
+					"Failed to save state! {0}",
+					e.Message
+				);
+				yield break;
+			}
+			yield return fileWriter.WriteFile();
+
+			mapping.AppendLine(
+				string.Join(
+					":",
+			 		Constants.GeometryInterfaceIDMap[geometryInterfaceID],
+					geometryPath
+				)
+			);
+
+			if (Timer.yieldNow) {
+				yield return null;
+			}
+		}
+
+		string stateFilePath = Path.Combine(path, ".state");
+		File.WriteAllText(stateFilePath, mapping.ToString());
+
+	}
 
 }

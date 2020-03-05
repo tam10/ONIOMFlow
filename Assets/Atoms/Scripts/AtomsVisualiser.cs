@@ -2034,7 +2034,23 @@ public class AtomsVisualiser : MonoBehaviour {
             yield break;
         }
 
-        yield return MutationTools.MutateStandard(geometry, residue, newResidue, optimise);
+        ResidueMutator residueMutator;
+        try {
+            residueMutator = new ResidueMutator(geometry, residue.residueID);
+        } catch (System.Exception e) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to Mutate Residue: {1}",
+                e.Message
+            );
+            yield break;
+        }
+
+        yield return residueMutator.MutateStandard(
+            newResidue,
+            optimise
+        );
+
         StartCoroutine(Redraw());
         
         geometryHistory.SaveState(string.Format("Mutate Residue '{0}'", closestAtom.residueID));

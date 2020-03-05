@@ -758,6 +758,10 @@ public class GeometryInterface :
 
 		contextMenu.AddSpacer();
 
+		contextMenu.AddButton(() => StartCoroutine(RunMacro()), "Run Macro File", geometryEnabled);
+
+		contextMenu.AddSpacer();
+
 		contextMenu.AddButton(() => LoadFile(), "Load File", true);
 		contextMenu.AddButton(() => SaveFile(), "Save File", geometryEnabled);
 
@@ -947,6 +951,14 @@ public class GeometryInterface :
         NotificationBar.ClearTask(TID.COMPUTE_PARAMETER_SCORES);
 		activeTasks--;
 
+	}
+
+	public IEnumerator RunMacro() {
+		activeTasks++;
+		Macro macro = Macro.FromGeometryInterface(id);
+		yield return macro.LoadRootFromXML();
+		yield return macro.ProcessRoot();
+		activeTasks--;
 	}
 
 	/// <summary>

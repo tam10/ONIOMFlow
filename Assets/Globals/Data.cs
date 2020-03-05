@@ -35,6 +35,31 @@ public static class Data {
 		new PDBID(Element.H, "", 0),
 		new PDBID(Element.H, "A", 0)
 	};
+
+	public static Dictionary<string, string> residueName3To1 = new Dictionary<string, string> {
+		{"ALA", "A"},
+		{"ARG", "R"},
+		{"ASN", "N"}, {"ASH", "N"},
+		{"ASP", "D"},
+		{"CYS", "C"}, {"CYM", "C"}, {"CYX", "C"},
+		{"GLU", "E"}, {"GLH", "E"}, 
+		{"GLN", "Q"},
+		{"GLY", "G"},
+		{"HIS", "H"}, {"HID", "H"}, {"HIE", "H"}, {"HIP", "H"}, 
+		{"ILE", "I"},
+		{"LEU", "L"},
+		{"LYN", "K"},
+		{"LYS", "K"},
+		{"MET", "M"},
+		{"PHE", "F"},
+		{"PRO", "P"},
+		{"SER", "S"},
+		{"THR", "T"},
+		{"TRP", "W"},
+		{"TYR", "Y"},
+		{"VAL", "V"}
+	};
+
 	public static PDBID CTER_ID = new PDBID(Element.O, "XT", 0);
 	public static PDBID NTER_ID = new PDBID(Element.N, "", 2);
 	public static List<Element> electronWithdrawingElements = new List<Element> {

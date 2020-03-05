@@ -11,121 +11,159 @@ using System.Linq;
 using Unity.Mathematics;
 
 
-public static class MutationTools {
+public class ResidueMutator {
 
+    Geometry geometry;
+    Residue oldResidue;
+
+    bool failed;
+
+    public float clashScore;
+    
+    static readonly IList<RS> validStates = new [] {RS.STANDARD, RS.C_TERMINAL, RS.N_TERMINAL};
+
+    public ResidueMutator(Geometry geometry, ResidueID residueID) {
+        
+        if (geometry == null) {
+            throw new System.Exception(string.Format(
+                "Cannot Mutate '{0}' - Geometry is null!",
+                residueID
+            ));
+        }
+
+        if (!geometry.TryGetResidue(residueID, out oldResidue)) {
+            throw new System.Exception(string.Format(
+                "Cannot Mutate '{0}' - Residue not found in Geometry!",
+                residueID
+            ));
+        }
+        
+
+        if (! validStates.Any(x => x == oldResidue.state)) {
+            throw new System.Exception(string.Format(
+                "Cannot Mutate '{0}' - Residue is not in a valid State for mutation. Must be one of: {0}",
+                string.Join(", ", validStates.Select(x => Constants.ResidueStateMap[x]))
+            ));
+        }
+
+        this.geometry = geometry;
+        failed = false;
+        clashScore = 0;
+    }
+
+
+    
+		
+    Atom GetValidAtom(Residue residue, PDBID pdbID) {
+        Atom atom = residue.GetSingleAtom(pdbID);
+        if (atom == null) {
+            throw new System.Exception(string.Format(
+                "Required Atom {0} is null.",
+                new AtomID(residue.residueID, pdbID)
+            ));
+        }
+
+        if (math.all(math.isnan(atom.position))) {
+            throw new System.Exception(string.Format(
+                "Position of atom {0} is {1}.",
+                new AtomID(residue.residueID, pdbID),
+                atom.position
+            ));
+        }
+        return atom;
+    }
 
 	///<summary>
 	/// Change a Standard Residue for another.
 	///</summary>
-    public static IEnumerator MutateStandard(Geometry geometry, Residue oldResidue, Residue newResidue, bool optimise) {
-
-        if (oldResidue == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Old Residue is null! Cannot mutate."
-            );
-            yield break;
-        }
-
-        if (newResidue == null) {
+    public IEnumerator MutateStandard(Residue targetResidue, bool optimise) {
+        
+        if (targetResidue == null) {
             CustomLogger.LogFormat(
                 EL.ERROR,
                 "New Residue is null! Cannot mutate."
             );
+            failed = true;
             yield break;
         }
 
         yield return NotificationBar.UpdateTaskProgress(TID.MUTATE_RESIDUE, 0f);
         
-        IList<RS> validStates = new [] {RS.STANDARD, RS.C_TERMINAL, RS.N_TERMINAL};
-
-        if (! validStates.Any(x => x == oldResidue.state)) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Residue is not in a valid State for mutation. Must be one of: {0}",
-                string.Join(", ", validStates.Select(x => Constants.ResidueStateMap[x]))
-            );
-            yield break;
-        }
-
-        //Get new Residue
-        if (newResidue == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Cannot mutate Residue '{0}' to '{1}'",
-                oldResidue.residueName,
-                newResidue.residueName
-            );
-            yield break;
-        }
-
         CustomLogger.LogFormat(
             EL.INFO,
             "Mutating Residue '{0}' ('{1}' -> '{2}')",
             oldResidue.residueID,
             oldResidue.residueName,
-            newResidue.residueName
+            targetResidue.residueName
         );
-		
-		bool TryGetAtom(Residue residue, PDBID pdbID, out Atom atom) {
-			atom = residue.GetSingleAtom(pdbID);
-			if (atom == null) {
-				CustomLogger.LogFormat(
-					EL.ERROR,
-					"Cannot mutate Residue '{0}' to '{1}' - Required Atom {2} is null.",
-                    oldResidue.residueName,
-                    newResidue.residueName,
-					new AtomID(residue.residueID, pdbID)
-				);
-				return false;
-			}
 
-			if (math.all(math.isnan(atom.position))) {
-				CustomLogger.LogFormat(
-					EL.ERROR,
-					"Cannot mutate Residue '{0}' to '{1}' - Position of atom {2} is {3}.",
-                    oldResidue.residueName,
-                    newResidue.residueName,
-					new AtomID(residue.residueID, pdbID),
-					atom.position
-				);
-				return false;
-			}
-			return true;
-		}
+        yield return AlignTargetResidue(targetResidue);
+        if (failed) {yield break;}
 
+        yield return ReplaceSideChain(targetResidue);
+        if (failed) {yield break;}
+        
+        if (!optimise) {
+            CustomLogger.LogFormat(
+                EL.VERBOSE,
+                "No dihedral optimisation."
+            );
+        } else {
+            yield return Optimise(targetResidue);
+            if (failed) {yield break;}
+        }
+
+        oldResidue.residueName = targetResidue.residueName;
+        yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
+    }
+
+    IEnumerator AlignTargetResidue(Residue targetResidue) {
+        
         Atom cAtom;
         Atom caAtom;
         Atom nAtom;
 
-        if (
-			!TryGetAtom(oldResidue, PDBID.C, out cAtom) ||
-			!TryGetAtom(oldResidue, PDBID.CA, out caAtom) || 
-			!TryGetAtom(oldResidue, PDBID.N, out nAtom)
-		) {
-            yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
+        try {
+			cAtom  = GetValidAtom(oldResidue, PDBID.C);
+			caAtom = GetValidAtom(oldResidue, PDBID.CA);
+			nAtom  = GetValidAtom(oldResidue, PDBID.N);
+		} catch (System.Exception e) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot Mutate '{0}': {1}",
+                oldResidue.residueID,
+                e.Message
+            );
+            NotificationBar.ClearTask(TID.MUTATE_RESIDUE);
+            failed = true;
             yield break;
 		}
 
+        
         yield return NotificationBar.UpdateTaskProgress(TID.MUTATE_RESIDUE, 0.05f);
 
         //Move mutated Residue to current position
-        newResidue.TranslateTo(PDBID.C, cAtom.position);
+        targetResidue.TranslateTo(PDBID.C, cAtom.position);
 
         //Align to new bond direction
-        newResidue.AlignBond(
+        targetResidue.AlignBond(
             PDBID.C, 
             PDBID.N, 
             math.normalize(nAtom.position - cAtom.position)
         );
 
         //Align by dihedral
-        float dihedral = CustomMathematics.GetDihedral(caAtom, cAtom, nAtom, newResidue.atoms[PDBID.CA]);
+        float dihedral = CustomMathematics.GetDihedral(caAtom, cAtom, nAtom, targetResidue.atoms[PDBID.CA]);
         Vector3 bondVector = CustomMathematics.GetVector(cAtom, nAtom);
-        newResidue.Rotate(
+        targetResidue.Rotate(
             Quaternion.AngleAxis(dihedral * Mathf.Rad2Deg, bondVector), 
-            newResidue.atoms[PDBID.C].position
+            targetResidue.atoms[PDBID.C].position
         );
+
+    }
+
+    IEnumerator ReplaceSideChain(Residue targetResidue) {
+        
 
         //Keep protonation flag
         bool protonated = oldResidue.protonated;
@@ -145,14 +183,14 @@ public static class MutationTools {
         
         List<PDBID> addList;
         if (protonated) {
-            addList = newResidue.pdbIDs.Where(x => !Data.backbonePDBs.Contains(x)).ToList();
+            addList = targetResidue.pdbIDs.Where(x => !Data.backbonePDBs.Contains(x)).ToList();
         } else {
-            addList = newResidue.pdbIDs.Where(x => x.element != Element.H && !Data.backbonePDBs.Contains(x)).ToList();
+            addList = targetResidue.pdbIDs.Where(x => x.element != Element.H && !Data.backbonePDBs.Contains(x)).ToList();
         }
 
         //Add new sidechain Atoms
         foreach (PDBID pdbID in addList) {
-            oldResidue.AddAtom(pdbID, newResidue.atoms[pdbID].Copy());
+            oldResidue.AddAtom(pdbID, targetResidue.atoms[pdbID].Copy());
         }
 
         CustomLogger.LogFormat(
@@ -166,6 +204,21 @@ public static class MutationTools {
         //Proline exceptions
         PDBID cdPDBID = new PDBID(Element.C, "D");
         PDBID hPDBID = new PDBID(Element.H);
+
+        Atom nAtom;
+        try {
+			nAtom  = GetValidAtom(oldResidue, PDBID.N);
+		} catch (System.Exception e) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot Mutate '{0}': {1}",
+                oldResidue.residueID,
+                e.Message
+            );
+            failed = true;
+            NotificationBar.ClearTask(TID.MUTATE_RESIDUE);
+            yield break;
+		}
         
         //Add H if Proline
         if (nAtom.EnumerateInternalConnections().Select(x => x.Item1.pdbID).Any(x => x.TypeEquals(cdPDBID))) {
@@ -176,7 +229,7 @@ public static class MutationTools {
             oldResidue.AddProton(PDBID.N);
         }
 
-        if (newResidue.residueName == "PRO") {
+        if (targetResidue.residueName == "PRO") {
             if (oldResidue.atoms.ContainsKey(hPDBID)){
                 CustomLogger.Log(
                     EL.DEBUG,
@@ -193,16 +246,10 @@ public static class MutationTools {
             oldResidue.atoms[PDBID.N].internalConnections[cdPDBID] = BT.SINGLE;
             oldResidue.atoms[cdPDBID].internalConnections[PDBID.N] = BT.SINGLE;
         }
+    }
 
-        if (!optimise) {
-            CustomLogger.LogFormat(
-                EL.VERBOSE,
-                "No dihedral optimisation."
-            );
-            oldResidue.residueName = newResidue.residueName;
-            yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
-            yield break;
-        }
+    IEnumerator Optimise(Residue targetResidue) {
+
 
         // Check for clashes and find best configuration
         //
@@ -223,13 +270,14 @@ public static class MutationTools {
 
         DihedralScanner dihedralScanner;
         try {
-            dihedralScanner = new DihedralScanner(geometry, newResidue, nearbyResidues);
+            dihedralScanner = new DihedralScanner(geometry, targetResidue, nearbyResidues);
         } catch (System.Exception e) {
             CustomLogger.LogFormat(
                 EL.ERROR,
                 "Failed to create Dihedral Scanner: {0}",
                 e.Message
             );
+            failed = true;
             NotificationBar.ClearTask(TID.MUTATE_RESIDUE);
             yield break;
         }
@@ -241,16 +289,19 @@ public static class MutationTools {
 
             int bestIndex = CustomMathematics.IndexOfMin(dihedralScanner.scores);
 
+            clashScore = dihedralScanner.scores[bestIndex];
+            Debug.Log(clashScore);
+
             CustomLogger.LogFormat(
                 EL.VERBOSE,
                 "{0} dihedrals returned from Dihedral Scanner - best score: {1}.",
                 dihedralScanner.scores.Count(),
-                dihedralScanner.scores[bestIndex]
+                clashScore
             );
 
             float3[] bestPositions = dihedralScanner.bestPositions[bestIndex];
 
-            for (int atomIndex=0; atomIndex<newResidue.size; atomIndex++) {
+            for (int atomIndex=0; atomIndex<targetResidue.size; atomIndex++) {
                 PDBID pdbID = dihedralScanner.residuePDBIDs[atomIndex];
                 if (Data.backbonePDBs.Contains(pdbID)) {
                     continue;
@@ -263,6 +314,7 @@ public static class MutationTools {
                         pdbID,
                         oldResidue.residueID
                     );
+                    failed = true;
                     yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
                     yield break;
                 }
@@ -276,12 +328,10 @@ public static class MutationTools {
                 "No dihedrals returned from Dihedral Scanner."
             );
         }
-        
-        oldResidue.residueName = newResidue.residueName;
-        yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
     }
 }
 
+    
 public class DihedralScanner {
 
     public PDBID[] residuePDBIDs;

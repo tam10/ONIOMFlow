@@ -12,16 +12,41 @@ using GIID = Constants.GeometryInterfaceID;
 using TID = Constants.TaskID;
 using GIS = Constants.GeometryInterfaceStatus;
 
-public static class GaussianRecipe {
 
-    static Dictionary<string, Geometry> geometryDict;
-    static Dictionary<string, string> variableDict;
-    static Dictionary<string, bool> boolDict;
-    static Dictionary<ResidueID, string> mutationNames;
-    static bool failed;
+public class Macro : MacroGroup {
 
-    public static IEnumerator RunGaussianRecipe(GIID geometryInterfaceID) {
-        NotificationBar.SetTaskProgress(TID.RUN_GAUSSIAN_RECIPE, 0f);
+    public static IEnumerator RunMacro(GIID geometryInterfaceID) {
+		Macro macro = Macro.FromGeometryInterface(geometryInterfaceID);
+		yield return macro.LoadRootFromXML();
+		yield return macro.ProcessRoot();
+    }
+
+    public Macro(Geometry geometry, XElement xElement, bool root) : base (geometry, xElement, root) {
+        sourceGeometry = geometry;
+        rootX = xElement;
+        isRoot = root;
+    }
+
+    public static Macro FromGeometryInterface(GIID geometryInterfaceID) {
+
+        Macro macro = new Macro(null, null, false);
+
+        geometryDict = new Dictionary<string, Geometry>();
+        variableDict = new Dictionary<string, string>();
+        arrayDict = new Dictionary<string, List<string>>();
+        failed = false;
+
+        if (!macro.LoadSourceFromGIID(geometryInterfaceID)) {
+            throw new System.Exception("Failed to load from Geometry Interface!");
+        }
+
+        geometryDict["$(GEOMETRY)"] = macro.sourceGeometry;
+
+        return macro;
+    }
+
+
+    bool LoadSourceFromGIID(GIID geometryInterfaceID) {
 
         GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
         GIS status = geometryInterface.status;
@@ -31,10 +56,44 @@ public static class GaussianRecipe {
                 "Geometry Interface '{0}' is not in an eligible state - Cannot proceed.",
                 geometryInterfaceID
             );
-            NotificationBar.ClearTask(TID.RUN_GAUSSIAN_RECIPE);
-            yield break;
+            return false;
         }
 
+        if (geometryInterface.geometry == null) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Geometry Interface '{0}' has no Geometry - Cannot proceed.",
+                geometryInterfaceID
+            );
+            return false;
+        }
+
+        sourceGeometry = geometryInterface.geometry;
+        return true;
+    }
+
+}
+
+public class MacroGroup {
+
+    public static Dictionary<string, Geometry> geometryDict;
+    public static Dictionary<string, string> variableDict;
+    public static Dictionary<string, List<string>> arrayDict;
+    public static bool failed;
+
+
+    public bool isRoot;
+    public XElement rootX;
+    public Geometry sourceGeometry;
+
+    public MacroGroup(Geometry geometry, XElement xElement, bool root) {
+        sourceGeometry = geometry;
+        rootX = xElement;
+        isRoot = root;
+    }
+
+    public IEnumerator LoadRootFromXML() {
+        
         FileSelector loadPrompt = FileSelector.main;
 
 		//Set FileSelector to Load mode
@@ -47,11 +106,13 @@ public static class GaussianRecipe {
 		if (loadPrompt.cancelled) {
 			GameObject.Destroy(loadPrompt.gameObject);
             NotificationBar.ClearTask(TID.RUN_GAUSSIAN_RECIPE);
+            failed = true;
 			yield break;
 		}
 
 		//Got a non-cancelled response from the user
 		string path = loadPrompt.confirmedText;
+
 		//Close the FileSelector
 		GameObject.Destroy(loadPrompt.gameObject);
 
@@ -60,40 +121,12 @@ public static class GaussianRecipe {
 			CustomLogger.LogFormat(EL.ERROR, "File does not exist: {0}", path);
 			GameObject.Destroy(loadPrompt.gameObject);
             NotificationBar.ClearTask(TID.RUN_GAUSSIAN_RECIPE);
+            failed = true;
 			yield break;
 		}
 
-        
-        yield return FromXML(geometryInterface, path);
-
-
-
-        NotificationBar.ClearTask(TID.RUN_GAUSSIAN_RECIPE);
-    }
-
-    public static IEnumerator FromXML(
-        GeometryInterface geometryInterface,
-        string path
-    ) {
-
-
-        geometryDict = new Dictionary<string, Geometry>();
-        variableDict = new Dictionary<string, string>();
-        boolDict = new Dictionary<string, bool>();
-        mutationNames = new Dictionary<ResidueID, string>();
-        failed = false;
-
-        if (!File.Exists(path)) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "File '{0}' does not exist.",
-                path
-            );
-            yield break;
-        }
-
         XDocument xDocument;
-        
+
         try {
             xDocument = FileIO.ReadXML(path);
         } catch (System.Exception e) {
@@ -104,129 +137,110 @@ public static class GaussianRecipe {
                 e.ToString(),
                 FileIO.newLine
             );
+            failed = true;
             yield break;
         }
 
-        XElement recipeX = xDocument.Element("recipe");
-        if (recipeX == null) {
+        rootX = xDocument.Element("recipe");
+        if (rootX == null) {
             CustomLogger.LogFormat(
                 EL.ERROR,
                 "Element 'recipe' not found in root of '{0}'.",
                 path
             );
+            failed = true;
             yield break;
         }
 
-        Geometry geometry = geometryDict["$(GEOMETRY)"] = geometryInterface.geometry;
+    }
 
-        //Add variables
-        yield return ParseVariables(recipeX);
-        yield return ParseUserVariables(recipeX);
-        yield return ParseUserBools(recipeX);
+    public IEnumerator ProcessRoot() {
+        yield return ProcessElement(rootX);
+    }
 
-        foreach (XElement groupX in recipeX.Elements("group")) {
-            string type = ParseXMLAttrString(groupX, "type", "", geometry).ToLower();
-            string groupName = ParseXMLAttrString(groupX, "name", "", geometry);
-            string source = ParseXMLAttrString(groupX, "source", "", geometry);
+    public IEnumerator ProcessElement(XElement parentX) {
 
-            switch (type) {
-                case "connected":
-                    yield return ParseConnectedGroup(groupX, source, groupName);
+        foreach (XElement elementX in parentX.Elements()) {
+            string elementName = elementX.Name.ToString().ToLower();
+            switch (elementName) {
+                case "var":
+                    yield return ParseVariable(elementX);
                     break;
-                case "perResidue":
-                    yield return ParseResidueGroup(groupX, source, groupName);
+                case "uservar":
+                    yield return ParseUserVariable(elementX);
                     break;
-                case "geometry":
+                case "userbool":
+                    yield return ParseUserBool(elementX);
+                    break;
+                case "residuevar":
+                    yield return ParseResidueVariable(elementX);
+                    break;
+                case "array":
+                    yield return ParseArray(elementX);
+                    break;
+                case "action":
+                    yield return RunAction(elementX);
+                    break;
+                case "run":
+                    yield return RunCalculation(elementX);
+                    break;
+                case "group":
+                    yield return CreateGroup(elementX);
+                    break;
+                case "foreach":
+                    yield return ProcessArray(elementX);
                     break;
                 default:
                     CustomLogger.LogFormat(
                         EL.ERROR,
-                        "Group type '{0}' not recognised.",
-                        type
+                        "Unrecognised Element '{0}'",
+                        elementName
                     );
-                    yield break;
-            }
-
-            if (failed) {
-                yield break;
-            }
-        }
-    }
-
-    static IEnumerator ParseConnectedGroup(
-        XElement groupX,
-        string sourceName,
-        string groupName
-    ) {
-        Geometry source = GetGeometry(sourceName);
-        if (source == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Source geometry '{0}' not found!",
-                sourceName
-            );
-            yield break;
-        }
-        foreach (List<ResidueID> residueGroup in source.GetGroupedResidues()) {
-            Geometry groupGeometry = source.TakeResidues(residueGroup, null);
-            geometryDict[groupName] = groupGeometry;
-            
-            yield return ProcessGroup(groupX, groupGeometry);
-        }
-    }
-
-    static IEnumerator ParseResidueGroup(
-        XElement groupX,
-        string sourceName,
-        string groupName
-    ) {
-        Geometry source = GetGeometry(sourceName);
-        if (source == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Source geometry '{0}' not found!",
-                sourceName
-            );
-            yield break;
-        }
-        foreach (ResidueID residueID in source.EnumerateResidueIDs()) {
-            Geometry groupGeometry = source.TakeResidue(residueID, null);
-            geometryDict[groupName] = groupGeometry;
-            
-            yield return ProcessGroup(groupX, groupGeometry);
-        }
-    }
-
-    static IEnumerator ParseGeometry(
-        XElement groupX,
-        string sourceName,
-        string groupName
-    ) {
-        Geometry source = GetGeometry(sourceName);
-        if (source == null) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Source geometry '{0}' not found!",
-                sourceName
-            );
-            yield break;
-        }
-        Geometry geometryGroup = source.Take(null);
-        yield return ProcessGroup(groupX, geometryGroup);
-    }
-
-    static IEnumerator ProcessGroup(XElement groupX, Geometry groupGeometry) {
-        foreach (XElement elementX in groupX.Elements()) {
-            switch (elementX.Name.ToString().ToLower()) {
-                case "action":
-                    yield return RunAction(elementX, groupGeometry);
-                    break;
-                case "run":
-                    yield return RunCalculation(elementX, groupGeometry);
+                    failed = true;
                     break;
             }
+            if (failed) {yield break;}
+        };
+    }
+
+    public IEnumerator ProcessArray(XElement arrayX) {
+
+        string arrayID = FileIO.ParseXMLAttrString(arrayX, "array", "").ToLower();
+        if (string.IsNullOrWhiteSpace(arrayID)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot process Array - Empty Array ID."
+            );
+            failed = true;
+            yield break;
         }
-        yield return null;
+        
+        string varStr = FileIO.ParseXMLAttrString(arrayX, "var", "").ToLower();
+        if (string.IsNullOrWhiteSpace(varStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot process Array - Empty Variable ID."
+            );
+            failed = true;
+            yield break;
+        }
+
+        List<string> array;
+        if (!arrayDict.TryGetValue(arrayID, out array)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot process Array - Array '{0}' not found!",
+                arrayID
+            );
+            failed = true;
+            yield break;
+        }
+
+        foreach (string variable in array) {
+            variableDict[varStr] = variable;
+            yield return ProcessElement(arrayX);
+        }
+
     }
 
     static Geometry GetGeometry(string name) {
@@ -243,11 +257,74 @@ public static class GaussianRecipe {
         return geometry;
     }
 
-    static IEnumerator RunAction(XElement actionX, Geometry groupGeometry) {
-        string actionID = ParseXMLAttrString(actionX, "id", "", groupGeometry).ToLower();
+    IEnumerator CreateGroup(XElement groupX) {
+        string type = ParseXMLAttrString(groupX, "type", "", sourceGeometry).ToLower();
+        string groupName = ParseXMLAttrString(groupX, "name", "", sourceGeometry);
+        string sourceName = ParseXMLAttrString(groupX, "source", "", sourceGeometry);
+
+        Geometry source = GetGeometry(sourceName);
+        if (source == null) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Source geometry '{0}' not found!",
+                sourceName
+            );
+            failed = true;
+            yield break;
+        }
+
+        IEnumerator ProcessGroup(Geometry groupGeometry, string name) {
+            geometryDict[name] = groupGeometry;
+            groupGeometry.name = name;
+            MacroGroup groupMacro = new MacroGroup(groupGeometry, groupX, false);
+            
+            yield return groupMacro.ProcessRoot();
+            if (failed) {yield break;}
+            GameObject.Destroy(groupGeometry);
+
+        }
+
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Created new Group with type '{0}', name '{1}' and source '{2}'.",
+            type,
+            groupName,
+            sourceName
+        );
+
+        Geometry group;
+        switch (type) {
+            case "connected":
+                foreach (List<ResidueID> residueGroup in source.GetGroupedResidues()) {
+                    group = source.TakeResidues(residueGroup, null);
+                    yield return ProcessGroup(group, groupName);
+                }
+                break;
+            case "perResidue":
+                foreach (ResidueID residueID in source.EnumerateResidueIDs()) {
+                    group = source.TakeResidue(residueID, null);
+                    yield return ProcessGroup(group, groupName);
+                }
+                break;
+            case "geometry":
+                group = source.Take(null);
+                yield return ProcessGroup(group, groupName);
+                break;
+            default:
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Group type '{0}' not recognised.",
+                    type
+                );
+                yield break;
+        }
+    }
+
+    IEnumerator RunAction(XElement actionX) {
+        string actionID = ParseXMLAttrString(actionX, "id", "", sourceGeometry).ToLower();
         switch (actionID) {
             case "movetolayer":
-                MoveToLayer(actionX, groupGeometry);
+                MoveToLayer(actionX, sourceGeometry);
                 break;
             case "estimatechargemultiplicity":
                 bool confirm = false;
@@ -255,32 +332,35 @@ public static class GaussianRecipe {
                 if (confirmX != null && confirmX.Value == "true") {
                     confirm = true;
                 }
-                yield return groupGeometry.gaussianCalculator.EstimateChargeMultiplicity(confirm);
+                yield return sourceGeometry.gaussianCalculator.EstimateChargeMultiplicity(confirm);
                 break;
             case "generateatommap":
-                groupGeometry.GenerateAtomMap();
+                sourceGeometry.GenerateAtomMap();
                 break;
             case "computeconnectivity":
-                yield return Cleaner.CalculateConnectivity(groupGeometry);
+                yield return Cleaner.CalculateConnectivity(sourceGeometry);
                 break;
             case "redistributecharge":
-                yield return RedistributeCharge(actionX, groupGeometry);
+                yield return RedistributeCharge(actionX, sourceGeometry);
                 break;
             case "roundcharge":
-                yield return PartialChargeCalculator.RoundCharge(groupGeometry);
+                yield return PartialChargeCalculator.RoundCharge(sourceGeometry);
+                break;
+            case "save":
+                yield return Save(actionX);
                 break;
             case "mutateresidue":
-                yield return MutateResidue(actionX, groupGeometry);
+                yield return MutateResidue(actionX, sourceGeometry);
                 break;
         }
     }
 
-    static IEnumerator RunCalculation(XElement calculationX, Geometry groupGeometry) {
+    IEnumerator RunCalculation(XElement calculationX) {
 
         string sourceName = ParseXMLAttrString(calculationX, "source", "");
         Geometry source;
         if (string.IsNullOrWhiteSpace(sourceName)) {
-            source = groupGeometry;
+            source = sourceGeometry;
         } else {
             source = GetGeometry(sourceName);
         }
@@ -317,10 +397,12 @@ public static class GaussianRecipe {
                 gc.numProcessors = nProc;
             } else {
                 CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Ignoring invalid 'nproc' attribute: {0}",
+                    EL.ERROR,
+                    "Invalid 'nproc' attribute: {0}",
                     nProcX.Value
                 );
+                failed = true;
+                yield break;
             }
         }
 
@@ -331,10 +413,12 @@ public static class GaussianRecipe {
                 gc.jobMemoryMB = mem;
             } else {
                 CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Ignoring invalid 'mem' attribute: {0}",
+                    EL.ERROR,
+                    "Invalid 'mem' attribute: {0}",
                     memX.Value
                 );
+                failed = true;
+                yield break;
             }
         }
 
@@ -415,7 +499,7 @@ public static class GaussianRecipe {
             yield return CalculationSetup.SetupCalculation(source);
         }
 
-        int electrons = groupGeometry.EnumerateAtomIDs().Select(x => x.pdbID.atomicNumber).Sum();
+        int electrons = sourceGeometry.EnumerateAtomIDs().Select(x => x.pdbID.atomicNumber).Sum();
         
         gaussian.WriteInputAndExecute(
             source,
@@ -524,21 +608,23 @@ public static class GaussianRecipe {
                     residueID = ResidueID.FromString(residueIDStr);
                 } catch {
                     CustomLogger.LogFormat(
-                        EL.WARNING,
-                        "Ignoring Residue ID '{0}' - cannot parse to Residue ID.",
+                        EL.ERROR,
+                        "Invalid Residue ID '{0}' in MoveToLayer - cannot parse to Residue ID.",
                         residueIDStr
                     );
-                    continue;
+                    failed = true;
+                    return;
                 }
 
                 Residue residue;
                 if (!geometry.TryGetResidue(residueID, out residue)) {
                     CustomLogger.LogFormat(
-                        EL.WARNING,
-                        "Ignoring Residue ID '{0}' - not present in Geometry.",
+                        EL.ERROR,
+                        "Residue ID '{0}' not present in Geometry in MoveToLayer",
                         residueID
                     );
-                    continue;
+                    failed = true;
+                    return;
                 }
 
                 foreach (Atom atom in residue.atoms.Values) {
@@ -589,6 +675,7 @@ public static class GaussianRecipe {
                     sourceGeometry.name,
                     e.Message
                 );
+                failed = true;
                 yield break;
             }
         } else {
@@ -597,6 +684,7 @@ public static class GaussianRecipe {
                 "Residue ID variable missing in MutateResidue in Group '{0}'",
                 sourceGeometry.name
             );
+            failed = true;
             yield break;
         }
 
@@ -608,40 +696,37 @@ public static class GaussianRecipe {
                 residueID,
                 sourceGeometry.name
             );
+            failed = true;
             yield break;
         }
+        string oldResidueName = oldResidue.residueName;
 
         //Get the Residue to mutate to
-        XAttribute targetX;
         Residue newResidue;
-        if ((targetX = actionX.Attribute("target")) != null) {
-            try {
-                newResidue = Residue.FromString(ExpandVariable(targetX.Value));
-            } catch (System.Exception e) {
-                CustomLogger.LogFormat(
-                    EL.ERROR,
-                    "Failed to parse Target Residue in MutateResidue in Group '{0}': {1}",
-                    sourceGeometry.name,
-                    e.Message
-                );
-                yield break;
-            }
-        } else {
+        string targetStr = ParseXMLString(actionX, "target", "", sourceGeometry).ToUpper();
+        if (string.IsNullOrWhiteSpace(targetStr)) {
             CustomLogger.LogFormat(
                 EL.ERROR,
-                "Target Residue variable missing in MutateResidue in Group '{0}'",
-                sourceGeometry.name
+                "Empty Target Variable ID in MutateResidue!"
             );
+            failed = true;
             yield break;
         }
 
-        bool optimise = false;
-        XAttribute optimiseX = actionX.Attribute("optimise");
-        if (optimiseX != null && optimiseX.Value == "true") {
-            optimise = true;
+        try {
+            newResidue = Residue.FromString(targetStr);
+        } catch (System.Exception e) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to parse Target Residue in MutateResidue in Group '{0}': {1}",
+                sourceGeometry.name,
+                e.Message
+            );
+            failed = true;
+            yield break;
         }
 
-        
+        bool optimise = (ParseXMLString(actionX, "optimise", "false", sourceGeometry).ToLower() == "true");
 
         ResidueMutator residueMutator;
         try {
@@ -649,9 +734,11 @@ public static class GaussianRecipe {
         } catch (System.Exception e) {
             CustomLogger.LogFormat(
                 EL.ERROR,
-                "Failed to Mutate Residue: {1}",
+                "Failed to Mutate Residue in Group '{0}': {1}",
+                sourceGeometry.name,
                 e.Message
             );
+            failed = true;
             yield break;
         }
 
@@ -659,99 +746,96 @@ public static class GaussianRecipe {
             newResidue,
             optimise
         );
+
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Mutated Residue '{0}' in '{1}' with clash score: {2,8:#.##E+00} ('{3}' -> '{4}')",
+            residueID,
+            sourceGeometry.name,
+            residueMutator.clashScore,
+            oldResidueName,
+            targetStr
+            
+        );
     }
 
-    static void Set1LetterMutationName(XElement nameX, Geometry sourceGeometry) {
+    IEnumerator Save(XElement saveX) {
 
-        //Get the Residue to mutate
-        XElement residueIDX;
-        ResidueID residueID;
-        if ((residueIDX = nameX.Element("residueID")) != null) {
-            try {
-                residueID = ResidueID.FromString(ExpandVariables(residueIDX.Value));
-            } catch (System.Exception e) {
+        string sourceName = ParseXMLAttrString(saveX, "source", "", sourceGeometry);
+
+        Geometry source;
+        if (string.IsNullOrEmpty(sourceName)) {
+            source = sourceGeometry.Take(null);
+        } else {
+            source = GetGeometry(sourceName).Take(null);
+            if (source == null) {
                 CustomLogger.LogFormat(
                     EL.ERROR,
-                    "Failed to parse Residue ID in Set1LetterMutationName in Group '{0}': {1}",
-                    sourceGeometry.name,
-                    e.Message
+                    "Source geometry '{0}' not found!",
+                    sourceName
                 );
                 failed = true;
-                return;
+                yield break;
             }
+        }
+
+        string directory;
+        string directoryStr = ParseXMLString(saveX, "directory", "", source);
+        if (string.IsNullOrWhiteSpace(directoryStr)) {
+            directory = Settings.projectPath;
         } else {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Residue ID variable missing in Set1LetterMutationName in Group '{0}'",
-                sourceGeometry.name
+            directory = string.Join(
+                Path.DirectorySeparatorChar.ToString(), 
+                directoryStr.Split(new char[] {'/', Path.DirectorySeparatorChar})
             );
-            failed = true;
-            return;
         }
 
-        Residue oldResidue;
-        if (! sourceGeometry.TryGetResidue(residueID, out oldResidue)) {
+        string nameStr = ParseXMLString(saveX, "name", "", source);
+        if (string.IsNullOrWhiteSpace(nameStr)) {
             CustomLogger.LogFormat(
                 EL.ERROR,
-                "Couldn't find Residue ID '{0}' in Group '{1}'",
-                residueID,
-                sourceGeometry.name
+                "Cannot save with empty Name!"
             );
             failed = true;
-            return;
+            yield break;
         }
 
-        //Get the Residue to mutate to
-        XAttribute targetX;
-        Residue newResidue;
-        if ((targetX = nameX.Attribute("target")) != null) {
-            try {
-                newResidue = Residue.FromString(ExpandVariable(targetX.Value));
-            } catch (System.Exception e) {
-                CustomLogger.LogFormat(
-                    EL.ERROR,
-                    "Failed to parse Target Residue in MutateResidue in Group '{0}': {1}",
-                    sourceGeometry.name,
-                    e.Message
-                );
-                failed = true;
-                return;
-            }
-        } else {
+        string path = Path.Combine(directory, nameStr);
+
+        if (!Directory.Exists(directory)) {
+            Directory.CreateDirectory(directory);
+        }
+
+        FileWriter fileWriter;
+        try {
+            fileWriter = new FileWriter(
+                source, 
+                path, 
+                saveX.Element("connectivity") != null
+            );
+        } catch (System.Exception e) {
+            
             CustomLogger.LogFormat(
                 EL.ERROR,
-                "Target Residue variable missing in MutateResidue in Group '{0}'",
-                sourceGeometry.name
+                "Failed to save Geometry to '{0}': {1}",
+                path,
+                e.Message
             );
             failed = true;
-            return;
+            yield break;
         }
 
-        string oldCode;
-        if (!Data.residueName3To1.TryGetValue(oldResidue.residueName, out oldCode)) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Failed to convert Old Residue Name '{0}' in Residue '{1}'",
-                oldResidue.residueName,
-                residueID
-            );
-            failed = true;
-            return;
-        }
 
-        string targetCode;
-        if (!Data.residueName3To1.TryGetValue(newResidue.residueName, out targetCode)) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Failed to convert New Residue Name '{0}' in Target Residue",
-                oldResidue.residueName
-            );
-            failed = true;
-            return;
-        }
+        yield return fileWriter.WriteFile();
 
-        mutationNames[residueID] = oldCode + residueID.residueNumber.ToString() + targetCode;
+        GameObject.Destroy(source);
 
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Saved geometry '{0}' to '{1}'",
+            source.name,
+            path
+        );
     }
 
     static List<float> GetChargeDistribution(XElement actionX) {
@@ -766,6 +850,341 @@ public static class GaussianRecipe {
         return distribution;
     }
 
+    public IEnumerator ParseVariable(XElement varX) {
+        string idStr = FileIO.ParseXMLAttrString(varX, "id", "").ToLower();
+        if (string.IsNullOrWhiteSpace(idStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot parse Variable - Empty Variable ID."
+            );
+            failed = true;
+            yield break;
+        }
+        string valueStr = varX.Value;
+        if (string.IsNullOrWhiteSpace(valueStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot parse Variable - Empty Value."
+            );
+            failed = true;
+            yield break;
+        }
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Adding Variable '{0}' with value '{1}'.",
+            idStr,
+            valueStr
+        );
+        variableDict[idStr] = valueStr;
+
+        if (Timer.yieldNow) {yield return null;}
+
+    }
+
+    public IEnumerator ParseArray(XElement arrayX) {
+        string idStr = FileIO.ParseXMLAttrString(arrayX, "id", "").ToLower();
+        if (string.IsNullOrWhiteSpace(idStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Cannot parse Array - Empty Array ID."
+            );
+            failed = true;
+            yield break;
+        }
+
+        List<string> stringArray = new List<string>();
+
+        foreach (XElement elementX in arrayX.Elements()) {
+            string elementName = elementX.Name.ToString().ToLower();
+            switch (elementName) {
+                case ("item"):
+
+                    string valueStr = ExpandVariables(elementX.Value, sourceGeometry);
+                    stringArray.Add(valueStr);
+                    break;
+                default:
+                    CustomLogger.LogFormat(
+                        EL.ERROR,
+                        "Cannot parse Array - unrecognised XElement '{0}'",
+                        elementName
+                    );
+                    break;
+            }
+            if (Timer.yieldNow) {yield return null;}
+        }
+
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Adding Array '{0}' with ({1}) values: '{2}'",
+            idStr,
+            stringArray.Count,
+            string.Join("', '", stringArray)
+        );
+        arrayDict[idStr] = stringArray;
+
+
+    }
+
+    static IEnumerator ParseUserVariable(XElement varX) {
+
+        string idStr = FileIO.ParseXMLAttrString(varX, "id", "").ToLower();
+        if (string.IsNullOrWhiteSpace(idStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Variable ID is empty in ParseUserVariable!"
+            );
+            failed = true;
+            yield break;
+        }
+        string initValue = varX.Value;
+        
+        string titleStr = FileIO.ParseXMLAttrString(varX, "title", "");
+        if (string.IsNullOrWhiteSpace(titleStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Empty Title attribute for userVar '{0}'.",
+                idStr
+            );
+            failed = true;
+            yield break;
+        }
+        
+        string promptStr = FileIO.ParseXMLAttrString(varX, "prompt", "");
+        if (string.IsNullOrWhiteSpace(promptStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Empty prompt attribute for userVar '{0}'.",
+                idStr
+            );
+            failed = true;
+            yield break;
+        }
+
+        bool cancelled = false;
+
+        MultiPrompt multiPrompt = MultiPrompt.main;
+        multiPrompt.Initialise(
+            titleStr,
+            promptStr,
+            new ButtonSetup("Confirm", () => {}),
+            new ButtonSetup("Cancel", () => {cancelled = true;}),
+            input: true
+        );
+
+        multiPrompt.inputField.text = initValue;
+
+        while (!multiPrompt.userResponded) {
+            yield return null;
+        }
+
+
+        string valueStr;
+
+        multiPrompt.Hide();
+
+        if (cancelled || multiPrompt.cancelled) {
+            valueStr = initValue;
+        } else {
+            valueStr = multiPrompt.inputField.text;
+        }
+
+
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Adding User Variable '{0}' with value '{1}'.",
+            idStr,
+            valueStr
+        );
+        variableDict[idStr] = valueStr;
+
+        if (Timer.yieldNow) {yield return null;}
+    }
+
+    static IEnumerator ParseUserBool(XElement varX) {
+
+        string idStr = FileIO.ParseXMLAttrString(varX, "id", "").ToLower();
+        if (string.IsNullOrWhiteSpace(idStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Empty Variable ID in ParseUserBool!"
+            );
+                failed = true;
+                yield break;
+        }
+        string initValue = varX.Value;
+        
+        string titleStr = FileIO.ParseXMLAttrString(varX, "title", "");
+        if (string.IsNullOrWhiteSpace(titleStr)) {
+            CustomLogger.LogFormat(
+                EL.WARNING,
+                "Empty title attribute userBool '{0}'.",
+                idStr
+            );
+        }
+        
+        string promptStr = FileIO.ParseXMLAttrString(varX, "prompt", "");
+        if (string.IsNullOrWhiteSpace(promptStr)) {
+            CustomLogger.LogFormat(
+                EL.WARNING,
+                "Empty prompt attribute for userVar '{0}'.",
+                idStr
+            );
+        }
+
+        bool userBool = false;
+
+        MultiPrompt multiPrompt = MultiPrompt.main;
+        multiPrompt.Initialise(
+            titleStr,
+            promptStr,
+            new ButtonSetup("Yes", () => {userBool = true; }),
+            new ButtonSetup("No",  () => {userBool = false;}),
+            input:false
+        );
+
+        while (!multiPrompt.userResponded) {
+            yield return null;
+        }
+
+        multiPrompt.Hide();
+
+        string finalBool = (userBool && ! multiPrompt.cancelled) ? "true" : "false";
+
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Adding User Boolean '{0}' with value '{1}'.",
+            idStr,
+            finalBool
+        );
+        variableDict[idStr] = finalBool;
+
+        if (Timer.yieldNow) {yield return null;}
+    }
+
+    IEnumerator ParseResidueVariable(XElement varX) {
+
+        string idStr = FileIO.ParseXMLAttrString(varX, "id", "").ToLower();
+        if (string.IsNullOrWhiteSpace(idStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Empty Variable ID in ParseResidueVariable!"
+            );
+            failed = true;
+            yield break;
+        }
+
+        //Get the Residue
+        XElement residueIDX;
+        ResidueID residueID;
+        if ((residueIDX = varX.Element("residueID")) != null) {
+            try {
+                residueID = ResidueID.FromString(ExpandVariables(residueIDX.Value));
+            } catch (System.Exception e) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Failed to parse Residue ID in ParseResidueVariable in Group '{0}': {1}",
+                    sourceGeometry.name,
+                    e.Message
+                );
+                failed = true;
+                yield break;
+            }
+        } else {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Residue ID variable missing in ParseResidueVariable in Group '{0}'",
+                sourceGeometry.name
+            );
+            failed = true;
+            yield break;
+        }
+
+        Residue residue;
+        if (! sourceGeometry.TryGetResidue(residueID, out residue)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Couldn't find Residue ID '{0}' in Group '{1}'",
+                residueID,
+                sourceGeometry.name
+            );
+            failed = true;
+            yield break;
+        }
+
+        string typeString = ParseXMLAttrString(varX, "type", "", sourceGeometry).ToLower();
+        if (string.IsNullOrWhiteSpace(idStr)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Empty Type in ParseResidueVariable!"
+            );
+            failed = true;
+            yield break;
+        }
+
+        switch (typeString) {
+            case "mutant":
+                string targetStr = ParseXMLString(varX, "target", "", sourceGeometry).ToUpper();
+                if (string.IsNullOrWhiteSpace(targetStr)) {
+                    CustomLogger.LogFormat(
+                        EL.ERROR,
+                        "Empty Target Variable ID in ParseResidueVariable!"
+                    );
+                    failed = true;
+                    yield break;
+                }
+
+                string mutationCode = GetMutationCode(residueID, residue, targetStr);
+                if (failed) {yield break;}
+
+                CustomLogger.LogFormat(
+                    EL.INFO,
+                    "Adding Residue Variable '{0}' with value '{1}'.",
+                    idStr,
+                    mutationCode
+                );
+
+                variableDict[idStr] = mutationCode;
+                break;
+            default:
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Unrecognised Type '{0}' in ParseResidueVariable!",
+                    typeString
+                );
+                failed = true;
+                yield break;
+        }
+    } 
+
+    static string GetMutationCode(ResidueID residueID, Residue oldResidue, string target) {
+
+        string oldCode;
+        if (!Data.residueName3To1.TryGetValue(oldResidue.residueName, out oldCode)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to convert Old Residue Name '{0}' in Residue '{1}'",
+                oldResidue.residueName,
+                residueID
+            );
+            failed = true;
+            return "";
+        }
+
+        string targetCode;
+        if (!Data.residueName3To1.TryGetValue(target, out targetCode)) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to convert New Residue Name '{0}' in Target Residue",
+                target
+            );
+            failed = true;
+            return "";
+        }
+
+        return oldCode + residueID.residueNumber.ToString() + targetCode;
+
+    }
+
     static string ParseXMLAttrString(
         XElement xElement, 
         string name, 
@@ -773,6 +1192,15 @@ public static class GaussianRecipe {
         Geometry geometry=null
     ) {
         return ExpandVariables(FileIO.ParseXMLAttrString(xElement, name, defaultValue), geometry);
+    }
+
+    static string ParseXMLString(
+        XElement xElement, 
+        string name, 
+        string defaultValue="", 
+        Geometry geometry=null
+    ) {
+        return ExpandVariables(FileIO.ParseXMLString(xElement, name, defaultValue), geometry);
     }
 
     static string ExpandVariables(string input, Geometry geometry=null) {
@@ -937,174 +1365,4 @@ public static class GaussianRecipe {
         }
     }
 
-    static IEnumerator ParseVariables(XElement recipeX) {
-
-        foreach (XElement varX in recipeX.Elements("var")) {
-            string idStr = FileIO.ParseXMLAttrString(varX, "id", "").ToLower();
-            if (string.IsNullOrWhiteSpace(idStr)) {
-                CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Empty Variable ID is being ignored."
-                );
-                continue;
-            }
-            string valueStr = varX.Value;
-            if (string.IsNullOrWhiteSpace(valueStr)) {
-                CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Empty Variable value is being ignored."
-                );
-                continue;
-            }
-            CustomLogger.LogFormat(
-                EL.INFO,
-                "Adding Variable '{0}' with value '{1}'.",
-                idStr,
-                valueStr
-            );
-            variableDict[idStr] = valueStr;
-
-            if (Timer.yieldNow) {yield return null;}
-        }
-    }
-
-    static IEnumerator ParseUserVariables(XElement recipeX) {
-
-        foreach (XElement varX in recipeX.Elements("userVar")) {
-            string idStr = FileIO.ParseXMLAttrString(varX, "id", "").ToLower();
-            if (string.IsNullOrWhiteSpace(idStr)) {
-                CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Empty Variable ID is being ignored."
-                );
-                continue;
-            }
-            string initValue = varX.Value;
-            
-            string titleStr = FileIO.ParseXMLAttrString(varX, "title", "");
-            if (string.IsNullOrWhiteSpace(titleStr)) {
-                CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Empty title attribute is being ignored for userVar '{0}'.",
-                    idStr
-                );
-                continue;
-            }
-            
-            string promptStr = FileIO.ParseXMLAttrString(varX, "prompt", "");
-            if (string.IsNullOrWhiteSpace(promptStr)) {
-                CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Empty prompt attribute is being ignored for userVar '{0}'.",
-                    idStr
-                );
-                continue;
-            }
-
-            bool cancelled = false;
-
-            MultiPrompt multiPrompt = MultiPrompt.main;
-            multiPrompt.Initialise(
-                titleStr,
-                promptStr,
-                new ButtonSetup("Confirm", () => {}),
-                new ButtonSetup("Cancel", () => {cancelled = true;}),
-                input: true
-            );
-
-            multiPrompt.inputField.text = initValue;
-
-            while (!multiPrompt.userResponded) {
-                yield return null;
-            }
-
-
-            string valueStr;
-
-            multiPrompt.Hide();
-
-            if (cancelled || multiPrompt.cancelled) {
-                valueStr = initValue;
-            } else {
-                valueStr = multiPrompt.inputField.text;
-            }
-
-
-            CustomLogger.LogFormat(
-                EL.INFO,
-                "Adding User Variable '{0}' with value '{1}'.",
-                idStr,
-                valueStr
-            );
-            variableDict[idStr] = valueStr;
-
-            if (Timer.yieldNow) {yield return null;}
-        }
-    }
-
-    static IEnumerator ParseUserBools(XElement recipeX) {
-
-        foreach (XElement varX in recipeX.Elements("userBool")) {
-            string idStr = FileIO.ParseXMLAttrString(varX, "id", "").ToLower();
-            if (string.IsNullOrWhiteSpace(idStr)) {
-                CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Empty Variable ID is being ignored."
-                );
-                continue;
-            }
-            string initValue = varX.Value;
-            
-            string titleStr = FileIO.ParseXMLAttrString(varX, "title", "").ToLower();
-            if (string.IsNullOrWhiteSpace(titleStr)) {
-                CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Empty title attribute is being ignored for userVar '{0}'.",
-                    idStr
-                );
-                continue;
-            }
-            
-            string promptStr = FileIO.ParseXMLAttrString(varX, "prompt", "").ToLower();
-            if (string.IsNullOrWhiteSpace(promptStr)) {
-                CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Empty prompt attribute is being ignored for userVar '{0}'.",
-                    idStr
-                );
-                continue;
-            }
-
-            bool userBool = false;
-
-            MultiPrompt multiPrompt = MultiPrompt.main;
-            multiPrompt.Initialise(
-                titleStr,
-                promptStr,
-                new ButtonSetup("Yes", () => {userBool = true; }),
-                new ButtonSetup("No",  () => {userBool = false;}),
-                input:false
-            );
-
-            while (!multiPrompt.userResponded) {
-                yield return null;
-            }
-
-            multiPrompt.Hide();
-
-            bool finalBool = (userBool && ! multiPrompt.cancelled);
-
-
-
-            CustomLogger.LogFormat(
-                EL.INFO,
-                "Adding User Boolean '{0}' with value '{1}'.",
-                idStr,
-                finalBool
-            );
-            boolDict[idStr] = finalBool;
-
-            if (Timer.yieldNow) {yield return null;}
-        }
-    }
 }

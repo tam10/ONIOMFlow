@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!-- 
+
+# Mutation Recipe
+
+# Performs a double mutation - 2 Residues to all possible mutants - and saves each file
+
+-->
+
+<recipe>
+    <!-- Residue to mutate -->
+    <userVar id="RESIDUE_ID1" title="Mutate Residue" prompt="Select 1st Residue ID to mutate">A1</userVar>
+    <userVar id="RESIDUE_ID2" title="Mutate Residue" prompt="Select 2nd Residue ID to mutate">A1</userVar>
+
+    <userBool id="OPTIMISE" title="Mutate Residue" prompt="Optimise Mutated Residues?" />
+    
+
+    <array id="RESIDUE_NAMES">
+        <item>ALA</item><item>ARG</item><item>ASN</item><item>ASH</item><item>ASP</item>
+        <item>CYS</item><item>CYM</item><item>CYX</item><item>GLU</item><item>GLH</item>
+        <item>GLN</item><item>GLY</item><item>HID</item><item>HIE</item><item>HIP</item>
+        <item>ILE</item><item>LEU</item><item>LYN</item><item>LYS</item><item>MET</item>
+        <item>PHE</item><item>PRO</item><item>SER</item><item>THR</item><item>TRP</item>
+        <item>TYR</item><item>VAL</item>
+    </array>
+
+    <foreach array="RESIDUE_NAMES" var="TARGET1">
+
+        <group type="geometry" name="firstMutation" source="$(GEOMETRY)">
+
+            <residueVar id="MUTANT1" type="mutant">
+                <residueID>$(RESIDUE_ID1)</residueID>
+                <target>$(TARGET1)</target>
+            </residueVar>
+
+            <action id="mutateResidue">
+                <residueID>$(RESIDUE_ID1)</residueID>
+                <target>$(TARGET1)</target>
+                <optimise>$(OPTIMISE)</optimise>
+            </action>
+
+            <foreach array="RESIDUE_NAMES" var="TARGET2">
+                <group type="geometry" name="secondMutation" source="firstMutation">
+
+                    <residueVar id="MUTANT2" type="mutant">
+                        <residueID>$(RESIDUE_ID2)</residueID>
+                        <target>$(TARGET2)</target>
+                    </residueVar>
+
+                    <action id="mutateResidue">
+                        <residueID>$(RESIDUE_ID2)</residueID>
+                        <target>$(TARGET2)</target>
+                        <optimise>$(OPTIMISE)</optimise>
+                    </action>
+
+                    <action id="save" source="secondMutation">
+                        <directory>$(PROJECT)/Mutation</directory>
+                        <name>$(MUTANT1)_$(TARGET1)_$(MUTANT2)_$(TARGET2).xat</name>
+                        <connectivity />
+                    </action>
+
+                </group>
+            </foreach>
+
+        </group>
+
+    </foreach>
+
+</recipe>

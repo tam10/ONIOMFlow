@@ -153,7 +153,7 @@ public static class ArrowFunctions {
             case (TID.SETUP_CALCULATION):
                 return CalculationSetup.SetupCalculation;
             case (TID.RUN_GAUSSIAN_RECIPE):
-                return GaussianRecipe.RunGaussianRecipe;
+                return Macro.RunMacro;
 
             default:
                 CustomLogger.LogFormat(

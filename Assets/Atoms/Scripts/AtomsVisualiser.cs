@@ -106,10 +106,13 @@ public class AtomsVisualiser : MonoBehaviour {
         ROTATEXY, ROTATEZ, TRANSLATE, 
         CONNECTIVITY, OPTIMISE, 
         BOND, ANGLE, DIHEDRAL,
-        REMOVE_RESIDUE, CAP_RESIDUE, MUTATE_RESIDUE 
+        REMOVE_RESIDUE, CAP_RESIDUE, MUTATE_RESIDUE,
+        MOVE_TO_LAYER, MODIFY_HYDROGEN
     };
     private EditMode selectedEditMode = EditMode.ROTATEXY;
     private EditMode finalEditMode = EditMode.ROTATEXY;
+
+    private OLID moveOLID;
 
     public GeometryHistory geometryHistory;
     //public Transform historyTransform;
@@ -494,6 +497,13 @@ public class AtomsVisualiser : MonoBehaviour {
                     if (closestAtom != null && geometry.TryGetResidue(closestAtom.residueID, out capResidue)) {
                         CapResidue(closestAtomID);
                     }
+
+                    break;
+                case EditMode.MOVE_TO_LAYER:
+                    MoveToLayer(closestAtomID);
+                    break;
+                case EditMode.MODIFY_HYDROGEN:
+                    ModifyHydrogen(closestAtomID);
                     break;
             }
         };
@@ -611,6 +621,12 @@ public class AtomsVisualiser : MonoBehaviour {
                     }
                 };
                 break;
+            case (EditMode.MOVE_TO_LAYER):
+                title.text = "Geometry Visualiser - (Move To Layer)";
+                break;
+            case (EditMode.MODIFY_HYDROGEN):
+                title.text = "Geometry Visualiser - (Add/Remove Hydrogen)";
+                break;
             default:
                 title.text = "Geometry Visualiser";
                 break;
@@ -670,6 +686,8 @@ public class AtomsVisualiser : MonoBehaviour {
         editGroup.AddButton(() => {SetSelectedEditMode(EditMode.REMOVE_RESIDUE); HideContextMenu();}, "Remove Residue", true);
         editGroup.AddButton(() => {SetSelectedEditMode(EditMode.CAP_RESIDUE); HideContextMenu();}, "Cap Residue", true);
         editGroup.AddButton(() => {SetSelectedEditMode(EditMode.MUTATE_RESIDUE); HideContextMenu();}, "Mutate Residue", true);
+        editGroup.AddSpacer();
+        editGroup.AddButton(() => {SetSelectedEditMode(EditMode.MODIFY_HYDROGEN); HideContextMenu();}, "Add/Remove Hydrogen", true);
 
 		contextMenu.AddSpacer();
         
@@ -685,11 +703,10 @@ public class AtomsVisualiser : MonoBehaviour {
 
 		contextMenu.AddSpacer();
 
-        ContextButtonGroup layerButtonGroup = contextMenu.AddButtonGroup("Add Selection to Layer", true);
-		layerButtonGroup.AddButton(() => {AddSelectionToLayer(OLID.REAL); HideContextMenu();}, "Real", true);
-		layerButtonGroup.AddButton(() => {AddSelectionToLayer(OLID.INTERMEDIATE); HideContextMenu();}, "Intermediate", true);
-		layerButtonGroup.AddButton(() => {AddSelectionToLayer(OLID.MODEL); HideContextMenu();}, "Model", true);
-        layerButtonGroup.AddButton(() => {ClearSelectedAtoms(); HideContextMenu();}, "Clear Selection", true);
+        ContextButtonGroup layerButtonGroup = contextMenu.AddButtonGroup("Move Selection to Layer", true);
+		layerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_TO_LAYER); moveOLID = OLID.REAL; HideContextMenu();}, "Real", true);
+		layerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_TO_LAYER); moveOLID = OLID.INTERMEDIATE; HideContextMenu();}, "Intermediate", true);
+		layerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_TO_LAYER); moveOLID = OLID.MODEL; HideContextMenu();}, "Model", true);
 
         contextMenu.AddSpacer();
 
@@ -726,15 +743,47 @@ public class AtomsVisualiser : MonoBehaviour {
         return true;
     }
 
-    void AddSelectionToLayer(OLID oniomLayerID) {
-        foreach (AtomID atomID in selectedAtomIDs) {
-            Atom atom;
-            if (geometry.TryGetAtom(atomID, out atom)) {
-                atom.oniomLayer = oniomLayerID;
+    void MoveToLayer(AtomID atomID) {
+        Atom atom;
+        if (geometry.TryGetAtom(atomID, out atom)) {
+            if (atom.oniomLayer == moveOLID) {
+                return;
             }
+            atom.oniomLayer = moveOLID;
         }
         StartCoroutine(Redraw());
-        geometryHistory.SaveState(string.Format("Add selection to {0}", oniomLayerID));
+        geometryHistory.SaveState(
+            string.Format(
+                "Move Atom '{0}' to {1}", 
+                atomID,
+                moveOLID
+            )
+        );
+    }
+
+    void ModifyHydrogen(AtomID atomID) {
+        Atom atom;
+        if (geometry.TryGetAtom(atomID, out atom)) {
+            if (atomID.pdbID.element == Element.H) {
+                geometry.GetResidue(atomID.residueID).RemoveAtom(atomID);
+                StartCoroutine(Redraw());
+                geometryHistory.SaveState(
+                    string.Format(
+                        "Remove Hydrogen '{0}'", 
+                        atomID
+                    )
+                );
+            } else {
+                geometry.GetResidue(atomID.residueID).AddProton(atomID.pdbID);
+                StartCoroutine(Redraw());
+                geometryHistory.SaveState(
+                    string.Format(
+                        "Add Hydrogen '{0}'", 
+                        atomID
+                    )
+                );
+            }
+        }
     }
 
     void ClearSelectedAtoms() {
@@ -991,7 +1040,7 @@ public class AtomsVisualiser : MonoBehaviour {
 
             LineRenderer line = lineGO.GetComponent<LineRenderer>();
 
-            while (!clicked) {
+            while (!clicked && enabled) {
                 if (Input.GetKey(KeyCode.Escape)) {
                     CleanUp();
                     yield break;
@@ -1909,7 +1958,7 @@ public class AtomsVisualiser : MonoBehaviour {
 
         //Continue spinning until cursor is pressed
         if (xRotation != 0f || yRotation != 0f || zRotation != 0f) {
-            while (!pointerDown) {
+            while (!pointerDown && enabled) {
                 atomsRepresentation.Rotate(Vector3.forward, zRotation, Space.World);
                 atomsRepresentation.Rotate(Vector3.down,    yRotation, Space.World);
                 atomsRepresentation.Rotate(Vector3.right,   xRotation, Space.World);

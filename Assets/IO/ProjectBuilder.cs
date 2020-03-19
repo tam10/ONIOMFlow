@@ -139,6 +139,10 @@ public class ProjectBuilder : MonoBehaviour {
 
         CreateDirectory(recipePath);
         CreateFile(recipeDirectory, "resp", recipePath, "resp.xml");
+        CreateFile(recipeDirectory, "mutate", recipePath, "mutate.xml");
+        CreateFile(recipeDirectory, "mutateAllDouble", recipePath, "mutateAllDouble.xml");
+        CreateFile(recipeDirectory, "mutateAll", recipePath, "mutateAll.xml");
+        CreateFile(recipeDirectory, "mutateCompare", recipePath, "mutateCompare.xml");
     }
 
     void CreateDirectory(string path) {

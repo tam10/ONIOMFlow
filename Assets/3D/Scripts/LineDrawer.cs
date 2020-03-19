@@ -21,6 +21,7 @@ public class LineDrawer : MonoBehaviour {
     private Dictionary<ResidueID, ResidueWireFrame> residueWireFrames = new Dictionary<ResidueID, ResidueWireFrame>();
     private Dictionary<(AtomID, AtomID), LinkerWireFrame> linkerWireFrames = new Dictionary<(AtomID, AtomID), LinkerWireFrame>();
     public List<Arc> arcs = new List<Arc>();
+    public List<Line> lines = new List<Line>();
 
     public enum AtomColour: int {ELEMENT, CHARGE, HAS_AMBER, PARAMETERS, CAP, MUTATE, REMOVE}
     public static int numAtomColourTypes = 7; //Must be the length of the above enum
@@ -74,6 +75,14 @@ public class LineDrawer : MonoBehaviour {
             linkerWireFrames[(atomID1, atomID0)] = new LinkerWireFrame(this.transform, atom1, atom0, atomID1, atomID0, offset);
 
         }
+    }
+
+    public void AddLine(float3 start, float3 end, Color color, float3 offset) {
+        lines.Add(new Line(start+offset, end+offset, color));
+    }
+
+    public void ClearLines() {
+        lines.Clear();
     }
 
     public void RemoveResidue(ResidueID residueID) {
@@ -156,6 +165,7 @@ public class LineDrawer : MonoBehaviour {
     public void Clear() {
         residueWireFrames.Clear();
         linkerWireFrames.Clear();
+        lines.Clear();
     }
 
     /// <summary>Draw all bonds and un-bonded atoms using GL.QUADS</summary>
@@ -258,13 +268,21 @@ public class LineDrawer : MonoBehaviour {
         foreach ((Color, float3, float3, float3, float3) bondQuad in linkerEnumerator) {
             DrawBond(bondQuad);
         }
+
+		GL.End();
+        GL.Begin(GL.LINES);
+        foreach (Line line in lines) {
+            DrawLine(line, localToWorldMatrix);
+        }
 		
 		GL.End();
+        GL.Begin(GL.LINE_STRIP);
 
         foreach (Arc arc in arcs) {
             DrawArc(arc, localToWorldMatrix);
         }
 
+        GL.End();
         GL.PopMatrix();
 	}
 
@@ -284,8 +302,20 @@ public class LineDrawer : MonoBehaviour {
         GL.Vertex(bondQuad.v3);
     }
 
+    void DrawLine(Line line, float4x4 localToWorldMatrix) {
+        GL.Color(line.color);
+        GL.Vertex(math.transform(
+            localToWorldMatrix, 
+            line.start
+        ));
+        GL.Vertex(math.transform(
+            localToWorldMatrix, 
+            line.end
+        ));
+
+    }
+
     void DrawArc(Arc arc, float4x4 localToWorldMatrix) {
-        GL.Begin(GL.LINE_STRIP);
         GL.Color(arc.color);
 
         float sin;
@@ -299,7 +329,6 @@ public class LineDrawer : MonoBehaviour {
                 )
             );
         }
-        GL.End();
     }
 }
 
@@ -764,6 +793,18 @@ class LinkerWireFrame {
         }
     }
     
+}
+
+public struct Line {
+    public float3 start;
+    public float3 end;
+    public Color color;
+
+    public Line(float3 start, float3 end, Color color) {
+        this.start = start;
+        this.end = end;
+        this.color = color;
+    }
 }
 
 public struct Arc {

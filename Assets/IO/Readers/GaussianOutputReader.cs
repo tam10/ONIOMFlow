@@ -38,6 +38,15 @@ public class GaussianOutputReader : GeometryReader {
 
 	public override IEnumerator CleanUp() {
 
+		if (standardPositions.Count == 0) {
+			CustomLogger.LogFormat(
+				EL.WARNING,
+				"No positional information found in '{0}'",
+				path
+			);
+			yield break;
+		}
+
 		float3[] positions = standardPositions.Last();
 
 		foreach ((AtomID atomID, int atomNum) in geometry.atomMap) {

@@ -33,6 +33,11 @@
     </parentClass>
 
     <parentClass>
+        <name>macro</name>
+        <fullName>Macro</fullName>
+    </parentClass>
+
+    <parentClass>
         <name>layers</name>
         <fullName>Layers</fullName>
     </parentClass>
@@ -292,6 +297,13 @@
         <parentClass>gaussian</parentClass>
         <fullName>Run Gaussian Recipe</fullName>
         <description>Load an XML file containing a sequence of Gaussian Calculations and actions</description>
+    </task>
+
+    <task>
+        <name>runMacro</name>
+        <parentClass>macro</parentClass>
+        <fullName>Run Macro</fullName>
+        <description>Load an XML file containing a sequence of actions</description>
     </task>
 
     <task>

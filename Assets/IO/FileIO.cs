@@ -140,7 +140,7 @@ public static class FileIO {
 
 	public static XDocument ReadXML(string filename) {
 
-		XDocument xmlObj = XDocument.Load (filename, LoadOptions.SetBaseUri);
+		XDocument xmlObj = XDocument.Load (filename, LoadOptions.SetBaseUri | LoadOptions.SetLineInfo);
 		return xmlObj;
 
 	}

@@ -1609,6 +1609,22 @@ public static class CustomMathematics {
 		energies[2] += v * 12f * (13f * _r12 - 7f * _r6) / (length * length);
 	}
 
+	/// <summary>Get the Van der Waals Energy using distances squared.</summary>
+	/// <param name="length_squared">The distance squared between two non-bonded atoms.</param>
+	/// <param name="v">The energy well depth.</param>
+	/// <param name="req_squared">The equibrium distance squared.</param>
+	public static float EVdWAmberSquared(float length_squared, float v, float req_squared){
+		if (v == 0) {
+			return 0;
+		}
+
+		float _r2 = req_squared / length_squared;
+		float _r6 = _r2 * _r2 * _r2;
+		float _r12 = _r6 * _r6;
+
+		return v * (_r12 - 2  * _r6);
+	}
+
 	/// <summary>Get the Electrostatics Energy between two atoms.</summary>
 	/// <param name="length">The distance between two non-bonded atoms.</param>
 	/// <param name="coulombFactor">The product of the atoms' partial charges and scale factor divided by the dielectric constant.</param>
@@ -1642,7 +1658,7 @@ public static class CustomMathematics {
 		}
 	}
 
-	/// <summary>Get the 1/(R) Electrostatics Energy between two atoms.</summary>
+	/// <summary>Get the 1/(R) Electrostatic Energy between two atoms.</summary>
 	/// <param name="length">The distance between two non-bonded atoms.</param>
 	/// <param name="coulombFactor">The product of the atoms' partial charges and scale factor divided by the dielectric constant.</param>
 	/// <param name="energies">The resulting list containing the 0th, 1st and 2nd derivatives of the energy.</param>
@@ -1657,7 +1673,7 @@ public static class CustomMathematics {
 		energies[2] -= 2f * energies[1] * _r;
 	}
 
-	/// <summary>Get the 1/(R*R) Electrostatics Energy between two atoms.</summary>
+	/// <summary>Get the 1/(R*R) Electrostatic Energy between two atoms.</summary>
 	/// <param name="length">The distance between two non-bonded atoms.</param>
 	/// <param name="coulombFactor">The product of the atoms' partial charges and scale factor divided by the dielectric constant.</param>
 	/// <param name="energies">The resulting list containing the 0th, 1st and 2nd derivatives of the energy.</param>
@@ -1672,6 +1688,28 @@ public static class CustomMathematics {
 		energies[2] -= 3f * energies[1] * _r;
 	}
 
+	/// <summary>Get the 1/(R) Electrostatic Energy between two atoms using distance squared.</summary>
+	/// <param name="length">The distance squared between two non-bonded atoms.</param>
+	/// <param name="coulombFactor">The product of the atoms' partial charges and scale factor divided by the dielectric constant.</param>
+	public static float EElectrostaticR1Squared(float length_squared, float coulombFactor) {
+		
+		if (coulombFactor == 0) {
+			return 0;
+		}
+		return coulombFactor / math.sqrt(length_squared);
+	}
+
+
+	/// <summary>Get the 1/(R*R) Electrostatic Energy between two atoms using distance squared.</summary>
+	/// <param name="length">The distance squared between two non-bonded atoms.</param>
+	/// <param name="coulombFactor">The product of the atoms' partial charges and scale factor divided by the dielectric constant.</param>
+	public static float EElectrostaticR2Squared(float length_squared, float coulombFactor) {
+		
+		if (coulombFactor == 0) {
+			return 0;
+		}
+		return coulombFactor / length_squared;
+	}
 	/// <summary>Get the Bend Energy between 3 atoms.</summary>
 	/// <param name="deltaAngle">The difference between the current angle and the equilibrium angle.</param>
 	/// <param name="q0q1">The product of the atoms' partial charges.</param>

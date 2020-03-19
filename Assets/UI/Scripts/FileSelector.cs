@@ -120,7 +120,7 @@ public class FileSelector : PopupWindow {
 		yield break;
 	}
 
-	public IEnumerator Initialise(bool saveMode, List<string> fileTypes=null) {
+	public IEnumerator Initialise(bool saveMode, List<string> fileTypes=null, string promptText="") {
 
 		if (isBusy) {yield return null;}
 
@@ -131,11 +131,14 @@ public class FileSelector : PopupWindow {
 
 		SetFileTypes(fileTypes ?? new List<string>());
 		this.saveMode = saveMode;
-		if (saveMode) {
-			SetPromptText("Save File");
-		} else {
-			SetPromptText("Load File");
+		if (!saveMode) {
 			fileNameInput.gameObject.SetActive(false);
+		}
+
+		if (string.IsNullOrEmpty(promptText)) {
+			SetPromptText(saveMode ? "Save File" : "Load File");
+		} else {
+			SetPromptText(promptText);
 		}
 
 		enabledFileColorBlock = ColorScheme.main.enabledFileCB;

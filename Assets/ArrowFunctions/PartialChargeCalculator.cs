@@ -244,11 +244,13 @@ public static class PartialChargeCalculator {
         bool runRed,
         string modifiedRedCommandPath=""
     ) {
+        
+        string groupName = string.Join("', '", residueGroup);
                 
         CustomLogger.LogFormat(
             EL.VERBOSE,
             "Processing Residues: '{0}'.",
-            string.Join("', '", residueGroup)
+            groupName
         );
         Geometry groupGeometry = geometryInterface.geometry.TakeResidues(residueGroup, null);
         Geometry newNSR = PrefabManager.InstantiateGeometry(null);
@@ -269,8 +271,17 @@ public static class PartialChargeCalculator {
 
             FileSelector loadPrompt = FileSelector.main;
 
+            if (groupName.Length > 10 ) {
+                groupName = groupName.Substring(0, 7) + "...";
+            }
+
             //Set FileSelector to Load mode
-            yield return loadPrompt.Initialise(saveMode:false, new List<string> {"mol2"});
+            yield return loadPrompt.Initialise(
+                saveMode:false, 
+                new List<string> {"mol2"}, 
+                string.Format("Load {0}", groupName)
+            );
+            
             //Wait for user response
             while (!loadPrompt.userResponded) {
                 yield return null;

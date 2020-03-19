@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!-- 
+
+# Mutation Recipe
+
+# Mutates a residue into all possible mutants and saves each file
+
+-->
+
+<macro>
+
+    <action id="userLoad" destination="original" />
+    <action id="userLoad" destination="mutant" />
+
+    <!--This will become the list of Residue IDs-->
+    <userVar id="RESIDUE_IDS" title="Mutate Residue" prompt="Select Residue ID to mutate">A1</userVar>
+    <!--This will become the list of Targets-->
+    <userVar id="TARGETS" title="Mutate Residue" prompt="Select 3-letter Residue name to mutate to">GLY</userVar>
+
+    <!--This will become the list of Mutant codes-->
+    <residueVar id="MUTANTS" type="mutant" source="original">
+        <residueID>$(RESIDUE_IDS)</residueID>
+        <target>$(TARGETS)</target>
+    </residueVar>
+
+    <!--Bool to initialise loop-->
+    <userBool id="continue" title="Select Next Residue" prompt="Select Another Residue?" />
+    <while id="continue">
+
+        <!--These will append to the list of Residue IDs and Targets-->
+        <userVar id="RESIDUE_ID" title="Mutate Residue" prompt="Select Residue ID to mutate">A1</userVar>
+        <userVar id="TARGET" title="Mutate Residue" prompt="Select 3-letter Residue name to mutate to">GLY</userVar>
+
+        <!--Generate Mutant Code for entry-->
+        <residueVar id="MUTANT" type="mutant" source="original">
+            <residueID>$(RESIDUE_ID)</residueID>
+            <target>$(TARGET)</target>
+        </residueVar>
+
+        <!--Append to arrays-->
+        <var id="RESIDUE_IDS">$(RESIDUE_IDS),$(RESIDUE_ID)</var>
+        <var id="TARGETS">$(TARGETS),$(TARGET)</var>
+        <var id="MUTANTS">$(MUTANTS)_$(MUTANT)</var>
+
+        <userBool id="continue" title="Select Next Residue" prompt="Select Another Residue?" />
+    </while>
+
+    <!--Generate Arrays-->
+    <split id="RESIDUE_IDS" delimiter=",">$(RESIDUE_IDS)</split>
+    <split id="TARGETS" delimiter=",">$(TARGETS)</split>
+    <split id="MUTANTS" delimiter="_">$(MUTANTS)</split>
+
+    <userBool id="OPTIMISE" title="Mutate Residue" prompt="Optimise Mutated Residue?" />
+
+    <!--Start with blank report-->
+    <action id="report" overwrite="true" source="original">
+        <directory>$(PROJECT)/Reports</directory>
+        <name>$(MUTANTS).log</name>
+    </action>   
+
+    <!--Loop through arrays using length of RESIDUE_IDS -->
+    <for var="index" stop="${RESIDUE_IDS}">
+
+        <group type="geometry" name="geometryGroup" source="original">
+
+            <getItem id="RESIDUE_IDS" var="RESIDUE_ID" index="$(index)" />
+            <getItem id="TARGETS" var="TARGET" index="$(index)" />
+            <getItem id="MUTANTS" var="MUTANT" index="$(index)" />
+
+            <action id="report" overwrite="false" source="original">
+                <directory>$(PROJECT)/Reports</directory>
+                <name>$(MUTANTS).log</name>
+                <items>
+                    <text>Mutating $(RESIDUE_ID) to $(TARGET) -> $(MUTANT)</text>
+                </items>
+            </action>
+
+            <action id="mutateResidue" source="original">
+                <residueID>$(RESIDUE_ID)</residueID>
+                <target>$(TARGET)</target>
+                <optimise>$(OPTIMISE)</optimise>
+            </action>
+
+        </group>
+
+        <action id="save" source="original">
+            <directory>$(PROJECT)/Mutation</directory>
+            <name>$(MUTANT)_$(TARGET).xat</name>
+            <connectivity />
+        </action>
+
+
+    </for>
+
+</macro>

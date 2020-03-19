@@ -432,6 +432,14 @@ public class GeometryInterface :
 	/// <param name="copyToGIID">The ID of the Geometry Interface whose Geometry's Parameters will be replaced.</param>
 	public IEnumerator ReplaceParameters(GIID copyToGIID) {
 		Geometry copyToGeometry = Flow.GetGeometry(copyToGIID);
+		if (copyToGeometry == null) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"'{0}' is empty. Cannot replace Parameters!",
+				copyToGIID
+			);
+			yield break;
+		}
 		Parameters.UpdateParameters(geometry, copyToGeometry, true);
 		yield return null;
 	}
@@ -440,14 +448,31 @@ public class GeometryInterface :
 	/// <param name="copyToGIID">The ID of the Geometry Interface whose Geometry's Parameters will beupdated.</param>
 	public IEnumerator UpdateParameters(GIID copyToGIID) {
 		Geometry copyToGeometry = Flow.GetGeometry(copyToGIID);
+		if (copyToGeometry == null) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"'{0}' is empty. Cannot update Parameters!",
+				copyToGIID
+			);
+			yield break;
+		}
 		Parameters.UpdateParameters(geometry, copyToGeometry, false);
 		yield return null;
 	}
 
-	/// <summary>Align the Geometry of copyToGIID with this Geometry Interface's Geometry.</summary>
-	/// <param name="copyToGIID">The ID of the Geometry Interface whose Geometry will be aligned.</param>
-	public IEnumerator AlignGeometries(GIID copyToGIID) {
-		return Flow.GetGeometry(copyToGIID).FitAgainst(geometry);
+	/// <summary>Align this Geometry to alignToGIID's Geometry.</summary>
+	/// <param name="alignToGIID">The ID of the Geometry Interface to align to.</param>
+	public IEnumerator AlignGeometries(GIID alignToGIID) {
+		Geometry alignTo = Flow.GetGeometry(alignToGIID);
+		if (alignTo == null) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"'{0}' is empty. Cannot align!",
+				alignToGIID
+			);
+			yield break;
+		}
+		yield return geometry.AlignTo(alignTo);
 	}
 
 	/// <summary>Triggered when this Geometry Interface is dragged onto itself.</summary>
@@ -758,7 +783,7 @@ public class GeometryInterface :
 
 		contextMenu.AddSpacer();
 
-		contextMenu.AddButton(() => StartCoroutine(RunMacro()), "Run Macro File", geometryEnabled);
+		contextMenu.AddButton(() => StartCoroutine(RunMacro()), "Run Macro File", true);
 
 		contextMenu.AddSpacer();
 
@@ -955,9 +980,7 @@ public class GeometryInterface :
 
 	public IEnumerator RunMacro() {
 		activeTasks++;
-		Macro macro = Macro.FromGeometryInterface(id);
-		yield return macro.LoadRootFromXML();
-		yield return macro.ProcessRoot();
+		yield return Macro.RunMacro(id);
 		activeTasks--;
 	}
 

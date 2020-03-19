@@ -542,9 +542,10 @@ public static class GaussianPDBLineReader {
 		
 		//See if residue is already present
 		Residue residue;
-		if (!geometry.TryGetResidue (residueID, out residue)) {
+		if (!geometry.TryGetResidue (residueID, out residue) || residue == null) {
 			//Not present - create a new one
-			geometry.AddResidue(residueID, new Residue(residueID, residueName, geometry));
+			residue = new Residue(residueID, residueName, geometry);
+			geometry.AddResidue(residueID, residue);
 		}
 
 		Amber amber;

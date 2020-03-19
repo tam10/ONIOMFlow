@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using System;
+using System.Text;
 using Unity.Mathematics;
 using Element = Constants.Element;
 using BT = Constants.BondType;
@@ -39,6 +40,56 @@ public class Geometry : MonoBehaviour {
 			.Select(x => x.chainID)
 			//Get the unique set of chainIDs
 			.Distinct();
+
+	/// <summary>Return the 1-Letter Amino Acid names for each Residue in each Chain.</summary>
+	public IEnumerable<string> EnumerateSequences() {
+		foreach (string chainID in GetChainIDs()) {
+			yield return GetSequence(chainID);
+		}
+	}
+
+	/// <summary>Return the 1-Letter Amino Acid names for each Residue in a Chain.</summary>
+	/// <param name="chainID">The Chain to get the sequence for.</param>
+	public string GetSequence(string chainID) {
+
+		int maxResnum = residueDict
+			.Where(x => 
+				x.Value.chainID == chainID && 
+				x.Value.state != RS.WATER && 
+				x.Value.state != RS.ION
+			)
+			.Select(x => x.Key.residueNumber)
+			.Max();
+		
+		StringBuilder stringBuilder = new StringBuilder(); 
+		for (int residueNumber=0; residueNumber<maxResnum+1; residueNumber++) {
+			ResidueID residueID = new ResidueID(chainID, residueNumber);
+			Residue residue;
+			if (TryGetResidue(residueID, out residue)) {
+				string residueName1;
+				if (Data.residueName3To1.TryGetValue(residue.residueName, out residueName1)) {
+					stringBuilder.Append(residueName1);
+				} else {
+					stringBuilder.Append("X");
+				}
+			} else {
+				stringBuilder.Append("-");
+			}
+		}
+		return stringBuilder.ToString();
+	}
+
+	/// <summary>Return the total mass of this Geometry.</summary>
+	public float GetMass() {
+		float mass = 0f;
+		foreach (Atom atom in EnumerateAtoms()) {
+			AtomicParameter atomicParameter;
+			if (parameters.TryGetAtomicParameter(atom.amber, out atomicParameter)) {
+				mass += atomicParameter.mass;
+			}
+		}
+		return mass;
+	}
 
 	/// <summary>Enumerate the AtomIDs in this Geometry object</summary>
 	public IEnumerable<AtomID> EnumerateAtomIDs() =>
@@ -478,7 +529,7 @@ public class Geometry : MonoBehaviour {
 		}
 	}
 
-	public IEnumerator FitAgainst(Geometry other, List<AtomID> atomsToFit=null) {
+	public IEnumerator AlignTo(Geometry target, List<AtomID> atomsToFit=null) {
 		//Translate and rotate these Atoms' positions to fit against other
 		//Can provide a List of AtomIDs to use
 		//Note this is not the best way to align geometries, but no SVD implementation in Unity or Math
@@ -502,7 +553,7 @@ public class Geometry : MonoBehaviour {
 					CustomLogger.LogFormat(EL.DEBUG, "ResidueID {0}", thisResidueID);
 					Residue thisResidue = residueDict[thisResidueID];
 					Residue otherResidue;
-					if (!other.residueDict.TryGetValue(thisResidueID, out otherResidue)) {
+					if (!target.residueDict.TryGetValue(thisResidueID, out otherResidue)) {
 						//Other Geometry doesn't have the same Residue
 						CustomLogger.Log(EL.DEBUG, "otherResidue doesn't contain ResidueID");
 						continue;
@@ -575,7 +626,7 @@ public class Geometry : MonoBehaviour {
 			.Select(x => GetAtom(x).position.xyz)
 			.ToArray();
 		float3[] otherPositions = atomsToFit
-			.Select(x => other.GetAtom(x).position.xyz)
+			.Select(x => target.GetAtom(x).position.xyz)
 			.ToArray();
 
 		if (Timer.yieldNow) {yield return null;}

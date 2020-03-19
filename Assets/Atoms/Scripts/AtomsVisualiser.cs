@@ -2053,8 +2053,6 @@ public class AtomsVisualiser : MonoBehaviour {
             input:true
         );
 
-
-
         while (!multiPrompt.userResponded) {
             yield return null;
         }
@@ -2095,12 +2093,71 @@ public class AtomsVisualiser : MonoBehaviour {
             yield break;
         }
 
+        Residue oldResidue = residue.Take(null);
+
         yield return residueMutator.MutateStandard(
             newResidue,
             optimise
         );
 
+        if (residueMutator.failed) {
+            geometry.AddResidue(residue.residueID, oldResidue);
+            yield break;
+        }
+
         StartCoroutine(Redraw());
+
+        DihedralScanner dihedralScanner = residueMutator.dihedralScanner;
+
+        
+
+        List<int2> bonds = new List<int2>();
+        foreach ((PDBID pdbID, int index) in residueMutator.dihedralScanner.residueClashGroup.pdbIDs.Select((x,i) => (x,i))) {
+            if (pdbID.identifier == "" || pdbID.identifier == "A") {
+                continue;
+            }
+
+            Atom atom = residue.atoms[pdbID];
+            foreach (PDBID neighbourID in atom.internalConnections.Keys) {
+                int neighbourIndex = System.Array.IndexOf(residueMutator.dihedralScanner.residueClashGroup.pdbIDs, neighbourID);
+                if (neighbourIndex > index) {
+                    bonds.Add(new int2(index, neighbourIndex));
+                }
+            }
+        }
+
+        int scoresCount = dihedralScanner.scores.Count;
+        if (scoresCount > 1) {
+            float minScore = dihedralScanner.scores.Min();
+            float averageScore = dihedralScanner.scores.Sum() / scoresCount;
+
+            int vertexCount = scoresCount * bonds.Count;
+
+            foreach ((float score, int index) in dihedralScanner.scores.Select((x,i) => (x,i))) {
+
+                float normScore = CustomMathematics.Map(score, minScore, averageScore, 0, 1);
+                normScore = Mathf.Clamp(normScore, 0, 1);
+
+                float3[] scorePositions = dihedralScanner.bestPositions[index];
+                foreach (int2 bond in bonds) {
+                    lineDrawer.AddLine(
+                        scorePositions[bond.x], 
+                        scorePositions[bond.y], 
+                        Color.Lerp(Color.blue, Color.red, normScore),
+                        -offset
+                    );
+                }
+                if (Timer.yieldNow) {
+                    yield return null;
+                }
+            }
+            
+            pointerClickHandler = () => {
+                lineDrawer.ClearLines();
+                ResetPointerHandler();
+            };
+        }
+
         
         geometryHistory.SaveState(string.Format("Mutate Residue '{0}'", closestAtom.residueID));
 

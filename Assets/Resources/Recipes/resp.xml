@@ -2,7 +2,7 @@
 
 <!-- 
 
-# RESP Recipe
+# RESP Macro
 
 # Calculations:
 # 1: opt=loose PM6 
@@ -11,7 +11,7 @@
 
 -->
 
-<recipe>
+<macro>
     <!-- Number of processors to use in all calculations -->
     <var id="NPROC">4</var>
 
@@ -36,7 +36,7 @@
             <title>First Optimisation</title>
             <layer id="$(REAL)" method="PM6" />
             <prompt />
-            <updatePositions destination="residueGroup" />
+            <updateGeometry destination="residueGroup" positions="true"></updateGeometry>
         </run>
 
         <run path="$(PROJECT)$(CHARGES_DIR)$(RESIDUES)_opt2" source="residueGroup">
@@ -45,7 +45,7 @@
             <title>Second Optimisation</title>
             <layer id="$(REAL)" method="HF" basis="6-31g(d)" />
             <keywords>SCF=Conver=8</keywords>
-            <updatePositions destination="residueGroup" />
+            <updateGeometry destination="residueGroup" positions="true"></updateGeometry>
         </run>
 
         <run path="$(PROJECT)$(CHARGES_DIR)$(RESIDUES)_charge" source="residueGroup">
@@ -53,7 +53,7 @@
             <title>Charge Derivation</title>
             <layer id="$(REAL)" method="HF" basis="6-31g(d)" />
             <keywords>SCF=Conver=8 Pop=MK IOp(6/41=$(ESP_LAYERS),6/42=$(ESP_DENSITY),6/77=$(RESP_RESTRAINT))</keywords>
-            <updateCharges destination="$(GEOMETRY)" />
+            <updateGeometry destination="$(GEOMETRY)" charges="true"></updateGeometry>
         </run>
 
         <action id="RedistributeCharge">
@@ -62,4 +62,4 @@
         <action id="RoundCharge" />
 
     </group>
-</recipe>
+</macro>

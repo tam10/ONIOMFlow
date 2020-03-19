@@ -145,16 +145,19 @@ public static class CustomLogger {
         }
     }
 
-    public static void LogOutput(string message) {
+    public static void LogOutput(string message, bool newLine=true) {
         if (!open) {return;}
-        logStream.Write(message + FileIO.newLine);
+        if (newLine) {
+            logStream.Write(message + FileIO.newLine);
+        } else {
+            logStream.Write(message);
+        }
         logStream.Flush();
     }
 
-    public static void LogOutput(object messageObj) {
+    public static void LogOutput(object messageObj, bool newLine=true) {
         if (!open) {return;}
-        logStream.Write(messageObj.ToString() + FileIO.newLine);
-        logStream.Flush();
+        LogOutput(messageObj.ToString(), newLine);
     }
     
     public static void LogOutput(string format, params object[] args) {

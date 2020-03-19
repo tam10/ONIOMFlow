@@ -25,7 +25,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - _amplitude: 0.9
-    - _frequency: 3
+    - _frequency: 2.37
     - _gain: 0.1
     - _lacunarity: 2.52
     - _monochromatic: 0

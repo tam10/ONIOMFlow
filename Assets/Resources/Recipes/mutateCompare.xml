@@ -84,13 +84,36 @@
 
         </group>
 
-        <action id="save" source="original">
-            <directory>$(PROJECT)/Mutation</directory>
-            <name>$(MUTANT)_$(TARGET).xat</name>
-            <connectivity />
-        </action>
-
-
     </for>
+
+    <!--Alignment-->
+    <action id="report" overwrite="false" source="original">
+        <directory>$(PROJECT)/Reports</directory>
+        <name>$(MUTANTS).log</name>
+        <items>
+            <text>Aligning geometry to target</text>
+        </items>
+    </action>
+    
+    <action id="align" source="original" target="mutant" />
+
+    <!--Compare distances and torsions of new residues-->
+    <action id="report" overwrite="false" source="original">
+        <directory>$(PROJECT)/Reports</directory>
+        <name>$(MUTANTS).log</name>
+        <items>
+            <compareResidues>
+                <distances heavy="true" />
+                <torsionAngles />
+            </compareResidues>
+        </items>
+    </action>
+
+
+    <action id="save" source="original">
+        <directory>$(PROJECT)/Mutation</directory>
+        <name>$(MUTANTS).xat</name>
+        <connectivity />
+    </action>
 
 </macro>

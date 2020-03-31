@@ -56,7 +56,7 @@ public static class GaussianInputWriter {
                     //Build up connectivity string in same loop
                     if (writeConnectivity) {
                         connectivitySB.AppendFormat("{0} ", atomNum++);
-                        Atom atom = residue.atoms[pdbID];
+                        Atom atom = residue.GetAtom(pdbID);
                         foreach ((AtomID neighbourID, BT bondType) in atom.EnumerateConnections()) {
                             int neighbourNum = geometry.atomMap[neighbourID];
 
@@ -224,7 +224,7 @@ public static class GaussianInputWriter {
     }
 
     public static string GetAtomLine(Geometry geometry, Residue residue, PDBID pdbID, Map<AtomID, int> atomMap) {
-        Atom atom = residue.atoms[pdbID];
+        Atom atom = residue.GetAtom(pdbID);
         string atomSpec = string.Format(
             "{0}-{1}-{2}(PDBName={3},ResName={4},ResNum={5})",
             pdbID.element,

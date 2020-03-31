@@ -359,7 +359,7 @@ class ResidueWireFrame {
 
     public ResidueWireFrame(Transform parentTransform, Residue residue, float3 offset) {
         this.parentTransform = parentTransform;
-        pdbIDs = residue.atoms.Keys.ToArray();
+        pdbIDs = residue.pdbIDs.ToArray();
         int numAtoms = pdbIDs.Length;
 
         positions = new float3[numAtoms];
@@ -396,7 +396,7 @@ class ResidueWireFrame {
 
         for (int atomNum=0; atomNum < numAtoms; atomNum++) {
             PDBID pdbID = pdbIDs[atomNum];
-            Atom atom = residue.atoms[pdbID];
+            Atom atom = residue.GetAtom(pdbID);
 
             positions[positionIndex++] = atom.position + offset;
 

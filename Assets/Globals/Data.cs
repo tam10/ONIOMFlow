@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Mathematics;
 using System.IO;
 using System.Xml;
 using System.Xml.Serialization;
@@ -18,8 +19,8 @@ public static class Data {
 
 	//Data lists
 
-	public static Dictionary<ElementPair, float[]> bondDistances;
-	public static Dictionary<ElementPair, float[]> bondDistancesSquared;
+	private static Dictionary<uint, float[]> bondDistancesDict;
+	private static Dictionary<uint, float[]> bondDistancesSquaredDict;
 	public static Dictionary<string, AminoAcid> aminoAcids;
 	public static Dictionary<string, AminoAcid> waterResidues;
 	public static Dictionary<string, AminoAcid> ionResidues;
@@ -313,6 +314,10 @@ public static class Data {
 		return aminoAcidState;
 	}
 
+	public static uint GetHash(Element element0, Element element1) {
+		return (uint)element0 * 255 + (uint)element1;
+	}
+
 	private static IEnumerator PopulateBondDistancesDict() {
 		string bondDistancePath;
 		if (!Settings.TryGetPath(Settings.dataPath, Settings.bondDistancesFilename, out bondDistancePath)) {
@@ -320,8 +325,8 @@ public static class Data {
 		}
 		XDocument xDocument = FileIO.ReadXML (bondDistancePath);
 		
-		bondDistances = new Dictionary<ElementPair, float[]>();
-		bondDistancesSquared = new Dictionary<ElementPair, float[]>();
+		bondDistancesDict = new Dictionary<uint, float[]>();
+		bondDistancesSquaredDict = new Dictionary<uint, float[]>();
 
 		XElement elementsX = xDocument.Element("elements");
 		foreach (XElement atom0X in elementsX.Elements("atom")) {
@@ -391,13 +396,13 @@ public static class Data {
 				}
 				float[] distancesSquared = CustomMathematics.Squared(distances);
 
-				ElementPair forwardKey = new ElementPair(element0, element1);
-				ElementPair backwardKey = new ElementPair(element1, element0);
+				uint forwardKey = GetHash(element0, element1);
+				uint backwardKey = GetHash(element1, element0);
 
-				bondDistances[forwardKey] = distances;
-				bondDistances[backwardKey] = distances;
-				bondDistancesSquared[forwardKey] = distancesSquared;
-				bondDistancesSquared[backwardKey] = distancesSquared;
+				bondDistancesDict[forwardKey] = distances;
+				bondDistancesDict[backwardKey] = distances;
+				bondDistancesSquaredDict[forwardKey] = distancesSquared;
+				bondDistancesSquaredDict[backwardKey] = distancesSquared;
 
 			}
 			if (Timer.yieldNow) {yield return null;}
@@ -405,35 +410,48 @@ public static class Data {
 
 	}
 
+	public static float[] GetBondDistances(Element element0, Element element1) {
+		return bondDistancesDict[GetHash(element0, element1)];
+	}
+
+	public static bool TryGetBondDistances(Element element0, Element element1, out float[] bondDistances) {
+		return bondDistancesDict.TryGetValue(GetHash(element0, element1), out bondDistances);
+	}
+
+	public static float[] GetBondDistancesSquared(Element element0, Element element1) {
+		return bondDistancesSquaredDict[GetHash(element0, element1)];
+	}
+
+	public static bool TryGetBondDistancesSquared(Element element0, Element element1, out float[] bondDistances) {
+		return bondDistancesSquaredDict.TryGetValue(GetHash(element0, element1), out bondDistances);
+	}
+
+	private static float[] cachedDistances;
 	public static BT GetBondOrder(Element element0, Element element1, float distance) {
 
-		float[] distances;
-		if (!bondDistances.TryGetValue(new ElementPair(element0, element1), out distances)) {
+		if (!bondDistancesDict.TryGetValue(GetHash(element0, element1), out cachedDistances)) {
 			return BT.NONE;
 		}
 
-		if (distance > distances[0]) return BT.NONE;
-		if (distance > distances[1]) return BT.SINGLE;
-		if (distance > distances[2]) return BT.AROMATIC;
-		if (distance > distances[3]) return BT.DOUBLE;
+		if (distance > cachedDistances[0]) return BT.NONE;
+		if (distance > cachedDistances[1]) return BT.SINGLE;
+		if (distance > cachedDistances[2]) return BT.AROMATIC;
+		if (distance > cachedDistances[3]) return BT.DOUBLE;
 		return BT.TRIPLE;
 
 	}
 
+
 	public static BT GetBondOrderDistanceSquared(Element element0, Element element1, float distanceSquared) {
 
-
-		float[] distancesSquared;
-
-
-		if (!bondDistancesSquared.TryGetValue(new ElementPair(element0, element1), out distancesSquared)) {
+		if (!bondDistancesSquaredDict.TryGetValue(GetHash(element0, element1), out cachedDistances)) {
 			return BT.NONE;
 		}
 
-		if (distanceSquared > distancesSquared[0]) {return BT.NONE;}
-		if (distanceSquared > distancesSquared[1]) {return BT.SINGLE;}
-		if (distanceSquared > distancesSquared[2]) {return BT.AROMATIC;}
-		if (distanceSquared > distancesSquared[3]) {return BT.DOUBLE;}
+		if (distanceSquared > cachedDistances[0]) {return BT.NONE;}
+		if (distanceSquared > cachedDistances[1]) {return BT.SINGLE;}
+		if (distanceSquared > cachedDistances[2]) {return BT.AROMATIC;}
+		if (distanceSquared > cachedDistances[3]) {return BT.DOUBLE;}
 		return BT.TRIPLE;
 
 	}
@@ -510,13 +528,13 @@ public static class Data {
 			return;
 		}
 
-		foreach (KeyValuePair<PDBID, Atom> keyValuePair in residue.atoms) {
+		foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
 			Atom stateAtom;
-			if (! stateResidue.atoms.TryGetValue(keyValuePair.Key, out stateAtom)) {
+			if (! stateResidue.TryGetAtom(pdbID, out stateAtom)) {
 				CustomLogger.LogFormat(
 					EL.WARNING,
 					"Could not find PDBID {0} in Residue State {1} for Residue Family {2}", 
-					keyValuePair.Key, 
+					pdbID, 
 					residue.state, 
 					residue.residueName
 				);
@@ -537,20 +555,22 @@ public static class Data {
 				}
 				return;
 			}
-			keyValuePair.Value.amber = stateAtom.amber;
+			atom.amber = stateAtom.amber;
 		}
 	}
 
 	private static void SetIonAmbers(ref Residue residue) {
 
+		PDBID[] pdbIDs = residue.pdbIDs.ToArray();
+		PDBID pdbID = pdbIDs.First();
+		Atom atom = residue.GetAtom(pdbID);
+		Amber amber = Amber.X;
+
 		AminoAcid ionResidue;
 		if (ionResidues.TryGetValue(residue.residueName, out ionResidue)) {
-			PDBID[] pdbIDs = residue.pdbIDs.ToArray();
-			Amber amber = ionResidue.GetAmbersFromPDBs(RS.ION, pdbIDs).First();
-			residue.atoms.Values.First().amber = amber;
+			amber = ionResidue.GetAmbersFromPDBs(RS.ION, pdbIDs).First();
 		} else {
-			string element = residue.pdbIDs.First().element.ToString();
-			Amber amber;
+			string element = pdbID.element.ToString();
 			if (!AmberCalculator.TryGetAmber(element, out amber)) {
 				amber = Amber.X;
 				CustomLogger.LogFormat(
@@ -567,32 +587,32 @@ public static class Data {
 					element
 				);
 			}
-			residue.atoms.Values.First().amber = amber;
 		}
+		atom.amber = amber;
 	}
 
 	private static bool SetResidueAmbersWrongState(ref Residue residue, Dictionary<RS, Residue> family) {
 		// If the wrong state is declared for a residue, look up all residues with the same name.
 		// Set the correct Ambers for this state
 		// Assign the correct state for the residue
-		foreach (KeyValuePair<RS, Residue> familyResidueKVP in family) {
-			foreach (KeyValuePair<PDBID, Atom> atomKVP in residue.atoms) {
+		foreach ((RS residueState, Residue familyResidue) in family) {
+			foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
 				Atom stateAtom;
-				if (! familyResidueKVP.Value.atoms.TryGetValue(atomKVP.Key, out stateAtom)) {
+				if (! familyResidue.TryGetAtom(pdbID, out stateAtom)) {
 					goto NEXT_FAMILY;
 				}
-				atomKVP.Value.amber = stateAtom.amber;
+				atom.amber = stateAtom.amber;
 			}
 			// Found the correct state
-			residue.state = familyResidueKVP.Key;
+			residue.state = residueState;
 			return true;
 
 			NEXT_FAMILY:;
 		}
 
 
-		foreach (KeyValuePair<PDBID, Atom> atomKVP in residue.atoms) {
-			atomKVP.Value.amber = Amber.X;
+		foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+			atom.amber = Amber.X;
 		}
 		residue.state = RS.UNKNOWN;
 		return false;
@@ -609,11 +629,11 @@ public static class Data {
 				residue.state = RS.WATER;
 				residue.protonated = true;
 				residue.residueName = Settings.standardWaterResidueName;
-				foreach (KeyValuePair<PDBID, Atom> keyValuePair in residue.atoms) {
-					if (keyValuePair.Key.element == Element.H) {
-						keyValuePair.Value.amber = waterAmberH;
-					} else if (keyValuePair.Key.element == Element.O) {
-						keyValuePair.Value.amber = waterAmberO;
+				foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+					if (pdbID.element == Element.H) {
+						atom.amber = waterAmberH;
+					} else if (pdbID.element == Element.O) {
+						atom.amber = waterAmberO;
 					}
 				}
 				return;
@@ -628,18 +648,17 @@ public static class Data {
 				residue.residueName = Settings.standardWaterResidueName;
 				return;
 			} else {
-				foreach (KeyValuePair<string, AminoAcid> ionResidueState in ionResidues) {
-					PDBID[] ionPDBIDs = ionResidueState.Value.GetPDBIDs(RS.ION);
+				foreach ((string ionName, AminoAcid ionState) in ionResidues) {
+					PDBID[] ionPDBIDs = ionState.GetPDBIDs(RS.ION);
 
 					if (ionPDBIDs != null && ionPDBIDs.First() == pdbID) {
 						residue.state = RS.ION;
 						residue.protonated = true;
-						residue.residueName = ionResidueState.Key;
-						float charge = ionResidueState
-							.Value
+						residue.residueName = ionName;
+						float charge = ionState
 							.GetPartialChargesFromPDBs(RS.ION, ionPDBIDs)
 							.Sum();
-						residue.atoms.Values.First().partialCharge = charge;
+						residue.GetAtom(pdbID).partialCharge = charge;
 					}
 				}
 				return;

@@ -274,7 +274,7 @@ public class ResidueRepresentation : MonoBehaviour {
     }
 
     private void MoveResidueToLayer(AtomID atomID, OLID layerID) {
-        foreach (Atom atom in geometry.GetResidue(atomID.residueID).atoms.Values) {
+        foreach ((PDBID pdbID, Atom atom) in geometry.GetResidue(atomID.residueID).EnumerateAtoms()) {
             atom.oniomLayer = layerID;
         }
         RefreshMeshResidue(primaryAtomsMesh);

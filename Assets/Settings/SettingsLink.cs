@@ -24,7 +24,7 @@ public class SettingsLink : MonoBehaviour {
         Settings.fogEndDistance = fogEndDistance;
         Settings.fogRatio = fogRatio;
         Settings.lineThickness = lineThickness;
-
+        CustomLogger.logErrorLevel = errorLevel;
     }
 
 }

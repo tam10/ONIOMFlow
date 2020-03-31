@@ -1773,5 +1773,19 @@ public static class CustomMathematics {
 		EImproperTorsion(dihedral, barrierHeights[3], phaseOffsets[3], 4f, energies);
 	}
 
+	/// <summary>Get the Torsion Energy between 4 atoms.</summary>
+	/// <param name="dihedral">The dihedral angle between the 4 atoms.</param>
+	/// <param name="barrierHeights">The barrier heights of the Torsion</param>
+	/// <param name="phaseOffsets">The phase offset of the Torsion.</param>
+	/// <param name="order">The order of the derivative.</param>
+	public static float ETorsion(float dihedral, float[] barrierHeights, float[] phaseOffsets, int order) {
+		float energy = 0f;
+		energy += EImproperTorsion(dihedral, barrierHeights[0], phaseOffsets[0], 1f, order);
+		energy += EImproperTorsion(dihedral, barrierHeights[1], phaseOffsets[1], 2f, order);
+		energy += EImproperTorsion(dihedral, barrierHeights[2], phaseOffsets[2], 3f, order);
+		energy += EImproperTorsion(dihedral, barrierHeights[3], phaseOffsets[3], 4f, order);
+		return energy;
+	}
+
 
 }

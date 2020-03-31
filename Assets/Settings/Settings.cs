@@ -36,6 +36,7 @@ public static class Settings {
 	public static string standardResiduePDBsFilename;
 	public static string defaultParametersFilename;
 	public static string standardResiduesDirectory;
+	public static string sasaFileName;
 	public static string logFilename;
 
 	//ENVIRONMENT
@@ -353,6 +354,7 @@ public static class Settings {
 
 		//Data files
 		gaussianMethodsFilename = FileIO.ParseXMLString(pX, "gaussianMethodsFilename");
+		sasaFileName = FileIO.ParseXMLString(pX, "sasaFileName");
 		bondDistancesFilename = FileIO.ParseXMLString(pX, "bondDistancesFilename");
 		standardResiduePDBsFilename = FileIO.ParseXMLString(pX, "standardResiduePDBsFilename");
 		standardResiduesDirectory = FileIO.ParseXMLString(pX, "standardResiduesDirectory");

@@ -269,7 +269,7 @@ public class AtomChecker {
     }
 
     private GIS HasAmber(Geometry geometry, ResidueID residueID, PDBID pdbID) {
-        Amber amber = geometry.GetResidue(residueID).atoms[pdbID].amber;
+        Amber amber = geometry.GetAtom(residueID, pdbID).amber;
         if (amber != Amber._ && amber != Amber.X) {
             return GIS.OK;
         }
@@ -278,7 +278,7 @@ public class AtomChecker {
     }
 
     private GIS HasValidAmber(Geometry geometry, ResidueID residueID, PDBID pdbID) {
-        Amber amber = geometry.GetResidue(residueID).atoms[pdbID].amber;
+        Amber amber = geometry.GetAtom(residueID, pdbID).amber;
         if (amber != Amber.DU) {
             return GIS.OK;
         }

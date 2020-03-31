@@ -20,6 +20,9 @@ using EL = Constants.ErrorLevel;
 /// </remarks>
 public class Geometry : MonoBehaviour {
 
+	/// <summary>Dictionary of all Residues in this Geometry object.</summary>
+	private Dictionary<ResidueID, Residue> residueDict = new Dictionary<ResidueID, Residue> ();
+
 	/// <summary>Return the number of Atoms in this Geometry object</summary>
 	public int size => 
 		//Select all Residues
@@ -94,26 +97,29 @@ public class Geometry : MonoBehaviour {
 	/// <summary>Enumerate the AtomIDs in this Geometry object</summary>
 	public IEnumerable<AtomID> EnumerateAtomIDs() =>
 		//Loop through all Residues
-		residueDict.SelectMany(
-			kvp => kvp.Value.pdbIDs
+		EnumerateResidues().SelectMany(
+			r => r.residue.pdbIDs
 				//Yield the AtomID formed by the ResidueID and PDBID
-				.Select(pdbID => new AtomID(kvp.Key, pdbID)));
+				.Select(pdbID => new AtomID(r.residueID, pdbID))
+		);
 	
 	/// <summary>Enumerate each Atom in this Geometry object</summary>
-	public IEnumerable<(AtomID, Atom)> EnumerateAtomIDPairs()  =>
+	public IEnumerable<(AtomID atomID, Atom atom)> EnumerateAtomIDPairs()  =>
 		//Loop through all Residues
-		residueDict.SelectMany(
-			rKVP => rKVP.Value.atoms
+		EnumerateResidues().SelectMany(
+			r => r.residue.EnumerateAtoms()
 				//Yield the AtomID formed by the ResidueID and PDBID
-				.Select(aKVP => (new AtomID(rKVP.Key, aKVP.Key), aKVP.Value)));
+				.Select(a => (new AtomID(r.residueID, a.pdbID), a.atom))
+		);
 	
 	/// <summary>Enumerate each Atom in this Geometry object</summary>
 	public IEnumerable<Atom> EnumerateAtoms()  =>
 		//Loop through all Residues
-		residueDict.SelectMany(
-			rKVP => rKVP.Value.atoms
-				//Yield the AtomID formed by the ResidueID and PDBID
-				.Select(aKVP => aKVP.Value));
+		EnumerateResidues().SelectMany(
+			r => r.residue.EnumerateAtoms()
+				//Yield the Atom
+				.Select(a => a.atom)
+		);
 
 	/// <summary>Return the unique ONIOM Layer IDs in this Geometry object</summary>
 	public IEnumerable<OLID> GetLayers() => 
@@ -163,8 +169,6 @@ public class Geometry : MonoBehaviour {
 			.Where(x => residueCondition(x.Value))
 			.Select(x => (x.Key,x.Value));
 
-	/// <summary>Dictionary of all Residues in this Geometry object.</summary>
-	private Dictionary<ResidueID, Residue> residueDict = new Dictionary<ResidueID, Residue> ();
 
 	/// <summary>Dictionary of Residues that are missing in this Geometry object.</summary>
 	public Dictionary<ResidueID, string> missingResidues = new Dictionary<ResidueID, string> ();
@@ -410,7 +414,7 @@ public class Geometry : MonoBehaviour {
 			);
 			return;
 		}
-		foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+		foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
 			foreach (AtomID neighbourID in atom.externalConnections.Keys.ToList()) {
 				Disconnect(neighbourID, new AtomID(residueID, pdbID));
 			}
@@ -418,15 +422,15 @@ public class Geometry : MonoBehaviour {
 		residueDict.Remove(residueID);
 	}
 
-	public bool ContainsAtom(AtomID atomID) {
+	public bool HasAtom(AtomID atomID) {
 		(ResidueID residueID, PDBID pdbID) = atomID;
-		return ContainsAtom(residueID, pdbID);
+		return HasAtom(residueID, pdbID);
 	}
 
-	public bool ContainsAtom(ResidueID residueID, PDBID pdbID) {
+	public bool HasAtom(ResidueID residueID, PDBID pdbID) {
 		Residue residue;
 		if (TryGetResidue(residueID, out residue)) {
-			return residue.Contains(pdbID);
+			return residue.HasAtom(pdbID);
 		}
 		return false;
 	}
@@ -437,7 +441,7 @@ public class Geometry : MonoBehaviour {
 	}
 
 	public Atom GetAtom(ResidueID residueID, PDBID pdbID) {
-		return residueDict[residueID].atoms[pdbID];
+		return GetResidue(residueID).GetAtom(pdbID);
 	}
 
 	public bool TryGetAtom(AtomID atomID, out Atom atom) {
@@ -447,10 +451,11 @@ public class Geometry : MonoBehaviour {
 
 	public bool TryGetAtom(ResidueID residueID, PDBID pdbID, out Atom atom) {
 		Residue residue;
-		atom = null;
-		if (! TryGetResidue(residueID, out residue)) return false;
-		residue.atoms.TryGetValue(pdbID, out atom);
-		return (atom != null);
+		if (! TryGetResidue(residueID, out residue)) {
+			atom = null;
+			return false;
+		}
+		return residue.TryGetAtom(pdbID, out atom);
 	}
 
 	public Residue GetResidue(ResidueID residueID) {
@@ -566,12 +571,12 @@ public class Geometry : MonoBehaviour {
 					if (Timer.yieldNow) {yield return null;}
 
 					if (pdbID.identifier != "*") {
-						if (!thisResidue.atoms.ContainsKey(pdbID)) {
+						if (!thisResidue.HasAtom(pdbID)) {
 							//This residue doesn't have pdbID
 							CustomLogger.LogFormat(EL.DEBUG, "thisResidue doesn't contain PDBID: {0}", pdbID);
 							continue;
 						}
-						if (!otherResidue.atoms.ContainsKey(pdbID)) {
+						if (!otherResidue.HasAtom(pdbID)) {
 							//Other residue doesn't have pdbID
 							CustomLogger.LogFormat(EL.DEBUG, "otherResidue doesn't contain PDBID: {0}", pdbID);
 							continue;
@@ -583,11 +588,11 @@ public class Geometry : MonoBehaviour {
 						CustomLogger.LogFormat(EL.DEBUG, "Adding AtomID: {0}", atomID);
 						atomsToFit.Add(atomID);
 					} else {
-						foreach (PDBID thisPDBID in thisResidue.atoms.Keys) {
+						foreach (PDBID thisPDBID in thisResidue.pdbIDs) {
 							if (thisPDBID.element != pdbID.element) {
 								continue;
 							}
-							if (!otherResidue.atoms.ContainsKey(thisPDBID)) {
+							if (!otherResidue.HasAtom(thisPDBID)) {
 								//Other residue doesn't have pdbID
 								CustomLogger.LogFormat(EL.DEBUG, "otherResidue doesn't contain PDBID: {0}", thisPDBID);
 								continue;
@@ -713,7 +718,7 @@ public class Geometry : MonoBehaviour {
 	///<param name="startAtomID">AtomID of Atom to start expansion from.</param>
 	///<param name="excludeList">(optional) HashSet containing AtomIDs to discard. Search will stop at these AtomIDs.</param>
 	///<param name="depth">(optional) maximum distance to expand mask by. A negative value will mean all connected Atom objects are selected.</param>
-	public IEnumerable<(AtomID, int)> GetConnectedAtomIDs(AtomID startAtomID, HashSet<AtomID> excludeList=null, int depth=-1) {
+	public IEnumerable<(AtomID atomID, int depth)> GetConnectedAtomIDs(AtomID startAtomID, HashSet<AtomID> excludeList=null, int depth=-1) {
 
 		//Create a Stack and add the first Atom along with a depth of 1
 		Stack<(int, AtomID)> stack = new Stack<(int, AtomID)>();
@@ -754,7 +759,7 @@ public class Geometry : MonoBehaviour {
 	///<param name="startAtomID">AtomID of Atom to start expansion from.</param>
 	///<param name="excludeList">(optional) HashSet containing AtomIDs to discard. Search will stop at these AtomIDs.</param>
 	///<param name="depth">(optional) maximum distance to expand mask by. A negative value will mean all connected Atom objects are selected.</param>
-	public IEnumerable<(Atom, AtomID, int)> GetConnectedAtoms(AtomID startAtomID, HashSet<AtomID> excludeList=null, int depth=-1) {
+	public IEnumerable<(Atom atom, AtomID atomID, int depth)> GetConnectedAtoms(AtomID startAtomID, HashSet<AtomID> excludeList=null, int depth=-1) {
 
 		//Create a Stack and add the first Atom along with a depth of 1
 		Stack<(int, AtomID)> stack = new Stack<(int, AtomID)>();
@@ -795,7 +800,7 @@ public class Geometry : MonoBehaviour {
     ///<param name="state">Target Residue State of Residue Group</param>
     ///<param name="excludeList">HashSet of Residue IDs to exclude from Group</param>
     ///<param name="depth">Maximum depth of neighbouring Residues to add. A negative value will allow all Residues to be searched</param>
-    public IEnumerable<(ResidueID, int)> GetConnectedResidueIDs(
+    public IEnumerable<(ResidueID residudID, int depth)> GetConnectedResidueIDs(
         HashSet<ResidueID> startResidueIDs, 
         RS state, 
         HashSet<ResidueID> excludeList=null, 
@@ -833,7 +838,7 @@ public class Geometry : MonoBehaviour {
     ///<param name="state">Target Residue State of Residue Group</param>
     ///<param name="excludeList">HashSet of Residue IDs to exclude from Group</param>
     ///<param name="depth">Maximum depth of neighbouring Residues to add. A negative value will allow all Residues to be searched</param>
-    public IEnumerable<(Residue, ResidueID, int)> GetConnectedResidues(
+    public IEnumerable<(Residue residue, ResidueID residueID, int depth)> GetConnectedResidues(
         HashSet<ResidueID> startResidueIDs, 
         RS state, 
         HashSet<ResidueID> excludeList=null, 
@@ -973,7 +978,7 @@ public class Geometry : MonoBehaviour {
 		}
 	}
 
-	public IEnumerable<(AtomID, Atom)> GetSelection(string selectionString) {
+	public IEnumerable<(AtomID atomID, Atom atom)> GetSelection(string selectionString) {
 
 
 		Func<(AtomID, Atom), bool> GetSelector(string str) {

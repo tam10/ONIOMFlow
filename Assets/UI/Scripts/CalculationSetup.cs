@@ -261,9 +261,6 @@ public class CalculationSetup : MonoBehaviour {
             Atom connectionAtom = geometry.GetAtom(connectionAtomID);
             Atom hostAtom = geometry.GetAtom(hostAtomID);
 
-            ElementPair linkPair = new ElementPair(Element.H, connectionAtomID.pdbID.element);
-            ElementPair originalPair = new ElementPair(hostAtomID.pdbID.element, connectionAtomID.pdbID.element);
-
             Atom linkAtom = new Atom(
                 hostAtom.position, 
                 link.connectionAtomID.residueID,
@@ -273,8 +270,8 @@ public class CalculationSetup : MonoBehaviour {
             );
 
             float scaleFactor = 
-                Data.bondDistances[linkPair][0] / 
-                Data.bondDistances[originalPair][0];
+                Data.GetBondDistances(Element.H, connectionAtomID.pdbID.element)[0] / 
+                Data.GetBondDistances(hostAtomID.pdbID.element, connectionAtomID.pdbID.element)[0];
             CustomMathematics.ScaleDistance(connectionAtom, linkAtom, scaleFactor, 0f);
             
             PDBID linkPDBID = connectionAtomID.pdbID;

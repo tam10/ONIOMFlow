@@ -2097,7 +2097,10 @@ public class AtomsVisualiser : MonoBehaviour {
 
         yield return residueMutator.MutateStandard(
             newResidue,
-            optimise
+            10f,
+            (optimise) 
+                ? ResidueMutator.OptisationMethod.TREE 
+                : ResidueMutator.OptisationMethod.NONE
         );
 
         if (residueMutator.failed) {
@@ -2117,7 +2120,7 @@ public class AtomsVisualiser : MonoBehaviour {
                 continue;
             }
 
-            Atom atom = residue.atoms[pdbID];
+            Atom atom = residue.GetAtom(pdbID);
             foreach (PDBID neighbourID in atom.internalConnections.Keys) {
                 int neighbourIndex = System.Array.IndexOf(residueMutator.dihedralScanner.residueClashGroup.pdbIDs, neighbourID);
                 if (neighbourIndex > index) {
@@ -2138,7 +2141,7 @@ public class AtomsVisualiser : MonoBehaviour {
                 float normScore = CustomMathematics.Map(score, minScore, averageScore, 0, 1);
                 normScore = Mathf.Clamp(normScore, 0, 1);
 
-                float3[] scorePositions = dihedralScanner.bestPositions[index];
+                float3[] scorePositions = dihedralScanner.acceptedPositions[index];
                 foreach (int2 bond in bonds) {
                     lineDrawer.AddLine(
                         scorePositions[bond.x], 

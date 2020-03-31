@@ -34,7 +34,7 @@ public static class MOL2Writer {
 			pdbIDs.Sort();
             
 			foreach (PDBID pdbID in pdbIDs) {
-                Atom atom = residue.atoms[pdbID];
+                Atom atom = residue.GetAtom(pdbID);
 				float3 position = atom.position;
 				atomNum++;
 				atomsSB.Append (
@@ -77,13 +77,13 @@ public static class MOL2Writer {
 				List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 				pdbIDs.Sort();
 				foreach (PDBID pdbID in pdbIDs) {
-					foreach ((AtomID, BT) neighbour in residue.atoms[pdbID].EnumerateConnections().ToList()) {
+					foreach ((AtomID, BT) neighbour in residue.GetAtom(pdbID).EnumerateConnections().ToList()) {
 						int connectionIndex;
 						try {
 							connectionIndex = atomMap[neighbour.Item1];
 						} catch (KeyNotFoundException) {
 							//Atom might have been deleted. Remove connection from this atom
-							residue.atoms[pdbID].TryDisconnect(neighbour.Item1);
+							residue.GetAtom(pdbID).TryDisconnect(neighbour.Item1);
                             continue;
 							//geometry.Disconnect(new AtomID(residueID, pdbID), atomID1);
                         }

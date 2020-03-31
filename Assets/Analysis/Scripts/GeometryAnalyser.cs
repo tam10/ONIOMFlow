@@ -6,7 +6,6 @@ using System.Text;
 using UnityEngine.UI;
 using Unity.Mathematics;
 using Element = Constants.Element;
-using EL = Constants.ErrorLevel;
 using GIID = Constants.GeometryInterfaceID;
 using TMPro;
 
@@ -322,7 +321,7 @@ public class GeometryAnalyser : MonoBehaviour {
 
             residueCount++;
 
-            foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                 switch (pdbID.element) {
 
                     case Element.N:
@@ -520,7 +519,7 @@ public class GeometryAnalyser : MonoBehaviour {
 
     void AddPosition(Dictionary<AtomID, float3> positionDict, Residue residue, ResidueID residueID, PDBID pdbID) {
         
-        foreach ((PDBID atomPDBID, Atom atom) in residue.atoms) {
+        foreach ((PDBID atomPDBID, Atom atom) in residue.EnumerateAtoms()) {
             if (pdbID == atomPDBID) {
                 positionDict[new AtomID(residueID, pdbID)] = atom.position;
             }
@@ -531,7 +530,7 @@ public class GeometryAnalyser : MonoBehaviour {
 
         List<float3> positions = new List<float3>();
         float3 sum = float3.zero;
-        foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+        foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
             if (pdbIDs.Contains(pdbID)) {
                 positions.Add(atom.position);
                 sum += atom.position;

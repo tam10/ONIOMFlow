@@ -235,7 +235,7 @@ public class P2NWriter : GeometryWriter {
 		(ResidueID residueID, PDBID pdbID) = atomID;
 		Residue residue = geometry.GetResidue(residueID);
 
-		Atom atom = residue.atoms[pdbID];
+		Atom atom = residue.GetAtom(pdbID);
 		float3 position = atom.position;
 		atomNum++;
 		atomsSb.Append (

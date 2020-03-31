@@ -30,6 +30,8 @@ public class Residue {
 	public string residueName;
 	/// <summary>Is this Residue fully protonated?</summary>
 	public bool protonated = false;
+	/// <summary>Return the number of protons in this residue.</summary>
+	public int protonCount => atoms.Count(x => x.Key.element == Element.H);
 	/// <summary>The current Residue State of this Residue.</summary>
 	/// <remarks>The Residue State is used to distinguish Residues during Tasks and other calculations.</remarks>
 	/// <remarks>Examples of Residue States are STANDARD, CAP, NONSTANDARD and WATER.</remarks>
@@ -84,10 +86,11 @@ public class Residue {
 
 	//Atoms are accessed by their PDB Names
 
+	/// <summary>The dictionary of Atom objects in this Residue, accessed by their PDBIDs.</summary>
+	private Dictionary<PDBID, Atom> atoms = new Dictionary<PDBID, Atom>();
 	/// <summary>Enumerates this Residue's PDBIDs.</summary>
 	public IEnumerable<PDBID> pdbIDs {get => atoms.Keys;}
-	/// <summary>The dictionary of Atom objects in this Residue, accessed by their PDBIDs.</summary>
-	public Dictionary<PDBID, Atom> atoms = new Dictionary<PDBID, Atom>();
+
 
 	/// <summary>Creates a new Residue object.</summary>
 	/// <param name="residueID">The ID of the Residue.</param>
@@ -97,22 +100,6 @@ public class Residue {
 		this._residueID = residueID;
 		this.residueName = residueName;
 		this.parent = parent;
-	}
-
-	/// <summary>Returns true if this Residue's atoms contain a matching AtomID.</summary>
-	/// <param name="atomID">The AtomID to test.</param>
-	/// <remarks>
-	/// The ResidueID of the AtomID must match the ResidueID of this Residue as well.
-	/// </remarks>
-	public bool Contains(AtomID atomID) {
-		if (atomID.residueID != residueID) {return false;}
-		return (pdbIDs.Contains (atomID.pdbID));
-	}
-
-	/// <summary>Returns true if this Residue's atoms contain a matching PDBID.</summary>
-	/// <param name="pdbID">The PDBID to test.</param>
-	public bool Contains(PDBID pdbID) {
-		return (pdbIDs.Contains (pdbID));
 	}
 
 	/// <summary>Sets the ResidueID of this Residue.</summary>
@@ -163,19 +150,19 @@ public class Residue {
 	}
 
     /// <summary>Enumerate all the Atom objects in this Residue as a ValueTuple of PDBID to Atom</summary>
-	public IEnumerable<(PDBID, Atom)> EnumerateAtoms() {
+	public IEnumerable<(PDBID pdbID, Atom atom)> EnumerateAtoms() {
 		return atoms.Select(kvp => (kvp.Key, kvp.Value));
 	}
 
     /// <summary>Enumerate all the Atom objects in this Residue that meet a condition as a ValueTuple of PDBID to Atom</summary>
-	public IEnumerable<(PDBID, Atom)> EnumerateAtoms(Func<PDBID, bool> condition) {
+	public IEnumerable<(PDBID pdbID, Atom atom)> EnumerateAtoms(Func<PDBID, bool> condition) {
 		return atoms
             .Where(kvp => condition(kvp.Key))
             .Select(kvp => (kvp.Key, kvp.Value));
 	}
 
     /// <summary>Enumerate all the Atom objects in this Residue that meet a condition as a ValueTuple of PDBID to Atom</summary>
-	public IEnumerable<(PDBID, Atom)> EnumerateAtoms(Func<Atom, bool> condition) {
+	public IEnumerable<(PDBID pdbID, Atom atom)> EnumerateAtoms(Func<Atom, bool> condition) {
 		return atoms
             .Where(kvp => condition(kvp.Value))
             .Select(kvp => (kvp.Key, kvp.Value));
@@ -224,8 +211,7 @@ public class Residue {
 		}
 
 		//Add the atom
-		atoms[acceptedPDBID] = atom;
-		atom.residueID = residueID;
+		AddAtom(acceptedPDBID, atom);
 	}
 
 	/// <summary>
@@ -258,6 +244,7 @@ public class Residue {
 			//Add the atom if this Residue doesn't contain the pdbID
 			atoms[pdbID] = atom;
 			atom.residueID = residueID;
+			if (pdbID.element == Element.H) {protonated = true;}
 		}
 	}
 
@@ -266,9 +253,6 @@ public class Residue {
 	/// </summary>
 	/// <param name="hostPDBID">The PDBID of the Atom to attach the new Atom to.</param>
 	/// <param name="atomPDBID">The PDBID of the Atom to add.</param>
-	/// <remarks>
-	/// Recursive function. Potentially problematic on very large residues.
-	/// </remarks>
 	public void AddAtomToHost(PDBID hostPDBID, PDBID atomPDBID) {
 
 		//Get the host Atom
@@ -312,7 +296,7 @@ public class Residue {
 		//normalisedOffset is the vector on the sphere that points furthest from all the existing neighbours
 		float3 normalisedOffset = CustomMathematics.GetBestPositionOnSphere(vertices, host.position, neighbourPositions);
 		//bondOffset is the normalisedOffset multiplied by the bond length
-		float newbondLength = Data.bondDistances[new ElementPair(hostPDBID, atomPDBID)][0] - Settings.bondLeeway * 1.5f;
+		float newbondLength = Data.GetBondDistances(hostPDBID.element, atomPDBID.element)[0] - Settings.bondLeeway * 1.5f;
 		float3 bondOffset = normalisedOffset * newbondLength;
 
 		//Calculate the initial position by translating to the existing host atom
@@ -321,7 +305,8 @@ public class Residue {
 		//Add atom with initial position
 		AtomID atomID = new AtomID(residueID, atomPDBID);
         Amber amber = (atomPDBID.element == Element.H) ? Data.GetLinkType(host, hostPDBID) : Amber.X;
-		atoms[atomPDBID] = new Atom(position, residueID, amber, 0f, oniomLayer:host.oniomLayer);
+		Atom newAtom = new Atom(position, residueID, amber, 0f, oniomLayer:host.oniomLayer);
+		AddAtom(atomPDBID, newAtom, false);
 
 		//Connect the atom to the host
 		parent.Connect(atomID, new AtomID(residueID, hostPDBID), BT.SINGLE);
@@ -343,7 +328,6 @@ public class Residue {
 
 				//Recalculate shuffled positions as before
 				normalisedOffset = CustomMathematics.GetBestPositionOnSphere(vertices, host.position, neighbourPositions);
-				newbondLength = Data.bondDistances[new ElementPair(hostPDBID, atomID.pdbID)][0] - Settings.bondLeeway * 1.5f;
 				bondOffset = normalisedOffset * newbondLength;
 				position = host.position + bondOffset;
 
@@ -380,6 +364,7 @@ public class Residue {
 				
 		}
 		atoms.Remove(pdbID);
+		if (protonCount == 0) {protonated = false;}
 	}
 
 	/// <summary>
@@ -405,6 +390,7 @@ public class Residue {
 			);
 		}
 		atoms.Remove(atomID.pdbID);
+		if (protonCount == 0) {protonated = false;}
 	}
 
 
@@ -995,12 +981,27 @@ public class Residue {
         }
     }
 
+	/// <summary>
+	/// Returns true if this Residue has pdbID.
+	/// </summary>
+	/// <param name="pdbID">The PDB ID to check</param>
+	public bool HasAtom(PDBID pdbID) {
+		return atoms.ContainsKey(pdbID);
+	}
+
+	///<summary>
+	/// Returns the Atom that has a PDBID.
+	///</summary>
+	/// ///<param name="pdbID">The PDB ID to look up.</param>
+    public Atom GetAtom(PDBID pdbID) {
+        return atoms[pdbID];
+    }
+
 	///<summary>
 	/// Returns the Atom that has a particular element and identifier.
-    /// Sends an error to the user if no or multiple Atoms match the conditions, whereby it returns null.
+    /// Returns null if no matching atoms are found.
 	///</summary>
-	///<param name="element">The element to look up.</param>
-	///<param name="identifier">The identifier to look up.</param>
+	///<param name="pdbID">The PDB ID to look up.</param>
     public Atom GetSingleAtom(PDBID pdbID) {
         //Get the list of atoms that have the same element and identifier
         List<Atom> matchingAtoms = EnumerateAtoms(x => (x.element == pdbID.element && x.identifier == pdbID.identifier))
@@ -1012,6 +1013,15 @@ public class Residue {
             return null;
         }
         return matchingAtoms.First();
+    }
+
+	///<summary>
+	/// Assigns atom to the Atom in this residue with a matching PDB ID.
+	/// Returns true if atom was assigned, and false if not.
+	///</summary>
+	/// ///<param name="pdbID">The PDB ID to look up.</param>
+    public bool TryGetAtom(PDBID pdbID, out Atom atom) {
+        return atoms.TryGetValue(pdbID, out atom);
     }
     
 	///<summary>
@@ -1155,7 +1165,7 @@ public class Residue {
 
         //Use myAnchor -> myCA as initial bond offset for myConnector -> newConnector
         float3 normalisedOffset = math.normalize(myCA.position - myAnchor.position);
-        float interResidueBondDistance = Data.bondDistances[new ElementPair(cPDBID, nPDBID)][0] - Settings.bondLeeway * 1.5f;
+        float interResidueBondDistance = Data.GetBondDistances(cPDBID.element, nPDBID.element)[0] - Settings.bondLeeway * 1.5f;
         float3 bondOffset = normalisedOffset * interResidueBondDistance;
 
         newResidue.TranslateTo(newConnector, myConnector.position + bondOffset);

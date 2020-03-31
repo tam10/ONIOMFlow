@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!-- 
+
+# Mutation Benchmarking Recipe
+
+# Mutates every standard residue into its own amino acid (eg S65S) then reports on changes in positions and torsion angles
+
+-->
+
+<macro>
+
+    <action id="userLoad" destination="geometry" />
+    <action id="copy" source="geometry" destination="clone" />
+
+    <action id="report" overwrite="true" source="geometry">
+        <directory>$(PROJECT)/Reports</directory>
+        <name>Benchmark.log</name>
+        <items>
+            <text>Benchmark</text>
+            <text>Performing SASA Analysis</text>
+        </items>
+    </action>
+    
+
+    <!--Surface Analysis-->
+    <action id="sasaAnalysis" source="geometry" />
+
+
+    <group type="perResidue" name="residueGroup" source="geometry" var="RESIDUE_ID">
+
+        <residueVar source="residueGroup" id="RESIDUE_STATE" type="state">
+            <residueID>$(RESIDUE_ID)</residueID>
+        </residueVar>
+
+        <residueVar source="residueGroup" id="RESIDUE_NAME" type="name">
+            <residueID>$(RESIDUE_ID)</residueID>
+        </residueVar>
+
+        <branch test="equal" value1="$(RESIDUE_STATE)" value2="STANDARD">
+            <true>
+
+                <!--Perform mutation-->
+                <action id="mutateResidue" source="geometry">
+                    <residueID>$(RESIDUE_ID)</residueID>
+                    <target>$(RESIDUE_NAME)</target>
+                    <optimise>true</optimise>
+                    <deltaTheta>10</deltaTheta>
+                </action>
+
+                <!--Report changes-->
+                <action id="report" overwrite="false" source="geometry">
+                    <directory>$(PROJECT)/Reports</directory>
+                    <name>Benchmark.log</name>
+                    <items>
+                        <text>$(RESIDUE_ID) '$(RESIDUE_NAME)'</text>
+                        <text>SASA Score: $(sasa_$(RESIDUE_ID))</text>
+                        <compareResidues residueIDs="$(RESIDUE_ID)" target="clone">
+                            <distances heavy="true" />
+                            <torsionAngles />
+                        </compareResidues>
+                        <residues residueIDs="$(RESIDUE_ID)">
+                            <contact />
+                        </residues>
+                        <text></text>
+                    </items>
+                </action>
+
+                <!--Reset geometry-->
+                <action id="copy" source="clone" destination="geometry" />
+                
+            </true>
+
+            <false>
+
+                <action id="report" overwrite="false" source="geometry">
+                    <directory>$(PROJECT)/Reports</directory>
+                    <name>Benchmark.log</name>
+                    <items>
+                        <text>Skipping $(RESIDUE_ID) '$(RESIDUE_NAME)' (State: '$(RESIDUE_STATE)')</text>
+                    </items>
+                </action>
+
+            </false>
+        </branch>
+
+    </group>
+
+</macro>

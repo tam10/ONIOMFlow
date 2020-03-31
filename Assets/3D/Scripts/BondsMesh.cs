@@ -53,7 +53,7 @@ public class BondsMesh : MonoBehaviour {
         for (int atomNum=0; atomNum<numAtoms; atomNum++) {
             PDBID pdbID = pdbIDs[atomNum];
 
-            foreach ((PDBID neighbourID, BT bondType) in residue.atoms[pdbID].internalConnections) {
+            foreach ((PDBID neighbourID, BT bondType) in residue.GetAtom(pdbID).internalConnections) {
 
                 if (pdbID > neighbourID) {
 
@@ -63,7 +63,7 @@ public class BondsMesh : MonoBehaviour {
                         //Raise some error
 
                         List<string> toPDBIDs = residue
-                            .atoms[pdbID]
+                            .GetAtom(pdbID)
                             .internalConnections
                             .Select(x => x.Key.ToString())
                             .ToList();
@@ -94,7 +94,7 @@ public class BondsMesh : MonoBehaviour {
 
             float radius = Settings.GetAtomRadiusFromElement(pdbID.element) * radiusMultiplier;
 
-            Atom atom = residue.atoms[pdbID];
+            Atom atom = residue.GetAtom(pdbID);
 
             atoms[atomNum] = atom;
             radii[atomNum] = radius * (atom.oniomLayer == OLID.REAL ? 0.5f : 1f);

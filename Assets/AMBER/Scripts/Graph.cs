@@ -83,7 +83,7 @@ public class Graph {
             // }
             nearbyResidueIDs.Add(nearbyResidueID);
             numNearbyResidues++;
-            foreach ((PDBID pdbID, Atom atom) in nearbyResidue.atoms) {
+            foreach ((PDBID pdbID, Atom atom) in nearbyResidue.EnumerateAtoms()) {
                 AtomID atomID = new AtomID(nearbyResidueID, pdbID);
                 nearbyAtomIDs.Add(atomID);
                 atomIDToIndex[atomID] = numNearbyAtoms;
@@ -151,9 +151,9 @@ public class Graph {
                 continue;
             }
 
-            foreach ((PDBID pdbID, Atom atom) in forceFieldResidue.atoms) {
+            foreach ((PDBID pdbID, Atom atom) in forceFieldResidue.EnumerateAtoms()) {
                 Atom standardAtom;
-                if (standardResidue.atoms.TryGetValue(pdbID, out standardAtom)) {
+                if (standardResidue.TryGetAtom(pdbID, out standardAtom)) {
                     atom.partialCharge = standardAtom.partialCharge;
                 }
             }

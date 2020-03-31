@@ -131,6 +131,7 @@ public class ProjectBuilder : MonoBehaviour {
         CreateFile(dataDirectory, "GaussianMethods", dataPath, "GaussianMethods.xml");
         CreateFile(dataDirectory, "amberToElement", dataPath, "amberToElement.csv");
         CreateFile(dataDirectory, "pdbToElement", dataPath, "pdbToElement.csv");
+        CreateFile(dataDirectory, "SASA", dataPath, "SASA.txt");
     }
 
     void GetRecipeFiles() {

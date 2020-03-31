@@ -500,7 +500,7 @@ public static class GaussianRecipe {
         if (residueStateX != null) {
             RS residueState = ExpandEnum<RS>(residueStateX.Value);
             foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues(x => x.state == residueState)) {
-                foreach (Atom atom in residue.atoms.Values) {
+                foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                     atom.oniomLayer = oniomLayerID;
                 }
             }
@@ -541,7 +541,7 @@ public static class GaussianRecipe {
                     continue;
                 }
 
-                foreach (Atom atom in residue.atoms.Values) {
+                foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                     atom.oniomLayer = oniomLayerID;
                 }
             }
@@ -657,7 +657,10 @@ public static class GaussianRecipe {
 
         yield return residueMutator.MutateStandard(
             newResidue,
-            optimise
+            10f,
+            (optimise) 
+                ? ResidueMutator.OptisationMethod.TREE 
+                : ResidueMutator.OptisationMethod.NONE
         );
     }
 

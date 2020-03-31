@@ -375,7 +375,7 @@ public static class NonStandardResidueTools {
         }
         Residue siteResidue = siteResidueDict[siteID.residueID];
         //Disconnect - will be reconnected to Cap
-        Atom siteAtom = siteResidue.atoms[siteID.pdbID];
+        Atom siteAtom = siteResidue.GetAtom(siteID.pdbID);
 
         (ResidueID siteResidueID, PDBID sitePDBID) = siteID;
 
@@ -417,8 +417,8 @@ public static class NonStandardResidueTools {
             } 
 
             customCap.state = RS.CAP;
-            customCap.atoms[neighbourID.pdbID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
-            siteResidue.atoms[sitePDBID].Connect(neighbourID, BT.SINGLE);
+            customCap  .GetAtom(neighbourID.pdbID).Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
+            siteResidue.GetAtom(sitePDBID        ).Connect(neighbourID                         , BT.SINGLE);
 
         }
 
@@ -444,7 +444,7 @@ public static class NonStandardResidueTools {
         }
         Residue siteResidue = siteResidueDict[siteID.residueID];
         //Disconnect - will be reconnected to Cap
-        Atom siteAtom = siteResidue.atoms[siteID.pdbID];
+        Atom siteAtom = siteResidue.GetAtom(siteID.pdbID);
 
         (ResidueID siteResidueID, PDBID sitePDBID) = siteID;
 
@@ -486,8 +486,8 @@ public static class NonStandardResidueTools {
             } 
 
             customCap.state = RS.CAP;
-            customCap.atoms[neighbourID.pdbID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
-            siteResidue.atoms[sitePDBID].Connect(neighbourID, BT.SINGLE);
+            customCap  .GetAtom(neighbourID.pdbID).Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
+            siteResidue.GetAtom(sitePDBID        ).Connect(neighbourID                         , BT.SINGLE);
 
         }
 
@@ -534,8 +534,8 @@ public static class NonStandardResidueTools {
 
         nme = nme.ConvertToNME(neighbourID.pdbID);
         PDBID nmeNID = PDBID.N;
-        nme.atoms[nmeNID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
-        siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, nmeNID), BT.SINGLE);
+        nme        .GetAtom(nmeNID)   .Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
+        siteResidue.GetAtom(sitePDBID).Connect(new AtomID(newCapID     , nmeNID   ), BT.SINGLE);
 
         nme.SetResidueID(newCapID);
         siteResidueDict[newCapID] = nme;
@@ -583,8 +583,8 @@ public static class NonStandardResidueTools {
 
         nme = nme.ConvertToNME(neighbourID.pdbID);
         PDBID nmeNID = PDBID.N;
-        nme.atoms[nmeNID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
-        siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, nmeNID), BT.SINGLE);
+        nme        .GetAtom(nmeNID   ).Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
+        siteResidue.GetAtom(sitePDBID).Connect(new AtomID(newCapID     , nmeNID   ), BT.SINGLE);
 
         nme.SetResidueID(newCapID);
         siteResidueDict[newCapID] = nme;
@@ -632,8 +632,8 @@ public static class NonStandardResidueTools {
 
         ace = ace.ConvertToACE(neighbourID.pdbID);
         PDBID aceCID = PDBID.C;
-        ace.atoms[aceCID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
-        siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, aceCID), BT.SINGLE);
+        ace        .GetAtom(aceCID   ).Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
+        siteResidue.GetAtom(sitePDBID).Connect(new AtomID(newCapID     , aceCID   ), BT.SINGLE);
             
         ace.SetResidueID(newCapID);
         siteResidueDict[newCapID] = ace;
@@ -678,8 +678,8 @@ public static class NonStandardResidueTools {
 
         ace = ace.ConvertToACE(neighbourID.pdbID);
         PDBID aceCID = PDBID.C;
-        ace.atoms[aceCID].Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
-        siteResidue.atoms[sitePDBID].Connect(new AtomID(newCapID, aceCID), BT.SINGLE);
+        ace        .GetAtom(aceCID   ).Connect(new AtomID(siteResidueID, sitePDBID), BT.SINGLE);
+        siteResidue.GetAtom(sitePDBID).Connect(new AtomID(newCapID     , aceCID   ), BT.SINGLE);
             
         ace.SetResidueID(newCapID);
         siteResidueDict[newCapID] = ace;
@@ -1098,19 +1098,19 @@ public static class NonStandardResidueTools {
 
         //Disconnect all references to caps
         foreach ((AtomID oldCapAtomID, AtomID hostAtomID) in oldConnections) {
-            Atom hostAtom = mergedResidueDict[hostAtomID.residueID].atoms[hostAtomID.pdbID];
+            Atom hostAtom = mergedResidueDict[hostAtomID.residueID].GetAtom(hostAtomID.pdbID);
             hostAtom.TryDisconnect(oldCapAtomID);
         }
 
         //Make new connections at connection points
         foreach ((AtomID oldCapAtomID0, AtomID hostAtomID0) in oldConnections) {
-            Atom hostAtom0 = mergedResidueDict[hostAtomID0.residueID].atoms[hostAtomID0.pdbID];
+            Atom hostAtom0 = mergedResidueDict[hostAtomID0.residueID].GetAtom(hostAtomID0.pdbID);
             float3 p0 = hostAtom0.position;
             foreach ((AtomID oldCapAtomID1, AtomID hostAtomID1) in oldConnections) {
                 if (hostAtomID0 == hostAtomID1) {
                     continue;
                 }
-                Atom hostAtom1 = mergedResidueDict[hostAtomID1.residueID].atoms[hostAtomID1.pdbID];    
+                Atom hostAtom1 = mergedResidueDict[hostAtomID1.residueID].GetAtom(hostAtomID1.pdbID);
                 float3 p1 = hostAtom1.position;
 
                 float distanceSquared = math.distancesq(p0, p1);

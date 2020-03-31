@@ -129,8 +129,8 @@ public class MissingResidueTools : MonoBehaviour {
 
         foreach (string missingResidueName in missingResidueNames) {
             Residue misingResidue = Residue.FromString(missingResidueName, startResidue.state);
-            float3 v_c_n = CustomMathematics.GetVector(misingResidue.atoms[cPDBID], misingResidue.atoms[nPDBID]);
-            float3 v_c_ca = CustomMathematics.GetVector(misingResidue.atoms[cPDBID], misingResidue.atoms[caPBDID]);
+            float3 v_c_n = CustomMathematics.GetVector(misingResidue.GetAtom(cPDBID), misingResidue.GetAtom(nPDBID));
+            float3 v_c_ca = CustomMathematics.GetVector(misingResidue.GetAtom(cPDBID), misingResidue.GetAtom(caPBDID));
             distance += math.length(v_c_n + v_c_ca);
         }
         
@@ -179,10 +179,10 @@ public class MissingResidueTools : MonoBehaviour {
         float3[] bezierHandles = new float3[4];
 
         //Positions of linker atoms
-        float3 p_c0 = startResidue.atoms[cPDBID].position;
-        float3 p_n0 = startResidue.atoms[nPDBID].position;
-        float3 p_c1 = endResidue.atoms[cPDBID].position;
-        float3 p_n1 = endResidue.atoms[nPDBID].position;
+        float3 p_c0 = startResidue.GetAtom(cPDBID).position;
+        float3 p_n0 = startResidue.GetAtom(nPDBID).position;
+        float3 p_c1 = endResidue.GetAtom(cPDBID).position;
+        float3 p_n1 = endResidue.GetAtom(nPDBID).position;
 
         //Use start and end linkers to form start and end of bezier
         bezierHandles[0] = p_c0;
@@ -288,9 +288,9 @@ public class MissingResidueTools : MonoBehaviour {
             );
             
             CustomMathematics.AngleRuler angleRuler = new CustomMathematics.AngleRuler(
-                previousResidue.atoms[cPDBID], 
-                terminalResidue.atoms[nPDBID], 
-                terminalResidue.atoms[caPDBID]
+                previousResidue.GetAtom(cPDBID), 
+                terminalResidue.GetAtom(nPDBID), 
+                terminalResidue.GetAtom(caPDBID)
             );
             float angle = angleRuler.angle;
             terminalResidue.Rotate(
@@ -298,7 +298,7 @@ public class MissingResidueTools : MonoBehaviour {
                     (2f * Mathf.PI / 3f - angle) * Mathf.Rad2Deg, 
                     angleRuler.norm
                 ), 
-                terminalResidue.atoms[nPDBID].position
+                terminalResidue.GetAtom(nPDBID).position
             );
 
             //float[] p0 = terminalResidue.atoms[nPDBID].position;
@@ -309,14 +309,10 @@ public class MissingResidueTools : MonoBehaviour {
 
             terminalResidue.AlignBond(nPDBID, cPDBID, v01);
 
-            //TEMP
-            foreach (Atom atom in terminalResidue.atoms.Values) {
-                atom.oniomLayer = Constants.OniomLayerID.MODEL;
-            }
         }
 
-        terminalResidue.atoms[cPDBID].externalConnections[new AtomID(endResidue.residueID, nPDBID)] = BT.SINGLE;
-        endResidue.atoms[nPDBID].externalConnections[new AtomID(terminalResidue.residueID, cPDBID)] = BT.SINGLE;
+        terminalResidue.GetAtom(cPDBID).externalConnections[new AtomID(endResidue.residueID, nPDBID)] = BT.SINGLE;
+        endResidue.GetAtom(nPDBID).externalConnections[new AtomID(terminalResidue.residueID, cPDBID)] = BT.SINGLE;
 
         bezier = CustomMathematics.GetBezier(bezierHandles, 200).ToList();
 

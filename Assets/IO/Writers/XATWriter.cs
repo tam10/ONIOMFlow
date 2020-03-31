@@ -96,7 +96,7 @@ public static class XATWriter {
     }
 
     static void WriteAtom(Residue residue, PDBID pdbID, bool writeConnectivity) {
-        Atom atom = residue.atoms[pdbID];
+        Atom atom = residue.GetAtom(pdbID);
         //<atom ID="ID" charge="CHARGE" amber="AMBER">
         x.WriteStartElement("atom");
         x.WriteAttributeString("ID", pdbID.ToString());

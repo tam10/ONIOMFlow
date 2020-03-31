@@ -49,7 +49,7 @@ public class LinkerMesh : MonoBehaviour {
         for (int i=0; i<2; i++) {
             radii[i] = Settings.GetAtomRadiusFromElement(pdbIDs[i].element) * radiusMultiplier;
             
-            Atom atom = residues[i].atoms[pdbIDs[i]];
+            Atom atom = residues[i].GetAtom(pdbIDs[i]);
             atoms[i] = atom;
         }
 

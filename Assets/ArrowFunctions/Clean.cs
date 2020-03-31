@@ -135,14 +135,12 @@ public static class Cleaner {
                 EL.DEBUG,
                 "Residue: {0}: PDBID {1} => {2}. AMBER {3} => {4}. Charge {5} => {6}",
                 () => {
-                    //Using ContainsKey will make sure the user knows if there is a problematic Atom
-                    //Otherwise it would just break here
-                    Amber oldAmber = (waterResidue.atoms.ContainsKey(oldPDBID)) 
-                        ? waterResidue.atoms[oldPDBID].amber 
-                        : Amber.X;
-                    string oldPartialCharge = (waterResidue.atoms.ContainsKey(oldPDBID)) 
-                        ? waterResidue.atoms[oldPDBID].partialCharge.ToString()
-                        : "";
+                    Amber oldAmber = Amber.X;
+                    string oldPartialCharge = "";
+                    if (waterResidue.HasAtom(oldPDBID)) {
+                        oldAmber = waterResidue.GetAtom(oldPDBID).amber;
+                        oldPartialCharge = waterResidue.GetAtom(oldPDBID).partialCharge.ToString();
+                    }
                     return new object[] {
                         waterResidue.residueName,
                         oldPDBID,
@@ -157,7 +155,7 @@ public static class Cleaner {
             //Change the PDBID
             waterResidue.ChangePDBID(oldPDBID, newPDBID);
             //Remember to use the new PDBID to look up Atom
-            Atom atom = waterResidue.atoms[newPDBID];
+            Atom atom = waterResidue.GetAtom(newPDBID);
             //Change AMBER
             atom.amber = ambers[newPDBID];
             //Change Partial Charge
@@ -681,7 +679,7 @@ public static class Cleaner {
         List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 
         foreach (PDBID pdbID0 in pdbIDs) {
-            Atom atom0 = residue.atoms[pdbID0];
+            Atom atom0 = residue.GetAtom(pdbID0);
             AtomID atomID0 = new AtomID(residueID, pdbID0);
             float3 p0 = atom0.position;
 
@@ -702,7 +700,7 @@ public static class Cleaner {
                 if (pdbID0 == pdbID1) {
                     continue;
                 }
-                Atom atom1 = residue.atoms[pdbID1];
+                Atom atom1 = residue.GetAtom(pdbID1);
                 float3 p1 = atom1.position;
 
                 //Calculate the distance squared
@@ -721,15 +719,14 @@ public static class Cleaner {
 
             //If this is a hydrogen and it has no connections, join to nearest non-H atom.
             if (pdbID0.element == Element.H) {
-                PDBID pdbID1 = residue.atoms
-                    .Where(kvp => kvp.Key.element != Element.H)
+                PDBID pdbID1 = residue.EnumerateAtoms(pdbID => pdbID.element != Element.H)
                     .ToList()
-                    .OrderBy(x => CustomMathematics.GetDistance(atom0, x.Value))
+                    .OrderBy(x => CustomMathematics.GetDistance(atom0, x.atom))
                     .First()
-                    .Key;
+                    .pdbID;
                 
                 atom0.internalConnections[pdbID1] = BT.SINGLE;
-                residue.atoms[pdbID1].internalConnections[pdbID0] = BT.SINGLE;
+                residue.GetAtom(pdbID1).internalConnections[pdbID0] = BT.SINGLE;
             }
         }
     }
@@ -743,9 +740,9 @@ public static class Cleaner {
 
             AtomID atomID0 = new AtomID(residueID, pdbID0);
             //Atom atom0 = residue.atoms[pdbID0];
-            float3 p0 = residue.atoms[pdbID0].position;
+            float3 p0 = residue.GetAtom(pdbID0).position;
 
-            residue.atoms[pdbID0].connectionType = CT.OTHER_VALENT;
+            residue.GetAtom(pdbID0).connectionType = CT.OTHER_VALENT;
             connectionPoints.Add(atomID0);
 
             foreach (PDBID pdbID1 in pdbIDs) {
@@ -753,7 +750,7 @@ public static class Cleaner {
                 if (pdbID0 == pdbID1) {
                     continue;
                 }
-                Atom atom1 = residue.atoms[pdbID1];
+                Atom atom1 = residue.GetAtom(pdbID1);
                 float3 p1 = atom1.position;
 
                 float distanceSquared = math.distancesq(p0, p1);
@@ -780,7 +777,7 @@ public static class Cleaner {
 
 			List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 			foreach (PDBID pdbID0 in pdbIDs) {
-                Atom atom = residue.atoms[pdbID0];
+                Atom atom = residue.GetAtom(pdbID0);
 				atom.internalConnections.Clear();
 				atom.externalConnections.Clear();
 			}
@@ -806,7 +803,7 @@ public static class Cleaner {
 
 			List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 			foreach (PDBID pdbID0 in pdbIDs) {
-                Atom atom = residue.atoms[pdbID0];
+                Atom atom = residue.GetAtom(pdbID0);
 				atom.internalConnections.Clear();
 				atom.externalConnections.Clear();
 			}
@@ -1113,7 +1110,7 @@ public static class Cleaner {
         List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 
         foreach (PDBID pdbID0 in pdbIDs) {
-            Atom atom0 = residue.atoms[pdbID0];
+            Atom atom0 = residue.GetAtom(pdbID0);
             AtomID atomID0 = new AtomID(residueID, pdbID0);
             float3 p0 = atom0.position;
 
@@ -1132,7 +1129,7 @@ public static class Cleaner {
                 if (pdbID0 == pdbID1) {
                     continue;
                 }
-                Atom atom1 = residue.atoms[pdbID1];
+                Atom atom1 = residue.GetAtom(pdbID1);
                 float3 p1 = atom1.position;
 
                 float distanceSquared = math.distancesq(p0, p1);
@@ -1142,21 +1139,20 @@ public static class Cleaner {
                     distanceSquared
                 );
                 atom0.internalConnections[pdbID1] = bondType;
-                residue.atoms[pdbID1].internalConnections[pdbID0] = bondType;
+                residue.GetAtom(pdbID1).internalConnections[pdbID0] = bondType;
             }
             yield return null;
 
             //If this is a hydrogen and it has no connections, join to nearest non-H atom.
             if (pdbID0.element == Element.H) {
-                PDBID pdbID1 = residue.atoms
-                    .Where(kvp => kvp.Key.element != Element.H)
+                PDBID pdbID1 = residue.EnumerateAtoms(pdbID => pdbID.element != Element.H)
                     .ToList()
-                    .OrderBy(x => CustomMathematics.GetDistance(atom0, x.Value))
+                    .OrderBy(x => CustomMathematics.GetDistance(atom0, x.atom))
                     .First()
-                    .Key;
+                    .pdbID;
                 
                 atom0.internalConnections[pdbID1] = BT.SINGLE;
-                residue.atoms[pdbID1].internalConnections[pdbID0] = BT.SINGLE;
+                residue.GetAtom(pdbID1).internalConnections[pdbID0] = BT.SINGLE;
             }
         }
 
@@ -1174,7 +1170,7 @@ public static class Cleaner {
         }
 
         foreach (PDBID pdbID0 in residue.pdbIDs) {
-            residue.atoms[pdbID0].internalConnections.Clear();
+            residue.GetAtom(pdbID0).internalConnections.Clear();
         }
 	}
     private static void UniquatePDBs(string[] pdbs, List<int> atomNums) {
@@ -1394,7 +1390,7 @@ static class ParallelConnectivityCalculator {
             List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 
             foreach (PDBID pdbID0 in pdbIDs) {
-                Atom atom0 = residue.atoms[pdbID0];
+                Atom atom0 = residue.GetAtom(pdbID0);
                 AtomID atomID0 = new AtomID(residueID, pdbID0);
                 float3 p0 = atom0.position;
 
@@ -1417,7 +1413,7 @@ static class ParallelConnectivityCalculator {
                     if (pdbID0 == pdbID1) {
                         continue;
                     }
-                    Atom atom1 = residue.atoms[pdbID1];
+                    Atom atom1 = residue.GetAtom(pdbID1);
                     float3 p1 = atom1.position;
 
                     float distanceSquared = math.distancesq(p0, p1);
@@ -1438,12 +1434,12 @@ static class ParallelConnectivityCalculator {
 
             PDBID pdbID0 = pdbIDs.Single(x => x.element == Element.O);
             AtomID atomID0 = new AtomID(residueID, pdbID0);
-            Atom atom0 = residue.atoms[pdbID0];
+            Atom atom0 = residue.GetAtom(pdbID0);
 
             foreach (PDBID pdbID1 in pdbIDs) {
                 if (pdbID1.element == Element.H) {
                     AtomID atomID1 = new AtomID(residueID, pdbID1);
-                    Atom atom1 = residue.atoms[pdbID1];
+                    Atom atom1 = residue.GetAtom(pdbID1);
 
                     geometryInterface.geometry.Connect(atomID0, atomID1, BT.SINGLE);
                 }
@@ -1458,7 +1454,7 @@ static class ParallelConnectivityCalculator {
                 foreach (Element connectionElement in Settings.nonStandardConnections) {
                     if (pdbID0.element == connectionElement) {
 
-                        Atom atom0 = residue.atoms[pdbID0];
+                        Atom atom0 = residue.GetAtom(pdbID0);
                         AtomID atomID0 = new AtomID(residueID, pdbID0);
                         float3 p0 = atom0.position;
 
@@ -1472,7 +1468,7 @@ static class ParallelConnectivityCalculator {
                             if (pdbID0 == pdbID1) {
                                 continue;
                             }
-                            Atom atom1 = residue.atoms[pdbID1];
+                            Atom atom1 = residue.GetAtom(pdbID1);
                             float3 p1 = atom1.position;
 
                             float distanceSquared = math.distancesq(p0, p1);
@@ -1515,24 +1511,6 @@ static class ParallelConnectivityCalculator {
         
         }
 
-    }
-
-    private static Residue TakeResidueAndDisconnectCaps(Residue residue, Geometry newGeometry, Geometry oldGeometry) {
-        Residue newResidue = residue.Take(newGeometry);
-        newResidue.atoms = newResidue.atoms
-            .ToDictionary(
-                x => x.Key, 
-                x => DisconnectCaps(x.Value, oldGeometry)
-            );
-
-        return newResidue;
-    }
-    
-    private static Atom DisconnectCaps(Atom atom, Geometry geometry) {
-        atom.externalConnections = atom.externalConnections
-            .Where(x => geometry.GetResidue(x.Key.residueID).state != RS.CAP)
-            .ToDictionary(x => x.Key, x => x.Value);
-        return atom;
     }
 
 }

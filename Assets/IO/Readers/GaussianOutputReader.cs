@@ -288,7 +288,7 @@ public class GaussianOutputReader : GeometryReader {
 				activeParser = ParseNormal;
 				return;
 			} else {
-				if (!geometry.ContainsAtom(atomID)) {
+				if (!geometry.HasAtom(atomID)) {
 					throw new System.Exception(string.Format(
 						"Geometries do not align by Atom ID! Atoms '{0}' does not contain '{1}'.",
 						geometry.name,

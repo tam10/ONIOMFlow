@@ -232,6 +232,7 @@
 	<pdbToElementFilename>pdbToElement.csv</pdbToElementFilename>
 	<standardResiduePDBsFilename>StandardResidues.xml</standardResiduePDBsFilename>
 	<gaussianMethodsFilename>GaussianMethods.xml</gaussianMethodsFilename>
+	<sasaFileName>SASA.txt</sasaFileName>
 	<bondDistancesFilename>Bonds.xml</bondDistancesFilename>
 	<standardResiduesDirectory>AminoAcids</standardResiduesDirectory>
 	<parametersDirectory>Parameters</parametersDirectory>

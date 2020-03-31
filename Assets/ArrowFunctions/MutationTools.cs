@@ -20,6 +20,8 @@ public class ResidueMutator {
 
     public float clashScore;
     public DihedralScanner dihedralScanner;
+
+    public enum OptisationMethod {NONE, TREE, BRUTE_FORCE};
     
     static readonly IList<RS> validStates = new [] {RS.STANDARD, RS.C_TERMINAL, RS.N_TERMINAL};
 
@@ -51,10 +53,7 @@ public class ResidueMutator {
         failed = false;
         clashScore = 0;
     }
-
-
-    
-		
+	
     Atom GetValidAtom(Residue residue, PDBID pdbID) {
         Atom atom = residue.GetSingleAtom(pdbID);
         if (atom == null) {
@@ -77,7 +76,7 @@ public class ResidueMutator {
 	///<summary>
 	/// Change a Standard Residue for another.
 	///</summary>
-    public IEnumerator MutateStandard(Residue targetResidue, bool optimise) {
+    public IEnumerator MutateStandard(Residue targetResidue, float deltaTheta, OptisationMethod optisationMethod=OptisationMethod.TREE) {
         
         if (targetResidue == null) {
             CustomLogger.LogFormat(
@@ -104,13 +103,14 @@ public class ResidueMutator {
         yield return ReplaceSideChain(targetResidue);
         if (failed) {yield break;}
         
-        if (!optimise) {
+
+        if (optisationMethod == OptisationMethod.NONE) {
             CustomLogger.LogFormat(
                 EL.VERBOSE,
                 "No dihedral optimisation."
             );
         } else {
-            yield return Optimise(targetResidue);
+            yield return Optimise(targetResidue, deltaTheta, optisationMethod);
             if (failed) {yield break;}
         }
 
@@ -156,19 +156,17 @@ public class ResidueMutator {
         );
 
         //Align by dihedral
-        float dihedral = CustomMathematics.GetDihedral(caAtom, cAtom, nAtom, targetResidue.atoms[PDBID.CA]);
+        float dihedral = CustomMathematics.GetDihedral(caAtom, cAtom, nAtom, targetResidue.GetAtom(PDBID.CA));
         Vector3 bondVector = CustomMathematics.GetVector(cAtom, nAtom);
         targetResidue.Rotate(
             Quaternion.AngleAxis(dihedral * Mathf.Rad2Deg, bondVector), 
-            targetResidue.atoms[PDBID.C].position
+            targetResidue.GetAtom(PDBID.C).position
         );
 
     }
 
     IEnumerator ReplaceSideChain(Residue targetResidue) {
         
-
-        //Keep protonation flag
         bool protonated = oldResidue.protonated;
 
         //Delete all sidechain Atoms
@@ -193,7 +191,7 @@ public class ResidueMutator {
 
         //Add new sidechain Atoms
         foreach (PDBID pdbID in addList) {
-            oldResidue.AddAtom(pdbID, targetResidue.atoms[pdbID].Copy());
+            oldResidue.AddAtom(pdbID, targetResidue.GetAtom(pdbID).Copy());
         }
 
         CustomLogger.LogFormat(
@@ -235,7 +233,7 @@ public class ResidueMutator {
         }
 
         if (targetResidue.residueName == "PRO") {
-            if (oldResidue.atoms.ContainsKey(hPDBID)){
+            if (oldResidue.HasAtom(hPDBID)){
                 CustomLogger.Log(
                     EL.DEBUG,
                     "New Residue is Proline. Removing Backbone Proton."
@@ -248,18 +246,18 @@ public class ResidueMutator {
                 "New Residue is Proline. Connecting N to CD."
             );
 
-            oldResidue.atoms[PDBID.N].internalConnections[cdPDBID] = BT.SINGLE;
-            oldResidue.atoms[cdPDBID].internalConnections[PDBID.N] = BT.SINGLE;
+            oldResidue.GetAtom(PDBID.N).internalConnections[cdPDBID] = BT.SINGLE;
+            oldResidue.GetAtom(cdPDBID).internalConnections[PDBID.N] = BT.SINGLE;
         }
 
         //Restore CA-CB bond if residue has CB
         if (oldResidue.pdbIDs.Contains(PDBID.CB)) {
-            oldResidue.atoms[PDBID.CA].internalConnections[PDBID.CB] = BT.SINGLE;
-            oldResidue.atoms[PDBID.CB].internalConnections[PDBID.CA] = BT.SINGLE;
+            oldResidue.GetAtom(PDBID.CA).internalConnections[PDBID.CB] = BT.SINGLE;
+            oldResidue.GetAtom(PDBID.CB).internalConnections[PDBID.CA] = BT.SINGLE;
         }
     }
 
-    IEnumerator Optimise(Residue targetResidue) {
+    IEnumerator Optimise(Residue targetResidue, float deltaTheta, OptisationMethod optisationMethod=OptisationMethod.TREE) {
 
 
         // Check for clashes and find best configuration
@@ -271,7 +269,6 @@ public class ResidueMutator {
         // 5. Take the dihedrals with the lowest clash score and keep
         // 6. Select the next position up ('D', 'E', 'Z', 'H')
         // 7. Continue at 2.
-
 
         // Get all the nearby residues that might clash with new residue
         List<Residue> nearbyResidues = oldResidue.ResiduesWithinDistance(8)
@@ -293,56 +290,23 @@ public class ResidueMutator {
             yield break;
         }
 
-        yield return dihedralScanner.GetBestDihedrals();
+        if (optisationMethod == OptisationMethod.TREE) {
+            yield return dihedralScanner.GetBestDihedrals(deltaTheta);
+        } else if (optisationMethod == OptisationMethod.BRUTE_FORCE) {
+            yield return dihedralScanner.BruteForceOptimise(deltaTheta);
+        }
         yield return NotificationBar.UpdateTaskProgress(TID.MUTATE_RESIDUE, 0.95f);
-
-        if (dihedralScanner.scores != null && dihedralScanner.scores.Count() > 0) {
-
-            int bestIndex = CustomMathematics.IndexOfMin(dihedralScanner.scores);
-
-            clashScore = dihedralScanner.scores[bestIndex];
-
+        
+        try {
+            dihedralScanner.UpdatePositions(oldResidue);
+        } catch (System.Exception e) {
             CustomLogger.LogFormat(
-                EL.VERBOSE,
-                "{0} dihedrals returned from Dihedral Scanner - best score: {1}.",
-                dihedralScanner.scores.Count(),
-                clashScore
-            );
-
-            float3[] bestPositions = dihedralScanner.bestPositions[bestIndex];
-
-            for (int atomIndex=0; atomIndex<targetResidue.size; atomIndex++) {
-                PDBID pdbID = dihedralScanner.residueClashGroup.pdbIDs[atomIndex];
-                if (Data.backbonePDBs.Contains(pdbID)) {
-                    continue;
-                }
-                Atom atom;
-                if (!oldResidue.atoms.TryGetValue(pdbID, out atom)) {
-                    CustomLogger.LogFormat(
-                        EL.ERROR,
-                        "Mutation failed - couldn't find atom '{0}' in Residue '{1}'.",
-                        pdbID,
-                        oldResidue.residueID
-                    );
-                    failed = true;
-                    yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
-                    yield break;
-                }
-
-                oldResidue.atoms[pdbID].position = bestPositions[atomIndex];
-            }
-
-        } else if (dihedralScanner.numDihedralGroups == 0) {
-            CustomLogger.LogFormat(
-                EL.INFO,
-                "Residue has no dihedral groups to optimise."
-            );
-        } else {
-            CustomLogger.LogFormat(
-                EL.WARNING,
-                "Optimisation failed! No configurations found without clashes."
+                EL.ERROR,
+                "Optimisation failed! - {0}",
+                e.Message
             );
         }
+
     }
 }
 
@@ -353,14 +317,18 @@ public class DihedralScanner {
     public MultiClashGroup nearbyClashGroup;
 
     PDBID[][] dihedralGroups;
+    Torsion[] torsions;
+    float[] currentDihedrals;
     public int numDihedralGroups;
 
     Parameters parameters;
 
-    public List<float3[]> bestPositions;
+    public List<float3[]> acceptedPositions;
     public List<float> scores;
     
-    public float deltaTheta = 20;
+
+    public int bestIndex;
+    public float bestScore;
     
     public DihedralScanner(Geometry geometry, Residue newResidue, List<Residue> nearbyResidues) {
 
@@ -399,6 +367,21 @@ public class DihedralScanner {
             );
         }
         
+        torsions = new Torsion[numDihedralGroups];
+        currentDihedrals = new float[numDihedralGroups];
+
+        for (int dihedralGroupIndex=0; dihedralGroupIndex<numDihedralGroups; dihedralGroupIndex++) {
+            Atom[] atoms = dihedralGroups[dihedralGroupIndex].Select(x => newResidue.GetAtom(x)).ToArray();
+            float initialDihedral = CustomMathematics.GetDihedral(atoms[0], atoms[1], atoms[2], atoms[3]);
+            if (initialDihedral < 0) {
+                initialDihedral += math.PI * 2;
+            }
+            currentDihedrals[dihedralGroupIndex] = initialDihedral;
+
+            Amber[] ambers = atoms.Select(x => x.amber).ToArray();
+            torsions[dihedralGroupIndex] = parameters.GetTorsion(ambers[0], ambers[1], ambers[2], ambers[3], true);
+
+        }
 
         residueClashGroup = new SingleClashGroup(newResidue, parameters);
 
@@ -447,12 +430,129 @@ public class DihedralScanner {
                 FileIO.newLine
             }
         );
+        
+        acceptedPositions = new List<float3[]>();
     }
 
-    public IEnumerator GetBestDihedrals() {
+    public IEnumerator BruteForceOptimise(float deltaTheta) {
 
-        bestPositions = new List<float3[]>();
         scores = new List<float>();
+        int acceptedStepIndex = 0;
+
+        if (numDihedralGroups == 0) {
+            CustomLogger.LogFormat(
+                EL.VERBOSE,
+                "Mutant group has no dihedral groups - no optimisation will occur."
+            );
+            yield break;
+        }
+        
+        int size = residueClashGroup.size;
+        float3[] positions = new float3[size];
+        System.Array.Copy(residueClashGroup.positions, positions, size);
+
+        // The increments around the dihedral
+        int steps = (int)(360 / deltaTheta);
+
+        float pi2 = math.PI * 2;
+        float angleRad = math.radians(deltaTheta);
+
+        int scanSize = CustomMathematics.IntPow(steps, numDihedralGroups);
+        
+        bool[][] masks = new bool[numDihedralGroups][];
+        for (int groupIndex=0; groupIndex<numDihedralGroups; groupIndex++) {
+            masks[groupIndex] = residueClashGroup.GetMask(groupIndex+2);
+        }
+
+        int[] index1s = dihedralGroups.Select(x => residueClashGroup.IndexOf(x[1])).ToArray();
+        int[] index2s = dihedralGroups.Select(x => residueClashGroup.IndexOf(x[2])).ToArray();
+
+        IEnumerable<(float3[] positions, int groupIndex)> ScanNext(int groupIndex) {
+            
+            if (groupIndex < numDihedralGroups) {
+
+                int fixedIdentifier = groupIndex + 2;
+
+                // Get the indices of the atoms allowed to rotate
+                bool[] mask = masks[groupIndex];
+
+                // Index of Atom 1
+                int index1 = index1s[groupIndex];
+
+                // Index of Atom 2
+                int index2 = index2s[groupIndex];
+
+                // Positions of the central atoms in the dihedral
+                float3 p1 = positions[index1];
+                float3 p2 = positions[index2];;
+
+                // Axis to rotate around
+                float3 axis = math.normalize(p2 - p1);
+
+                // Quaternion to rotate by
+                quaternion rotation = quaternion.AxisAngle(
+                    axis,
+                    angleRad
+                );
+
+                for (int step=0; step<steps; step++) {
+
+                    float currentDihedral = currentDihedrals[groupIndex];
+                    currentDihedral += angleRad;
+                    if (currentDihedral > pi2) {
+                        currentDihedral -= pi2;
+                    }
+
+                    currentDihedrals[groupIndex] = currentDihedral;
+
+                    for (int atomIndex=0; atomIndex<size; atomIndex++) {
+                        // Ignore masked atoms
+                        if (! mask[atomIndex]) {continue;}
+                        positions[atomIndex] = (float3) math.rotate(rotation, positions[atomIndex] - p2) + p2;
+                    }
+
+                    foreach ((float3[] ps, int index) in ScanNext(groupIndex+1)) {
+                        yield return (positions, groupIndex+1);
+                    }
+                }
+            } else {
+                yield return (positions, groupIndex+1);
+            }
+        }
+
+        float3[] bestPositions = new float3[size];
+        foreach ((float3[] currentPositions, int groupIndex) in ScanNext(0)) {
+
+            (float score, bool clash) = GetClashScore(currentPositions, groupIndex+2);
+            
+            if (!clash) {
+                if (acceptedStepIndex == 0) {
+                    bestScore = score;
+                } else if (score < bestScore) {
+                    bestScore = score;
+                    System.Array.Copy(currentPositions, bestPositions, size);
+                }
+            }
+            
+            if (Timer.yieldNow) {
+                NotificationBar.SetTaskProgress(
+                    TID.MUTATE_RESIDUE, 
+                    CustomMathematics.Map(acceptedStepIndex, 0, scanSize, 0.2f, 0.95f)
+                );
+                yield return null;
+            }
+
+            acceptedStepIndex++;
+        }
+
+        scores = new List<float>{bestScore};
+        acceptedPositions = new List<float3[]>{bestPositions};
+    }
+
+    public IEnumerator GetBestDihedrals(float deltaTheta) {
+
+        scores = new List<float>();
+        int acceptedStepIndex = 0;
 
         if (numDihedralGroups == 0) {
             CustomLogger.LogFormat(
@@ -475,7 +575,7 @@ public class DihedralScanner {
         groupPositions[0].Add(residueClashGroup.positions);
 
         // The increments around the dihedral
-        int steps = (int)(360 / deltaTheta) + 1;
+        int steps = (int)(360 / deltaTheta) + 2;
         
         CustomLogger.LogFormat(
             EL.VERBOSE,
@@ -530,7 +630,6 @@ public class DihedralScanner {
                 }
             );
 
-
             foreach (float3[] positions in groupPositions[dihedralGroupIndex]) {
 
                 foreach (float3[] nextGroupPositions in EnumerateBestPositions(positions, deltaTheta, steps, i1, i2, mask, fixedIdentifier)) {
@@ -542,8 +641,19 @@ public class DihedralScanner {
                     if (dihedralGroupIndex == numDihedralGroups - 1) {
                         (float score, bool clash) = GetClashScore(positionsClone, fixedIdentifier);
                         if (!clash) {
-                            bestPositions.Add(positionsClone);
+                            acceptedPositions.Add(positionsClone);
+
                             scores.Add(score);
+
+                            if (acceptedStepIndex == 0) {
+                                bestIndex = 0;
+                                bestScore = score;
+                            } else if (score < bestScore) {
+                                bestIndex = acceptedStepIndex;
+                                bestScore = score;
+                            }
+                            acceptedStepIndex++;
+
                         }
                     } else {
                         groupPositions[dihedralGroupIndex + 1].Add(positionsClone);
@@ -555,59 +665,48 @@ public class DihedralScanner {
                 }
             }
             
-            yield return NotificationBar.UpdateTaskProgress(
-                TID.MUTATE_RESIDUE, 
-                CustomMathematics.Map(dihedralGroupIndex, 0, numDihedralGroups, 0.2f, 0.95f)
-            );
+            if (Timer.yieldNow) {
+                NotificationBar.SetTaskProgress(
+                    TID.MUTATE_RESIDUE, 
+                    CustomMathematics.Map(dihedralGroupIndex, 0, numDihedralGroups, 0.2f, 0.95f)
+                );
+                yield return null;
+            }
         }
     }
-    
 
     (float, bool) GetClashScore(float3[] positions, int identifier) {
+        
+        ClashGroupAtom[] nearbyAtoms = nearbyClashGroup.groupAtoms;
+
         float score = 0;
 
-        //CustomLogger.LogFormat(
-        //    EL.DEBUG,
-        //    "GetClashScore: ID {0}",
-        //    identifier
-        //);
-        
+        for (int dihedralGroupIndex=identifier-2; dihedralGroupIndex<identifier-2; dihedralGroupIndex++) {
+            Torsion torsion = torsions[dihedralGroupIndex];
+            float[] energies = new float[3]; 
+            score += CustomMathematics.ETorsion(currentDihedrals[dihedralGroupIndex], torsion.barrierHeights, torsion.phaseOffsets, 0);
+        }
+
+
         for (int n0=0; n0<residueClashGroup.size; n0++) {
 
             ClashGroupAtom residueAtom0 = residueClashGroup.groupAtoms[n0];
 
-
             //Compare currently tested atoms
             int diff = residueAtom0.identifer - identifier;
-            //CustomLogger.LogFormat(
-            //    EL.DEBUG,
-            //    "n0 {0}: PDBID: {1}. ID: {2}. Ignore 0: {3}. Ignore 1: {4}",
-            //    n0,
-            //    residueAtom0.pdbID,
-            //    residueAtom0.identifer,
-            //    ! (residueAtom0.element == Element.H && diff == 0),
-            //    diff != 1
-            //);
             if (
                 ! (residueAtom0.element == Element.H && diff == 0) &&
                 diff != 1
             ) {continue;}
 
             float3 position0 = positions[n0];
+            Element element0 = residueAtom0.element;
+            float scaledCharge0 = residueAtom0.charge / parameters.dielectricConstant;
 
             //Include interactions insidue residue
             for (int n1=n0+1; n1<residueClashGroup.size; n1++) {
-                
+
                 ClashGroupAtom residueAtom1 = residueClashGroup.groupAtoms[n1];
-                
-                //CustomLogger.LogFormat(
-                //    EL.DEBUG,
-                //    "n1 {0}: PDBID: {1}. ID: {2}. Ignore: {3}",
-                //    n1,
-                //    residueAtom1.pdbID,
-                //    residueAtom1.identifer,
-                //    (math.abs(residueAtom0.identifer - residueAtom1.identifer) < 2)
-                //);
 
                 //Skip atoms with same or neighbouring identifier
                 //Stops the score from going too wild from connected atoms
@@ -623,76 +722,45 @@ public class DihedralScanner {
                 //Check that atoms don't clash (would be considered bonded by distance)
                 if (
                     Data.GetBondOrderDistanceSquared(
-                        residueAtom0.element, 
+                        element0, 
                         residueAtom1.element,
                         r2
                     ) != BT.NONE
                 ) {
-                
-                    //CustomLogger.LogFormat(
-                    //    EL.DEBUG,
-                    //    "Residue Clash: r2 {0}",
-                    //    r2
-                    //);
                     return (0, true);
                 }
-
+                
                 float vdwR = (residueAtom0.radius + residueAtom1.radius) * 0.5f;
                 float vdwV = Mathf.Sqrt ((residueAtom0.wellDepth + residueAtom1.wellDepth) * Data.kcalToHartree);
-                score += CustomMathematics.EVdWAmberSquared(
-                    r2,
-                    vdwV,
-                    vdwR
-                ) + CustomMathematics.EElectrostaticR2Squared(
-                    r2,
-                    residueAtom0.charge * residueAtom1.charge / parameters.dielectricConstant
-                );
+                score += CustomMathematics.EVdWAmberSquared(r2, vdwV, vdwR)
+                      +  CustomMathematics.EElectrostaticR2Squared(r2, scaledCharge0*residueAtom1.charge);
+                
             }
 
             //Include interactions between residue and nearby residues
             for (int m=0; m<nearbyClashGroup.size; m++) {
                 
-                ClashGroupAtom nearbyAtom = nearbyClashGroup.groupAtoms[m];
-                
-                //CustomLogger.LogFormat(
-                //    EL.DEBUG,
-                //    "m {0}: PDBID: {1}. ID: {2}",
-                //    m,
-                //    nearbyAtom.pdbID,
-                //    nearbyAtom.identifer
-                //);
+                ClashGroupAtom nearbyAtom = nearbyAtoms[m];
 
                 float r2 = math.distancesq(
                     position0,
                     nearbyAtom.position
                 );
-
+                
                 //Check that atoms don't clash (would be considered bonded by distance)
                 if (Data.GetBondOrderDistanceSquared(
-                        residueAtom0.element, 
+                        element0, 
                         nearbyAtom.element,
                         r2
                     ) != BT.NONE
                 ) {
-                
-                    //CustomLogger.LogFormat(
-                    //    EL.DEBUG,
-                    //    "Nearby Clash: r2 {0}",
-                    //    r2
-                    //);
                     return (0, true);
                 }
 
                 float vdwR = (residueAtom0.radius + nearbyAtom.radius) * 0.5f;
                 float vdwV = Mathf.Sqrt ((residueAtom0.wellDepth + nearbyAtom.wellDepth) * Data.kcalToHartree);
-                score += CustomMathematics.EVdWAmberSquared(
-                    r2,
-                    vdwV,
-                    vdwR
-                ) + CustomMathematics.EElectrostaticR2Squared(
-                    r2,
-                    residueAtom0.charge * nearbyAtom.charge / parameters.dielectricConstant
-                );
+                score += CustomMathematics.EVdWAmberSquared(r2, vdwV, vdwR)
+                      +  CustomMathematics.EElectrostaticR2Squared(r2, scaledCharge0 * nearbyAtom.charge);
             }
         }
         return (score, false);
@@ -722,10 +790,13 @@ public class DihedralScanner {
         // Axis to rotate around
         float3 axis = math.normalize(p2 - p1);
 
+        float pi2 = math.PI * 2;
+        float angleRad = math.radians(deltaTheta);
+
         // Quaternion to rotate by
         quaternion rotation = quaternion.AxisAngle(
             axis,
-            math.radians(deltaTheta)
+            angleRad
         );
         
         bool debug = CustomLogger.logErrorLevel >= EL.DEBUG;
@@ -742,6 +813,13 @@ public class DihedralScanner {
         float[] scores = new float[steps];
         bool[] keptPositions = new bool[steps];
         for (int step=0; step<steps; step++) {
+
+            float currentDihedral = currentDihedrals[fixedIdentifier - 2];
+            currentDihedral += angleRad;
+            if (currentDihedral > pi2) {
+                currentDihedral -= pi2;
+            }
+            currentDihedrals[fixedIdentifier - 2] = currentDihedral;
 
             for (int atomIndex=0; atomIndex<size; atomIndex++) {
                 // Ignore masked atoms
@@ -839,6 +917,61 @@ public class DihedralScanner {
         if (debug)
         CustomLogger.LogOutput(FileIO.newLine);
     }
+
+    public void UpdatePositions(Residue residue) {
+        
+        if (scores != null && scores.Count() > 0) {
+
+            int bestIndex = CustomMathematics.IndexOfMin(scores);
+            float3[] bestPositions = acceptedPositions[bestIndex];
+
+            if (residue.size != bestPositions.Length) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Inconsistent size between Residue '{0}' and Dihedral scanner '{1}'!",
+                    residue.size,
+                    bestPositions.Length
+                );
+            }
+
+            CustomLogger.LogFormat(
+                EL.VERBOSE,
+                "{0} dihedrals returned from Dihedral Scanner - best score: {1}.",
+                scores.Count(),
+                bestScore
+            );
+
+
+            for (int atomIndex=0; atomIndex<residue.size; atomIndex++) {
+                PDBID pdbID = residueClashGroup.pdbIDs[atomIndex];
+                if (Data.backbonePDBs.Contains(pdbID)) {
+                    continue;
+                }
+                Atom atom;
+                if (!residue.TryGetAtom(pdbID, out atom)) {
+                    throw new System.Exception(string.Format(
+                        "Couldn't find atom '{0}' in Residue '{1}'!",
+                        pdbID,
+                        residue.residueID
+                    ));
+                }
+
+                residue.GetAtom(pdbID).position = bestPositions[atomIndex];
+            }
+
+        } else if (numDihedralGroups == 0) {
+            CustomLogger.LogFormat(
+                EL.INFO,
+                "Residue has no dihedral groups to optimise."
+            );
+        } else {
+            CustomLogger.LogFormat(
+                EL.WARNING,
+                "Optimisation failed! No configurations found without clashes."
+            );
+        }
+    }
+
 }
 
 public struct SingleClashGroup {
@@ -859,7 +992,7 @@ public struct SingleClashGroup {
         positions = new float3[size];
 
         int index = 0;
-        foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+        foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
             pdbIDs[index] = pdbID;
             ClashGroupAtom cga = groupAtoms[index] = new ClashGroupAtom(pdbID, atom, parameters);
             positions[index] = cga.position;
@@ -908,7 +1041,7 @@ public struct MultiClashGroup {
 
         int index = 0;
         foreach (Residue residue in residues) {
-            foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                 pdbIDs[index] = pdbID;
                 groupAtoms[index++] = new ClashGroupAtom(pdbID, atom, parameters);
             }

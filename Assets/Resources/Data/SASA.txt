@@ -1,0 +1,66 @@
+
+# SASA Parameters
+#
+# J Chem Theory Comput. 2018 Nov 13; 14(11): 5797–5814.
+# He Huang and Carlos Simmerling
+# A Fast Pairwise Approximation of Solvent Accessible Surface Area for Implicit Solvent Simulations of Proteins on CPUs and GPUs
+#
+#            Cutoff   s         e         Max SASA       Type
+#              (A)  (Sigma)  (Epsilon)      (A^2)
+# Carbon 1: Neighbours 1/4 (Heavy/Total)
+C_ C_ H_ H_ H_ 3.1 4.370116  19.592480  89.5418522949   # 1CC
+C_ N_ H_ H_ H_ 3.1 0.317054   7.148281  93.3032786658   # 1CN
+C_ S_ H_ H_ H_ 3.1 1.208319  14.405034 101.172789338    # 1CS
+# Carbon 2: Neighbours 2/4 (Heavy/Total)
+C_ C_ C_ H_ H_ 3.1 7.249659  18.793198  67.848137034    # 2CCC
+C_ C_ N_ H_ H_ 3.1 5.492838  19.214204  78.9232674787   # 2CCN
+C_ C_ O_ H_ H_ 3.1 1.568006   4.738056  62.3149039685   # 2CCO
+C_ C_ S_ H_ H_ 3.1 3.856010  13.792617  72.0652500364   # 2CCS
+# Carbon 3: Neighbours 2/3 (Heavy/Total)
+C_ C_ C_ H_ *  3.1 5.523807  13.179907  72.2402965204   # 3CC
+C_ C_ N_ H_ *  3.1 1.137401   4.914482  70.6469194565   # 3CCN
+C_ N_ N_ H_ *  3.1 4.793021  17.786058  85.8858602953   # 3CNN
+# Carbon 3: Neighbours 3/3 (Heavy/Total)
+C_ C_ C_ C_ *  3.1 7.925637   0.700405  14.8528474421   # 3CCC
+C_ C_ C_ O_ *  3.1 2.852471   0.690433  20.2921312847   # 3CCO
+# Carbon 4: Neighbours 3/4 (Heavy/Total)
+C_ C_ C_ C_ H_ 3.1 2.463345   1.586756  29.2869985239   # 4CCC
+C_ C_ C_ N_ H_ 3.1 0.100000   0.328277  22.5608806495   # 4CCN
+C_ C_ C_ O_ H_ 3.1 1.842881   1.600013  33.1334096093   # 4CCO
+# Carbon 5: Neighbours 3/3 (Heavy/Total)
+CN C_ C_ N_ *  3.1 3.532759   0.371097  16.5093987597   # 5CCN1
+CC C_ C_ N_ *  3.1 0.902828   0.021241   6.90712731848  # 5CCN2
+C_ C_ N_ N_ *  3.1 6.516442   3.681840  32.0850765017   # 5CNN 
+C_ N_ N_ N_ *  3.1 6.516442   3.681840  32.0850765017   # 5NNN missing?
+C_ C_ N_ O_ *  3.1 5.997082   0.739936  16.1244401843   # 5CNO
+C_ C_ O_ O_ *  3.1 9.776595   1.438099  16.6436516422   # 5COO
+
+# Nitrogen 1: Neighbours 1/4 (Heavy/Total)
+N_ C_ H_ H_ H_ 2.95 4.290955 34.274575  95.1108847805   # 1NC2
+# Nitrogen 1: Neighbours 1/3 (Heavy/Total)
+N_ C_ H_ H_ *  2.95 3.008485 23.511977  94.0970695867   # 1NC1
+# Nitrogen 2/3: Neighbours 2/3 (Heavy/Total)
+N_ C_ C_ H_ *  2.95 3.296031  0.919202  22.8610751485   # 2NCC 
+NA C_ C_ H_ *  2.95 5.589998 16.263937  64.7488801386   # 3NCC 
+NB C_ C_ H_ *  2.95 5.589998 16.263937  64.7488801386   # 3NCC 
+# Nitrogen 3: Neighbours 2/2 (Heavy/Total)
+N_ C_ C_ *  *  2.95 5.589998 16.263937  64.7488801386   # 3NCC
+# Nitrogen 4: Neighbours 3/3 (Heavy/Total)
+N_ C_ C_ C_ *  2.95 1.0       0.         0.180783832809 # 4NCC
+
+# Oxygen 1: Neighbours 1/1 (Heavy/Total)
+O_ C_ *  *  *  2.9  6.764858 12.670634  58.3692979586   # 1OC1
+# Oxygen 1: Neighbours 1/2 (Heavy/Total)
+O_ CT H_ *  *  2.9  2.82723  11.236117  69.8105657286   # 1OC2 
+O_ C  H_ *  *  2.9  2.82723  11.236117  80.1047057149   # 1OC3 
+
+# Sulfur 1: Neighbours 1/2 (Heavy/Total)
+S_ C_ H_ *  *  3.2  2.520362 16.788985 105.113824567    # 1SC
+# Sulfur 2: Neighbours 2/2 (Heavy/Total)
+S_ C_ C_ *  *  3.2  1.133725  5.828670  75.8598197695   # 2SCC
+
+# Hydrogen 1: Neighbours 1/1 (Heavy/Total)
+H_ C_ *  *  *  1.4  1.0       0.         0.             # 1H
+H_ N_ *  *  *  1.4  1.0       0.         0.             # 1H
+H_ O_ *  *  *  1.4  1.0       0.         0.             # 1H
+H_ S_ *  *  *  1.4  1.0       0.         0.             # 1H

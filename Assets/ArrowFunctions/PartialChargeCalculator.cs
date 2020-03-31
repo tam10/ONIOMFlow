@@ -344,7 +344,7 @@ public static class PartialChargeCalculator {
                 }
 
                 PDBID newPDBID = new PDBID(pdbID.element, "", elementCount);
-                newResidue.AddAtom(newPDBID, residue.atoms[pdbID].Copy());
+                newResidue.AddAtom(newPDBID, residue.GetAtom(pdbID).Copy());
 
                 if (residue.state != RS.CAP) {
                     p2nMap[atomNum++] = new AtomID(nsrResidueID, pdbID);
@@ -635,7 +635,7 @@ public static class PartialChargeCalculator {
                 }
             }
 
-            foreach (Atom capAtom in groupGeometry.GetResidue(residueID).atoms.Values) {
+            foreach ((PDBID pdbID, Atom capAtom) in groupGeometry.GetResidue(residueID).EnumerateAtoms()) {
                 capAtom.partialCharge = 0f;
             }
 
@@ -654,13 +654,13 @@ public static class PartialChargeCalculator {
         foreach ((ResidueID residueID, Residue residue) in groupGeometry.EnumerateResidues()) {
             float residueCharge = residue.GetCharge();
             float chargeDifference = Mathf.RoundToInt(residueCharge) - residueCharge;
-            int numAtoms = residue.atoms.Count;
+            int numAtoms = residue.size;
             if (numAtoms == 0) {
                 continue;
             }
             float chargeToAdd = chargeDifference / numAtoms;
 
-            foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                 atom.partialCharge += chargeToAdd;
             }
 

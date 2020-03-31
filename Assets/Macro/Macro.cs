@@ -14,6 +14,7 @@ using GIID = Constants.GeometryInterfaceID;
 using TID = Constants.TaskID;
 using GIS = Constants.GeometryInterfaceStatus;
 using BT = Constants.BondType;
+using Element = Constants.Element;
 
 /// <summary>
 /// Root Macro Object. 
@@ -25,6 +26,8 @@ public class Macro : MacroGroup {
     /// <param name="geometryInterfaceID">The ID of the Geometry Interface to run the Macro on.</param>
     public static IEnumerator RunMacro(GIID geometryInterfaceID) {
 
+        NotificationBar.SetTaskProgress(TID.RUN_MACRO, 0f);
+
 		Macro macro;
         try {
             macro = Macro.FromGeometryInterface(geometryInterfaceID);
@@ -35,15 +38,21 @@ public class Macro : MacroGroup {
                 e.Message
             );
             failed = true;
+            NotificationBar.ClearTask(TID.RUN_MACRO);
             yield break;
         }
 
         //Get the file and load the root
 		yield return macro.UserLoadMacroFile(); 
-        if (failed) {yield break;};
+        if (failed) {
+            NotificationBar.ClearTask(TID.RUN_MACRO);
+            yield break;
+        };
 
         //Process root of the file
 		yield return macro.ProcessRoot();
+
+        NotificationBar.ClearTask(TID.RUN_MACRO);
     }
 
     /// <summary>Constructs a Macro object from a geometry and an XElement</summary>
@@ -73,7 +82,7 @@ public class Macro : MacroGroup {
         }
 
         //Set root Geometry as the special Geometry accessible from the Macro
-        geometryDict["$(GEOMETRY)"] = macro.rootGeometry;
+        geometryDict["GEOMETRY"] = macro.rootGeometry;
 
         return macro;
     }
@@ -119,7 +128,6 @@ public class Macro : MacroGroup {
 
 		if (loadPrompt.cancelled) {
 			GameObject.Destroy(loadPrompt.gameObject);
-            NotificationBar.ClearTask(TID.RUN_MACRO);
             failed = true;
 			yield break;
 		}
@@ -135,7 +143,6 @@ public class Macro : MacroGroup {
 		if (!File.Exists(path)) {
 			CustomLogger.LogFormat(EL.ERROR, "File does not exist: {0}", path);
 			GameObject.Destroy(loadPrompt.gameObject);
-            NotificationBar.ClearTask(TID.RUN_MACRO);
             failed = true;
 			yield break;
 		}
@@ -214,7 +221,7 @@ public class MacroGroup {
     IEnumerator ProcessGroup(Geometry groupGeometry, XElement groupX, string name) {
 
         //Make geometry accessible
-        geometryDict[name] = groupGeometry;
+        SetGeometry(name, groupGeometry);
 
         groupGeometry.name = name;
 
@@ -246,13 +253,14 @@ public class MacroGroup {
                 case "residuevar":  yield return ParseResidueVariable(elementX); break;
                 case "array":       yield return ParseArray(elementX);           break;
                 case "split":       yield return FormArray(elementX);            break;
-                case "action":      yield return RunAction(elementX);            break;
-                case "run":         yield return RunCalculation(elementX);       break;
-                case "group":       yield return CreateGroup(elementX);          break;
+                case "getitem":     yield return ElementAt(elementX);            break;
                 case "for":         yield return ForLoop(elementX);              break;
                 case "foreach":     yield return ForEachLoop(elementX);          break;
                 case "while":       yield return WhileLoop(elementX);            break;
-                case "getitem":     yield return ElementAt(elementX);            break;
+                case "branch":      yield return Branch(elementX);               break;
+                case "group":       yield return CreateGroup(elementX);          break;
+                case "action":      yield return RunAction(elementX);            break;
+                case "run":         yield return RunCalculation(elementX);       break;
                 default:
                     Fail(elementX, "Unrecognised Element '{0}'", elementName);
                     break;
@@ -261,7 +269,20 @@ public class MacroGroup {
         };
     }
 
-    /// <summary>Create a new Macro Group.</summary>
+    /// <summary>
+    /// Create a new Macro Group. <br />
+    /// <para>Attributes: </para> <br />
+    /// <para>source: (required) Geometry to create group from.</para> <br />
+    /// <para>type:   (required) Type of group/s to create. See 'Types' below.</para> <br />
+    /// <para>name:   (optional) Name to use for the Geometry of the group.</para> <br />
+    /// <para>var:    (optional) Variable ID to use. See 'Types' below.</para> <br />
+    /// <para>Types:</para> <br />
+    /// <para>connected: Iterate over all connected groups of Residues.</para> <br />
+    /// <para>perResidue: Iterate over all residues.</para> <br />
+    /// <para>geometry: Run using the entire Geometry.</para> <br />
+    /// <para>Elements: </para> <br />
+    /// <para>any.</para> <br />
+    /// </summary>
     /// <param name="groupX">The new root XElement.</param>
     IEnumerator CreateGroup(XElement groupX) {
 
@@ -275,6 +296,9 @@ public class MacroGroup {
         string type = ParseXMLAttrString(groupX, "type", "", source).ToLower();
         string groupName = ParseXMLAttrString(groupX, "name", "", source);
 
+        string varStr = ParseXMLAttrString(groupX, "var", "", source).ToLower();
+        bool hasVar = !string.IsNullOrEmpty(varStr);
+
         CustomLogger.LogFormat(
             EL.INFO,
             "Created new Group with type '{0}', name '{1}' and source '{2}'.",
@@ -283,18 +307,59 @@ public class MacroGroup {
             sourceName
         );
 
+        int max;
+        int counter;
+
         Geometry group;
         switch (type) {
             case "connected": // Perform actions on groups of residues that are connected
+
+                List<List<ResidueID>> residueGroups = source.GetGroupedResidues().ToList();
+
+                max = residueGroups.Count;
+                counter = 0;
+
                 foreach (List<ResidueID> residueGroup in source.GetGroupedResidues()) {
+                    if (failed) {yield break;}
+                    if (hasVar) {
+                        variableDict[varStr] = (counter + 1).ToString();
+                    }
+
                     group = source.TakeResidues(residueGroup, null);
+
                     yield return ProcessGroup(group, groupX, groupName);
+
+                    NotificationBar.SetTaskProgress(
+                        TID.RUN_MACRO, 
+                        CustomMathematics.Map(counter, 0, max, 0, 1)
+                    );
+
+                    counter++;
+                    yield return null;
                 }
                 break;
-            case "perResidue": // Perform actions on every residue individually
+            case "perresidue": // Perform actions on every residue individually
+
+                max = source.residueCount;
+                counter = 0;
+
                 foreach (ResidueID residueID in source.EnumerateResidueIDs()) {
+                    if (failed) {yield break;}
+                    if (hasVar) {
+                        variableDict[varStr] = residueID.ToString();
+                    }
+
                     group = source.TakeResidue(residueID, null);
+
                     yield return ProcessGroup(group, groupX, groupName);
+
+                    NotificationBar.SetTaskProgress(
+                        TID.RUN_MACRO, 
+                        CustomMathematics.Map(counter, 0, max, 0, 1)
+                    );
+
+                    counter++;
+                    yield return null;
                 }
                 break;
             case "geometry": // Perform actions on entire Geometry
@@ -307,6 +372,56 @@ public class MacroGroup {
         }
     }
 
+    /// <summary>
+    /// Create a new Conditional Branch. <br />
+    /// <para>Attributes: </para> <br />
+    /// <para>test:   (required) Test to perform, one of: 'true', 'false', 'equal' and 'notequal'.</para> <br />
+    /// <para>value:  (optional) Value to test if test is 'true' or 'false'.</para> <br />
+    /// <para>value1: (optional) Value to test against value2 if test is 'equal' or 'notequal'.</para> <br />
+    /// <para>value2: (optional) Value to test against value1 if test is 'equal' or 'notequal'.</para> <br />
+    /// <para>Elements: </para> <br />
+    /// <para>true:  Element to process if test passes.</para> <br />
+    /// <para>false: Element to process if test fails.</para> <br />
+    /// <remark><br />
+    /// Process contents of 'true' if test passes.
+    /// Process contents of 'false' if test fails.
+    /// </remark>
+    /// </summary>
+    /// <param name="branchX">The XElement containing a condition and branch XElements.</param>
+    IEnumerator Branch(XElement branchX) {
+
+        Geometry source = GetGeometry(branchX, "source", true);
+
+        string type = ParseXMLAttrString(branchX, "test", "", source).ToLower();
+        string value = ParseXMLAttrString(branchX, "value", "", source).ToLower();
+        string value1 = ParseXMLAttrString(branchX, "value1", "", source).ToLower();
+        string value2 = ParseXMLAttrString(branchX, "value2", "", source).ToLower();
+
+        bool test = false;
+        switch (type) {
+            case "true":
+                test = (value == "true");
+                break;
+            case "false":
+                test = (value != "true");
+                break;
+            case "equal":
+                test = string.Equals(value1, value2, System.StringComparison.OrdinalIgnoreCase);
+                break;
+            case "notequal":
+                test = ! string.Equals(value1, value2, System.StringComparison.OrdinalIgnoreCase);
+                break;
+            default:
+                Fail(branchX, "Test type '{0}' not recognised.", type);
+                yield break;
+        }
+
+        XElement branch = branchX.Element(test ? "true" : "false");
+        if (branch != null) {
+            yield return ProcessElement(branch);
+        }
+    }
+
     /// <summary>Perform a Geometry-related action.</summary>
     /// <param name="actionX">The XElement with details about the action.</param>
     IEnumerator RunAction(XElement actionX) {
@@ -315,12 +430,14 @@ public class MacroGroup {
 
         string actionID = ParseXMLAttrString(actionX, "id", "", source).ToLower();
         switch (actionID) {
+            case "copy":                       yield return Copy(actionX);                       break;
             case "movetolayer":                yield return MoveToLayer(actionX);                break;
             case "estimatechargemultiplicity": yield return EstimateChargeMultiplicity(actionX); break;
             case "generateatommap":            yield return GenerateAtomMap(actionX);            break;
             case "computeconnectivity":        yield return CalculateConnectivity(actionX);      break;
             case "redistributecharge":         yield return RedistributeCharge(actionX);         break;
             case "roundcharge":                yield return RoundCharge(actionX);                break;
+            case "sasaanalysis":               yield return SASAAnalysis(actionX);               break;
             case "save":                       yield return Save(actionX);                       break;
             case "load":                       yield return Load(actionX);                       break;
             case "userload":                   yield return UserLoad(actionX);                   break;
@@ -407,6 +524,14 @@ public class MacroGroup {
             
             variableDict[varStr] = i.ToString();
             yield return ProcessElement(forX);
+
+            NotificationBar.SetTaskProgress(
+                TID.RUN_MACRO, 
+                CustomMathematics.Map(i, start, stop, 0, 1)
+            );
+
+            yield return null;
+
         }
 
     }
@@ -446,9 +571,19 @@ public class MacroGroup {
             yield break;
         }
 
+        int counter = 0;
+        int max = array.Count;
+
         foreach (string variable in array) {
             variableDict[varStr] = variable;
             yield return ProcessElement(forEachX);
+
+            NotificationBar.SetTaskProgress(
+                TID.RUN_MACRO, 
+                CustomMathematics.Map(counter, 0, max, 0, 1)
+            );
+
+            yield return null;
         }
     }
 
@@ -568,6 +703,21 @@ public class MacroGroup {
         return geometry;
     }
 
+    /// <summary>
+    /// Sets a Geometry in geometryDict.
+    /// </summary>
+    /// <param name="name">Name of the Geometry.</param>
+    /// <param name="geometry">Geometry to add.</param>
+    void SetGeometry(string name, Geometry geometry) {
+
+        name = ExpandVariables(name);
+        if (geometryDict.ContainsKey(name)) {
+            GameObject.Destroy(geometryDict[name].gameObject);
+        }
+
+        geometryDict[name] = geometry;
+    }
+
 
 
     /// <summary>
@@ -582,15 +732,9 @@ public class MacroGroup {
 
         Geometry source = null;
         if (string.IsNullOrEmpty(sourceName) && allowEmpty) {
-            source = GetGeometry("$(GEOMETRY)");
-            if (source == null) {
-                Fail(xElement, "Geometry: '{0}' not found!");
-            }
+            source = GetGeometry("GEOMETRY");
         } else {
             source = GetGeometry(sourceName);
-            if (source == null) {
-                Fail(xElement, "Geometry: '{0}' not found!");
-            }
         }
         return source;
     }
@@ -598,6 +742,32 @@ public class MacroGroup {
     /////////////
     // Actions //
     /////////////
+    
+    /// <summary>
+    /// Copy a Geometry. <br /> 
+    /// <para>Attributes: </para> <br />
+    /// <para>source:       (required) Geometry to copy.</para> <br />
+    /// <para>destination:  (required) Name of copied Geometry.</para> <br />
+    /// <para>Elements: </para> <br />
+    /// <para>none.</para> <br />
+    /// </summary>
+    /// <param name="actionX">The XElement with details about the action.</param>
+    IEnumerator Copy(XElement actionX) {
+
+        Geometry source = GetGeometry(actionX, "source", false);
+        if (source == null) {
+            Fail(actionX, "Cannot Copy Geometry - No source Geometry!");
+            yield break;
+        }
+
+        string destinationStr = ParseXMLAttrString(actionX, "destination", "", source);
+        if (string.IsNullOrWhiteSpace(destinationStr)) {
+            Fail(actionX, "Cannot Copy Geometry - No destination name!");
+            yield break;
+        }
+
+        SetGeometry(destinationStr, source.Take(null));
+    }
 
     /// <summary>
     /// Move a Geometry or a subset of a Geometry to an ONIOM Layer. <br /> 
@@ -624,7 +794,7 @@ public class MacroGroup {
         if (residueStateX != null) {
             RS residueState = ExpandEnum<RS>(residueStateX.Value);
             foreach ((ResidueID residueID, Residue residue) in source.EnumerateResidues(x => x.state == residueState)) {
-                foreach (Atom atom in residue.atoms.Values) {
+                foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                     atom.oniomLayer = oniomLayerID;
                 }
             }
@@ -634,7 +804,7 @@ public class MacroGroup {
         } else if (residueIDsX != null) {
 
             foreach ((ResidueID residueID, Residue residue) in GetResiduesFromString(residueIDsX.Value, source, false)) {
-                foreach (Atom atom in residue.atoms.Values) {
+                foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                     atom.oniomLayer = oniomLayerID;
                 }
             }
@@ -771,6 +941,69 @@ public class MacroGroup {
         yield return PartialChargeCalculator.RoundCharge(source);
     }
 
+    IEnumerator SASAAnalysis(XElement actionX) {
+
+        Geometry source = GetGeometry(actionX, "source", true);
+        if (source == null) {
+            Fail(actionX, "Cannot Run SASA Anaylsis - No source Geometry!");
+            yield break;
+        }
+
+        SurfaceAnalysis surfaceAnalysis = source.gameObject.AddComponent<SurfaceAnalysis>();
+
+        NotificationBar.SetTaskProgress(TID.RUN_MACRO, 0f);
+
+        yield return surfaceAnalysis.Initialise(source);
+
+        NotificationBar.SetTaskProgress(TID.RUN_MACRO, 0.2f);
+
+        int counter = 0;
+        int max = source.residueCount;
+
+        foreach ((ResidueID residueID, Residue residue) in source.EnumerateResidues()) {
+            float residueScore = 0f;
+
+            List<(ResidueID, Residue)> nearbyResidues = residue.ResiduesWithinDistance(8)
+                .Select(x => (x, source.GetResidue(x)))
+                .ToList();
+
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+                AtomID atomID = new AtomID(residueID, pdbID);
+
+                float atomScore = surfaceAnalysis.GetSASAScore(atomID, atom, nearbyResidues);
+                atomScore = atomScore < 0 ? 0 : atomScore;
+                residueScore += atomScore;
+
+                string atomKey = string.Format("sasa_{0}", atomID.ToString().ToLower());
+                variableDict[atomKey] = string.Format("{0,8:0.0000}", atomScore);
+
+                CustomLogger.LogFormat(
+                    EL.INFO,
+                    "{0} {1,8:0.0000}", 
+                    atomID,
+                    atomScore
+                );
+            }
+
+            string residueKey = string.Format("sasa_{0}", residueID.ToString().ToLower());
+            variableDict[residueKey] = string.Format("{0,8:0.0000}", residueScore);
+
+            CustomLogger.LogFormat(
+                EL.INFO,
+                "{0} {1,8:0.0000}", 
+                residueID,
+                residueScore
+            );
+
+            NotificationBar.SetTaskProgress(
+                TID.RUN_MACRO, 
+                CustomMathematics.Map(counter++, 0, max, 0, 1)
+            );
+            if (Timer.yieldNow) {yield return null;}
+        }
+
+    }
+
 
     /// <summary>
     /// Saves the Geometry to a file. <br /> 
@@ -898,7 +1131,14 @@ public class MacroGroup {
             yield break;
         }
 
-        geometryDict[destinationName] = newGeometry;
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Loaded '{0}' into '{1}'",
+            path,
+            destinationName
+        );
+
+        SetGeometry(destinationName, newGeometry);
     }
 
 
@@ -960,7 +1200,14 @@ public class MacroGroup {
             yield break;
         }
 
-        geometryDict[destinationName] = newGeometry;
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Loaded '{0}' into '{1}'",
+            path,
+            destinationName
+        );
+
+        SetGeometry(destinationName, newGeometry);
     }
 
 
@@ -1078,13 +1325,16 @@ public class MacroGroup {
                             if (Timer.yieldNow) {yield return null;}
                         }
                         break;
-                    case ("compareGeometry"):
+                    case ("comparegeometry"):
 
                         break;
-                    case ("compareResidues"):
-
+                    case ("compareresidues"):
+                        foreach (string reportStr in GetResidueComparisonReportStrings(itemX, source)) {
+                            streamWriter.WriteLine(reportStr);
+                            if (Timer.yieldNow) {yield return null;}
+                        }
                         break;
-                    case ("compareAtoms"):
+                    case ("compareatoms"):
 
                         break;
                     default:
@@ -1152,6 +1402,28 @@ public class MacroGroup {
 
         bool optimise = (ParseXMLString(actionX, "optimise", "false", source).ToLower() == "true");
 
+        ResidueMutator.OptisationMethod optisationMethod;
+        string optimisationMethodStr = ParseXMLString(actionX, "method", "", source).ToLower();
+        if (string.IsNullOrEmpty(optimisationMethodStr)) {
+            optisationMethod = ResidueMutator.OptisationMethod.TREE;
+        } else if (optimisationMethodStr == "tree") {
+            optisationMethod = ResidueMutator.OptisationMethod.TREE;
+        } else if (optimisationMethodStr == "brute") {
+            optisationMethod = ResidueMutator.OptisationMethod.BRUTE_FORCE;
+        } else {
+            Fail(actionX, "Failed to parse Optimisation Method '{0}'", optimisationMethodStr);
+            yield break;
+        }
+
+        float deltaTheta;
+        string deltaThetaStr = ParseXMLString(actionX, "deltaTheta", "", source).ToLower();
+        if (string.IsNullOrEmpty(deltaThetaStr)) {
+            deltaTheta = 10f;
+        } else if (!float.TryParse(deltaThetaStr, out deltaTheta)) {
+            Fail(actionX, "Could not parse deltaTheta '{0}' to a float!", deltaThetaStr);
+            yield break;
+        }
+
         ResidueMutator residueMutator;
         try {
             residueMutator = new ResidueMutator(source, residueID);
@@ -1162,15 +1434,19 @@ public class MacroGroup {
 
         yield return residueMutator.MutateStandard(
             newResidue,
-            optimise
+            deltaTheta,
+            (optimise) 
+                ? optisationMethod
+                : ResidueMutator.OptisationMethod.NONE
         );
 
         CustomLogger.LogFormat(
             EL.INFO,
-            "Mutated Residue '{0}' in '{1}' with clash score: {2,8:#.##E+00} ('{3}' -> '{4}')",
+            "Mutated Residue '{0}' in '{1}'. Clash score: {2,8:#.##E+00}. Method: {3}. Code: ('{4}' -> '{5}')",
             residueID,
             source.name,
             residueMutator.clashScore,
+            optisationMethod,
             oldResidueName,
             targetStr
             
@@ -1318,7 +1594,7 @@ public class MacroGroup {
             basePath + ".log"
         );
 
-        //Update Positions
+        //Update Geometry
         XElement updateGeometryX = calculationX.Element("updateGeometry");
         if (updateGeometryX != null) {
             yield return UpdateGeometryFromOutput(source, updateGeometryX, basePath);
@@ -1359,7 +1635,7 @@ public class MacroGroup {
         bool updateAmbers = (ParseXMLAttrString(updateX, "ambers", "false", source).ToLower() == "true");
 
         if (destination == null) {
-            Fail(updateX, "'destination' Geometry not found!");
+            Fail(updateX, "Failed to Update Geometry - 'destination' Geometry not found!");
             yield break;
         } 
 
@@ -1464,10 +1740,10 @@ public class MacroGroup {
                             residue.residueName
                         );
                         yield return "PDBID        x        y        z";
-                        foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+                        foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                             float3 position = atom.position;
                             yield return string.Format(
-                                "{0,5} {1,8:.000} {2,8:.000} {3,8:.000}",
+                                "{0,5} {1,8:0.000} {2,8:0.000} {3,8:0.000}",
                                 pdbID,
                                 position.x,
                                 position.y,
@@ -1500,18 +1776,21 @@ public class MacroGroup {
                         yield return "ID1   ID2   ID3   ID4   Angle";
 
                         foreach (PDBID[] dihedralGroup in dihedralGroups) {
-                            Atom atom0 = residue.atoms[dihedralGroup[0]];
-                            Atom atom1 = residue.atoms[dihedralGroup[1]];
-                            Atom atom2 = residue.atoms[dihedralGroup[2]];
-                            Atom atom3 = residue.atoms[dihedralGroup[3]];
-                            float dihedral = CustomMathematics.GetDihedral(atom0, atom1, atom2, atom3);
+
+                            float dihedral;
+                            if (!TryGetDihedral(dihedralGroup, residue, out dihedral)) {
+                                Warn(itemX, "Failed to get Torsion angle for '{0}'", residueID);
+                                yield return string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup));
+                                continue;
+                            }
+                            
                             yield return string.Format(
-                                "{0,5} {1,5} {2,5} {3,5} {4,7:.00}",
+                                "{0,5} {1,5} {2,5} {3,5} {4,7:0.00}",
                                 dihedralGroup[0],
                                 dihedralGroup[1],
                                 dihedralGroup[2],
                                 dihedralGroup[3],
-                                dihedral
+                                math.degrees(dihedral)
                             );
                         }
                         yield return "";
@@ -1555,11 +1834,11 @@ public class MacroGroup {
 
                             //Residues nearby
 
-                            foreach ((PDBID closePDBID, Atom closeAtom) in source.GetResidue(closeResidueID).atoms) {
+                            foreach ((PDBID closePDBID, Atom closeAtom) in source.GetResidue(closeResidueID).EnumerateAtoms()) {
 
                                 AtomID closeAtomID = new AtomID(closeResidueID, closePDBID);
 
-                                foreach ((PDBID pdbID, Atom atom) in residue.atoms) {
+                                foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
 
                                     AtomID atomID = new AtomID(residue.residueID, pdbID);
 
@@ -1577,7 +1856,7 @@ public class MacroGroup {
                                     }
 
                                     yield return string.Format(
-                                        "{0,8} {1,8} {2,8:.000}",
+                                        "{0,8} {1,8} {2,8:0.000}",
                                         atomID,
                                         closeAtomID,
                                         math.sqrt(distanceSq)
@@ -1594,6 +1873,176 @@ public class MacroGroup {
                     break;
                 default:
                     Fail(itemX, "Unrecognised Residue Report Item '{0}'!", itemName);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enumerate strings for a Residue Report.
+    /// <para>Attributes: </para> <br />
+    /// <para>source:     (optional) Geometry to report (defaults to defaultSource).</para> <br />
+    /// <para>target:     (required) Geometry to compare to.</para> <br />
+    /// <para>residueIDs: (optional) List of Residue IDs to report (defaults to every Residue).</para> <br />
+    /// <para>Elements: </para> <br />
+    /// <para>items:     (optional) See 'Items' below.</para> <br />
+    /// <para>Items: </para> <br />
+    /// <para>distances:      Report the distance between each Residue's Atoms.</para> <br />
+    /// <para>torsionangles: Report the difference of side-chain torsion angles between each Residue.</para> <br />
+    /// </summary>
+    /// <param name="reportX">XElement containing information about Geometry Report.</param>
+    /// <param name="defaultSource">Default Geometry to report if source isn't given</param>
+    IEnumerable<string> GetResidueComparisonReportStrings(XElement reportX, Geometry defaultSource) {
+
+        //Allow optional source
+        Geometry source = (reportX.Attribute("source") == null)
+            ? defaultSource
+            : GetGeometry(reportX, "source");
+
+        Geometry target = GetGeometry(reportX, "target", false);
+        if (target == null) {
+            Fail(reportX, "Failed to Generate Residue Comparison Report - 'target' geometry is null!");
+            yield break;
+        }
+
+        string residueIDsStr = ParseXMLAttrString(reportX, "residueIDs", "", source);
+        List<(ResidueID, Residue)> residues = GetResiduesFromString(residueIDsStr, source, true).ToList();
+        Dictionary<ResidueID, Residue> targetResidues = GetResiduesFromString(residueIDsStr, target, true)
+            .ToDictionary(x => x.Item1, x => x.Item2);
+
+        if (failed) {yield break;}
+
+        foreach (XElement itemX in reportX.Elements()) {
+            string itemName = itemX.Name.ToString().ToLower();
+            switch (itemName) {
+                case "distances":
+                    bool onlyHeavy = (ParseXMLString(itemX, "heavy", "false", source).ToLower() == "true");
+
+                    foreach ((ResidueID residueID, Residue residue) in residues) {
+
+                        Residue targetResidue;
+                        if (!targetResidues.TryGetValue(residueID, out targetResidue)) {
+                            Warn(itemX, "Residue ID '{0}' missing in target geometry", residueID);
+                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            continue;
+                        }
+
+                        if (residue.residueName != targetResidue.residueName) {
+                            Warn(
+                                itemX, 
+                                "Residue '{0}' is '{1}' in source but '{2}' in target", 
+                                residueID,
+                                residue.residueName,
+                                targetResidue.residueName
+                            );
+                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            continue;
+                        }
+
+                        yield return string.Format(
+                            "Distances between atoms of {0} ({1})",
+                            residueID,
+                            residue.residueName
+                        );
+
+                        yield return "PDBID        distance";
+                        foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+
+                            //Skip hydrogen atoms if requested
+                            if (onlyHeavy && pdbID.element == Element.H) {continue;}
+
+                            Atom targetAtom;
+
+                            if (!targetResidue.TryGetAtom(pdbID, out targetAtom)) {
+                                Warn(itemX, "Atom '{0}' missing in target residue '{1}'", pdbID, targetResidue);
+                                yield return string.Format("Skipping Atom '{0}'", pdbID);
+                                yield break;
+                            }
+
+                            yield return string.Format(
+                                "{0,5} {1,8:0.000}",
+                                pdbID,
+                                math.distance(atom.position, targetAtom.position)
+                            );
+                        }
+                        yield return "";
+                    }
+                    yield return "";
+                    break;
+                case "torsionangles":
+
+                    foreach ((ResidueID residueID, Residue residue) in residues) {
+
+                        Residue targetResidue;
+                        if (!targetResidues.TryGetValue(residueID, out targetResidue)) {
+                            Warn(itemX, "Residue ID '{0}' missing in target geometry", residueID);
+                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            continue;
+                        }
+
+                        if (residue.residueName != targetResidue.residueName) {
+                            Warn(
+                                itemX, 
+                                "Residue '{0}' is '{1}' in source but '{2}' in target", 
+                                residueID,
+                                residue.residueName,
+                                targetResidue.residueName
+                            );
+                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            continue;
+                        }
+
+                        AminoAcid aminoAcid;
+                        if (!Data.aminoAcids.TryGetValue(residue.residueName, out aminoAcid)) {
+                            Warn(
+                                itemX,
+                                "Residue '{0}' not present in Amino Acid Database.",
+                                residue.residueName
+                            );
+                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            continue;
+                        }
+
+                        PDBID[][] dihedralGroups = aminoAcid.GetDihedralPDBIDs(residue.state);
+
+                        yield return string.Format(
+                            "Torsion Angle differences of {0} ({1})",
+                            residueID,
+                            residue.residueName
+                        );
+
+                        yield return "ID1   ID2   ID3   ID4   Angle";
+
+                        foreach (PDBID[] dihedralGroup in dihedralGroups) {
+                            float originalDihedral;
+                            if (!TryGetDihedral(dihedralGroup, residue, out originalDihedral)) {
+                                Warn(itemX, "Failed to get Torsion angle for '{0}'", residueID);
+                                yield return string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup));
+                                continue;
+                            }
+
+                            float targetDihedral;
+                            if (!TryGetDihedral(dihedralGroup, targetResidue, out targetDihedral)) {
+                                Warn(itemX, "Failed to get Torsion angle for '{0}'", residueID);
+                                yield return string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup));
+                                continue;
+                            }
+                            
+                            yield return string.Format(
+                                "{0,5} {1,5} {2,5} {3,5} {4,7:0.00}",
+                                dihedralGroup[0],
+                                dihedralGroup[1],
+                                dihedralGroup[2],
+                                dihedralGroup[3],
+                                math.degrees(originalDihedral - targetDihedral)
+                            );
+                        }
+                        yield return "";
+                    }
+                    yield return "";
+                    break;
+                default:
+                    Fail(itemX, "Unrecognised Residue Comparison Report Item '{0}'!", itemName);
                     break;
             }
         }
@@ -1632,7 +2081,7 @@ public class MacroGroup {
                     foreach ((AtomID atomID, Atom atom) in atoms) {
                         float3 position = atom.position;
                         yield return string.Format(
-                            "{0,8} {1,8:.000} {2,8:.000} {3,8:.000}",
+                            "{0,8} {1,8:0.000} {2,8:0.000} {3,8:0.000}",
                             atomID,
                             position.x,
                             position.y,
@@ -1947,6 +2396,10 @@ public class MacroGroup {
     IEnumerator ParseResidueVariable(XElement varX) {
 
         Geometry source = GetGeometry(varX, "source", true);
+        if (source == null) {
+            Fail(varX, "Cannot Parse Residue Variable - No source Geometry!");
+            yield break;
+        }
 
         string idStr = ParseXMLAttrString(varX, "id", "", source).ToLower();
         if (string.IsNullOrWhiteSpace(idStr)) {
@@ -1981,6 +2434,8 @@ public class MacroGroup {
             yield break;
         }
 
+        string variable = "";
+
         switch (typeString) {
             case "mutant":
                 string targetStr = ParseXMLString(varX, "target", "", source).ToUpper();
@@ -1989,28 +2444,34 @@ public class MacroGroup {
                     yield break;
                 }
 
-                string mutationCode;
                 try {
-                    mutationCode  = GetMutationCode(residueID, residue, targetStr);
+                    variable = GetMutationCode(residueID, residue, targetStr);
                 } catch (System.Exception e) {
                     Fail(varX, "Cannot parse Residue Variable - {0}", e.Message);
                     yield break;
                 }
                 if (failed) {yield break;}
 
-                CustomLogger.LogFormat(
-                    EL.INFO,
-                    "Setting Residue Variable '{0}' to '{1}'.",
-                    idStr,
-                    mutationCode
-                );
-
-                variableDict[idStr] = mutationCode;
+                break;
+            case "state":
+                variable = Constants.ResidueStateMap[residue.state];
+                break;
+            case "name":
+                variable = residue.residueName;
                 break;
             default:
                 Fail(varX, "Cannot parse Residue Variable - Unrecognised Type '{0}'!", typeString);
                 yield break;
         }
+
+        CustomLogger.LogFormat(
+            EL.INFO,
+            "Setting Residue Variable '{0}' to '{1}'.",
+            idStr,
+            variable
+        );
+
+        variableDict[idStr] = variable;
     } 
     
     /// <summary>
@@ -2053,12 +2514,107 @@ public class MacroGroup {
     string ExpandVariables(string input, Geometry geometry=null) {
         // Variables look like: $(VAR)
 
+        Stack<(int, char)> tokenStack = new Stack<(int, char)>();
+
+        int maxLoop = 10;
+        string output = input;
+
+        //Loop through string
+        for (int i=0; i<maxLoop; i++) {
+
+            char previous = '\0';
+            int charNum = 0;
+
+            foreach (char chr in output) {
+
+
+                if ((chr == '(' || chr == '{') && previous == '$') {
+                    //Open tokens for parsing variables/lengths
+                    tokenStack.Push((charNum, chr));
+
+                } else if (chr == ')' && tokenStack.Count > 0) {
+
+                    //Close token for parsing variable
+                    (int openCharIndex, char openChar) = tokenStack.Pop();
+
+                    if (openChar != '(') {
+                        Fail(
+                            null, 
+                            "Unexpected character '{0}' when Parsing Variable in (char {1}): {2}",
+                            openChar,
+                            charNum.ToString(), 
+                            output
+                        );
+                        return "";
+                    }
+
+                    //Clear stack to restart
+                    tokenStack.Clear();
+                    //Substitute with variable
+                    output = 
+                        output.Substring(0, openCharIndex - 1) + 
+                        ExpandVariable(output.Substring(openCharIndex + 1, charNum - openCharIndex - 1), geometry) + 
+                        output.Substring(charNum + 1)
+                    ; 
+                    break;
+
+                } else if (charNum == '}' && tokenStack.Count > 0) {
+
+                    //Close token for parsing array length
+                    (int openCharIndex, char openChar) = tokenStack.Pop();
+
+                    if (openChar != '{') {
+                        Fail(
+                            null, 
+                            "Unexpected character '{0}' when Getting Array Length in (char {1}): {2}",
+                            openChar,
+                            charNum.ToString(), 
+                            output
+                        );
+                        return "";
+                    }
+
+                    string arrayName = output.Substring(openCharIndex + 1, charNum - openCharIndex - 1).ToLower();
+                    List<string> array;
+                    if (!arrayDict.TryGetValue(arrayName, out array)) {
+                        Fail(null, "Cannot get Array Length - Array '{0}' not found!", arrayName);
+                        return "";
+                    }
+
+                    //Clear stack to restart
+                    tokenStack.Clear();
+                    //Substitute with array length
+                    output = 
+                        output.Substring(0, openCharIndex - 1) + 
+                        array.Count.ToString() + 
+                        output.Substring(charNum + 1)
+                    ; 
+
+                    break;
+
+                }
+
+                previous = chr;
+                charNum++;
+            }
+
+            if (charNum == output.Length) { return output;}
+        }
+
+        throw new System.Exception(string.Format(
+            "Maximum substitutions '{0}' exceeded in Variable: {1}",
+            maxLoop,
+            output
+        ));
+/* 
         string output = "";
         bool expectOpen  = false;
         bool parseVar = false;
         bool parseLen = false;
         int charNum = -1;
         string varStr = "";
+        int recursionCount = 0;
+        bool recursion = false;
 
         //Loop through string
         foreach (char chr in input) {
@@ -2066,7 +2622,13 @@ public class MacroGroup {
 
             if (chr == '$') {
                 //Start of variable token
-                expectOpen = true;
+                if (parseVar) {
+                    recursion = true;
+                    varStr += chr;
+                    recursionCount++;
+                } else {
+                    expectOpen = true;
+                }
             } else if (expectOpen) {
                 //Open parenthesis
                 if (chr == '(') {
@@ -2077,6 +2639,7 @@ public class MacroGroup {
                     varStr = "";
                     parseLen = true;
                     expectOpen = false;
+
                 } else {
                     //No open parenthesis
                     Fail(null, "Expected '(' or '{' after '$' in input (char {0}): {1}", charNum.ToString(), input);
@@ -2086,8 +2649,18 @@ public class MacroGroup {
                 //Reading a variable
                 if (chr == ')') {
                     //End of reading - convert to variable
-                    output += ExpandVariable(varStr, geometry);
-                    parseVar = false;
+                    if (recursionCount > 0) {
+                        varStr += chr;
+                        recursionCount--;
+                    } else {
+                        if (recursion) {
+                            varStr += ExpandVariables(varStr, geometry);
+                            recursion = false;
+                        } else {
+                            output += ExpandVariable(varStr, geometry);
+                        }
+                        parseVar = false;
+                    }
                 } else {
                     varStr += chr;
                 }
@@ -2122,6 +2695,8 @@ public class MacroGroup {
             return "";
         }
         return output;
+ */
+
     }
 
     static TEnum ExpandEnum<TEnum>(string input) where TEnum : struct {
@@ -2191,8 +2766,6 @@ public class MacroGroup {
                 return Settings.settingsPath.EndsWith("/") ? Settings.settingsPath : Settings.projectPath + "/";
             case "DATA_PATH":
                 return Settings.dataPath.EndsWith("/") ? Settings.dataPath : Settings.projectPath + "/";
-            case "GEOMETRY":
-                return "$(GEOMETRY)";
             case "CHAINS":
                 if (geometry == null) {
                     CustomLogger.LogFormat(
@@ -2219,7 +2792,7 @@ public class MacroGroup {
             default:
                 CustomLogger.LogFormat(
                     EL.ERROR,
-                    "Unrecognised variable {0}",
+                    "Unrecognised variable '{0}'",
                     input
                 );
                 failed = true;
@@ -2356,6 +2929,21 @@ public class MacroGroup {
             }
             yield return (atomID, atom);
         }
+    }
+
+    bool TryGetDihedral(PDBID[] dihedralGroup, Residue residue, out float dihedral) {
+
+        Atom[] atoms = new Atom[4];
+
+        for (int i=0; i<4; i++) {
+            if (!residue.TryGetAtom(dihedralGroup[i], out atoms[i])) {
+                Warn(null, "Atom '{0}' missing in Residue '{1}'", dihedralGroup[i], residue.residueID);
+                dihedral = 0;
+                return false;
+            }
+        }
+        dihedral = CustomMathematics.GetDihedral(atoms[0], atoms[1], atoms[2], atoms[3]);
+        return true;
     }
 
     ////////////////////

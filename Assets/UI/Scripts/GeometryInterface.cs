@@ -352,17 +352,17 @@ public class GeometryInterface :
 				continue;
 			}
 
-			foreach (PDBID pdbID in thisResidue.atoms.Keys) {
+			foreach (PDBID pdbID in thisResidue.pdbIDs) {
 
 				//Continue to next Atom if copyToGeometry does not contain PDBID
 				Atom copyToAtom;
-				if (!otherResidue.atoms.TryGetValue(pdbID, out copyToAtom)) {
+				if (!otherResidue.TryGetAtom(pdbID, out copyToAtom)) {
 					continue;
 				}
 
 				//Run the draggedGITask on this pair of matching atoms
 				try {
-					draggedGITask(copyToAtom, thisResidue.atoms[pdbID]);
+					draggedGITask(copyToAtom, thisResidue.GetAtom(pdbID));
 				} catch (System.Exception e) {
 
 					//Report failed atom

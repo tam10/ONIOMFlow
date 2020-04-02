@@ -110,6 +110,11 @@ public static class Settings {
 		}
 	}
 
+	public static Color GetAtomColourFromSASA(float sasa, float max=1f) {
+		if (sasa == 0) {return nochargeColour;}
+		return Color.Lerp(neutralColour, positiveColour, sasa / max);
+	}
+
 	public static Color negativeColour = new Color(0f, 0f, 1f, 1f);
 	public static Color neutralColour = new Color(0.5f, 0.5f, 0.5f, 0.5f);
 	public static Color positiveColour = new Color(1f, 0f, 0f, 1f);

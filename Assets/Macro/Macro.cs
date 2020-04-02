@@ -949,13 +949,78 @@ public class MacroGroup {
             yield break;
         }
 
+        // Get Method
+        bool usePWMethod;
+        string methodStr = ParseXMLString(actionX, "method", "", source).ToLower();
+        if (string.IsNullOrEmpty(methodStr)) {
+            usePWMethod = false;
+        } else if (methodStr == "numerical") {
+            usePWMethod = false;
+        } else if (methodStr == "pairwise") {
+            usePWMethod = true;
+        } else {
+            Fail(actionX, "Failed to parse SASA Method '{0}'", methodStr);
+            yield break;
+        }
+
+        // Get Numerical Method Parameters
+        float solventRadius;
+        string solventRadiusStr = ParseXMLString(actionX, "solventRadius", "", source).ToLower();
+        if (string.IsNullOrEmpty(solventRadiusStr)) {
+            solventRadius = 1.4f;
+        } else if (!float.TryParse(solventRadiusStr, out solventRadius)) {
+            Fail(actionX, "Could not parse solventRadius '{0}' to a float!", solventRadiusStr);
+            yield break;
+        }
+
+        int gridResolution;
+        string gridResolutionStr = ParseXMLString(actionX, "gridResolution", "", source).ToLower();
+        if (string.IsNullOrEmpty(gridResolutionStr)) {
+            gridResolution = 4;
+        } else if (!int.TryParse(gridResolutionStr, out gridResolution)) {
+            Fail(actionX, "Could not parse gridResolution '{0}' to a int!", gridResolutionStr);
+            yield break;
+        }
+
+        // Get Pairwise Method Parameters
+        int param_m;
+        string param_mStr = ParseXMLString(actionX, "param_m", "", source).ToLower();
+        if (string.IsNullOrEmpty(param_mStr)) {
+            param_m = 10;
+        } else if (!int.TryParse(param_mStr, out param_m)) {
+            Fail(actionX, "Could not parse param_m '{0}' to a int!", param_mStr);
+            yield break;
+        }
+
+        int param_n;
+        string param_nStr = ParseXMLString(actionX, "param_n", "", source).ToLower();
+        if (string.IsNullOrEmpty(param_nStr)) {
+            param_n = 10;
+        } else if (!int.TryParse(param_nStr, out param_n)) {
+            Fail(actionX, "Could not parse param_n '{0}' to a int!", param_nStr);
+            yield break;
+        }
+
+
         SurfaceAnalysis surfaceAnalysis = source.gameObject.AddComponent<SurfaceAnalysis>();
 
-        NotificationBar.SetTaskProgress(TID.RUN_MACRO, 0f);
+        //Set parameters
+        surfaceAnalysis.solventRadius = solventRadius;
+        surfaceAnalysis.gridResolution = gridResolution;
+        surfaceAnalysis.param_m = param_m;
+        surfaceAnalysis.param_n = param_n;
 
-        yield return surfaceAnalysis.Initialise(source);
 
-        NotificationBar.SetTaskProgress(TID.RUN_MACRO, 0.2f);
+        if (usePWMethod) {
+            NotificationBar.SetTaskProgress(TID.CALCULATE_PW_SASA, 0f);
+            yield return surfaceAnalysis.InitialisePWSASA(source);
+            NotificationBar.SetTaskProgress(TID.CALCULATE_PW_SASA, 0.2f);
+        } else {
+            NotificationBar.SetTaskProgress(TID.CALCULATE_NUM_SASA, 0f);
+            yield return surfaceAnalysis.InitialiseNumSASA(source);
+            NotificationBar.SetTaskProgress(TID.CALCULATE_NUM_SASA, 0.2f);
+        }
+
 
         int counter = 0;
         int max = source.residueCount;
@@ -970,37 +1035,36 @@ public class MacroGroup {
             foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                 AtomID atomID = new AtomID(residueID, pdbID);
 
-                float atomScore = surfaceAnalysis.GetSASAScore(atomID, atom, nearbyResidues);
+                float atomScore;
+                
+                if (usePWMethod) {
+                    atomScore = surfaceAnalysis.GetPWSASAScore(atomID, atom, nearbyResidues);
+                } else {
+                    atomScore = surfaceAnalysis.GetNumSASAScore(atomID, atom, nearbyResidues);
+                }
+                
                 atomScore = atomScore < 0 ? 0 : atomScore;
                 residueScore += atomScore;
 
                 string atomKey = string.Format("sasa_{0}", atomID.ToString().ToLower());
                 variableDict[atomKey] = string.Format("{0,8:0.0000}", atomScore);
-
-                CustomLogger.LogFormat(
-                    EL.INFO,
-                    "{0} {1,8:0.0000}", 
-                    atomID,
-                    atomScore
-                );
             }
 
             string residueKey = string.Format("sasa_{0}", residueID.ToString().ToLower());
             variableDict[residueKey] = string.Format("{0,8:0.0000}", residueScore);
 
-            CustomLogger.LogFormat(
-                EL.INFO,
-                "{0} {1,8:0.0000}", 
-                residueID,
-                residueScore
-            );
 
-            NotificationBar.SetTaskProgress(
-                TID.RUN_MACRO, 
-                CustomMathematics.Map(counter++, 0, max, 0, 1)
-            );
-            if (Timer.yieldNow) {yield return null;}
+            if (Timer.yieldNow) {
+                yield return null;
+                NotificationBar.SetTaskProgress(
+                    usePWMethod ? TID.CALCULATE_PW_SASA : TID.CALCULATE_NUM_SASA, 
+                    CustomMathematics.Map(counter, 0, max, 0, 1)
+                );
+            }
+            counter++;
         }
+
+        NotificationBar.ClearTask(usePWMethod ? TID.CALCULATE_PW_SASA : TID.CALCULATE_NUM_SASA);
 
     }
 

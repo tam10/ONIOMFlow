@@ -10,14 +10,32 @@ using BT = Constants.BondType;
 
 public class SurfaceAnalysis : MonoBehaviour {
 
-    public static int param_m = 10;
-    public static int param_n = 4;
+    ////////////
+    // pwSASA //
+    ////////////
+    
+    // pwSASA Based on:
+    // J Chem Theory Comput. 2018 Nov 13; 14(11): 5797–5814.
+    // He Huang and Carlos Simmerling
+    // A Fast Pairwise Approximation of Solvent Accessible Surface Area for Implicit Solvent Simulations of Proteins on CPUs and GPUs
+
+    // This is an empirical approximation to the SASA using parameters defined in SASA.txt
+
+    public int param_m = 10;
+    public int param_n = 4;
+
+    public float maxSASA = 0.00001f;
 
     public List<(uint[], SASAType)> sasaTypes;
     public Dictionary<AtomID, SASAType> atomTypes;
     public Dictionary<AtomID, Amber> ambers;
 
-    public IEnumerator Initialise(Geometry geometry) {
+
+    /// <summary>
+    /// Initialise this Surface Calculator for SASA Analysis
+    /// </summary>
+    /// <param name="geometry">The geometry to analyse</param>
+    public IEnumerator InitialisePWSASA(Geometry geometry) {
 
         string sasaPath;
 		if (!Settings.TryGetPath(Settings.dataPath, Settings.sasaFileName, out sasaPath)) {
@@ -26,6 +44,7 @@ public class SurfaceAnalysis : MonoBehaviour {
                 "Could not find Projects Settings File: {0}", 
                 Settings.sasaFileName
             );
+            yield break;
 		}
 
 
@@ -35,6 +54,161 @@ public class SurfaceAnalysis : MonoBehaviour {
             .ToDictionary(x => x.atomID, x => x.atom.amber);
 
         yield return GetAtomTypes(geometry);
+    }
+
+    ////////////////////
+    // Numerical SASA //
+    ////////////////////
+    
+    // 1) Generate a sphere of radius 1 on the origin
+    // 2) For each Atom a0 and nearby Atoms a1, get their radii and positions (r0, r1, p0 and p1).
+    // 3) Define a cutoff as r0 + r1 + (2*r(H2O) = 2.8A)
+    // 4) If ||p0-p1|| < cutoff, keep p1
+    // 5) Translate the system so p0 is on the origin
+    // 6) Scale the system by 1 / (r0 + (r(H2O) = 1.4A)) so the solvent accessible surface of a0 is equal to the sphere
+    // 7) For each point on the sphere, if it is within (r1 + r(H2O)) / (r0 + r(H2O)) of p1, it is not solvent accessible
+
+    public float solventRadius = 1.4f;
+    public int gridResolution = 4;
+
+    Map<int, AtomID> atomMap;
+    float3[] positions;
+    float[] radii;
+
+
+    float3[] vertices;
+    int3[] tris;
+    int numSpherePoints;
+
+    public IEnumerator InitialiseNumSASA(Geometry geometry) {
+
+        if (geometry.parameters == null) {
+			CustomLogger.LogFormat(
+                EL.ERROR,
+                "Geometry has no parameters! Cannot initialise Surface calculation"
+            );
+            yield break;
+        }
+
+		Sphere.main.GetSphere(out vertices, out tris, gridResolution);
+        numSpherePoints = vertices.Length;
+
+        int size = geometry.size;
+        positions = new float3[size];
+        radii = new float[size];
+
+        CustomLogger.LogFormat(
+            EL.VERBOSE,
+            "Initialising Numerical Solvent-Accessible Surface Area Calculation on {0} atoms",
+            size
+        );
+
+        CustomLogger.LogFormat(
+            EL.DEBUG,
+            "Atom ID  Radius     x      y      z   ",
+            size
+        );
+
+        atomMap = new Map<int, AtomID>();
+        int atomIndex = 0;
+        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
+
+            AtomicParameter atomicParameter;
+            float radius;
+            if (geometry.parameters.TryGetAtomicParameter(atom.amber, out atomicParameter)) {
+                radius = atomicParameter.radius;
+            } else {
+                radius = 0;
+            }
+
+            radii[atomIndex] = radius + solventRadius;
+            positions[atomIndex] = atom.position;
+            atomMap[atomIndex] = atomID;
+
+            CustomLogger.LogFormat(
+                EL.DEBUG,
+                "{0} {1,7:F4} {1,7:F4} {2,7:F4} {3,7:F4}",
+                atomID, 
+                radius,
+                atom.position.x,
+                atom.position.y,
+                atom.position.z
+            );
+
+            atomIndex++;
+
+        }
+
+    }
+
+    public float GetNumSASAScore(AtomID atomID0, Atom atom0, List<(ResidueID, Residue)> nearbyResidues) {
+
+        int i0 = atomMap[atomID0];
+        float radius0 = radii[i0];
+
+        if (radius0 == 0) {
+            return 0;
+        }
+
+        float3 position0 = atom0.position;
+
+        //Get factor that scales system to the unit sphere
+        float scale = 1 / (radius0);
+
+        //Nearby atoms and radii to scale and keep
+        List<float3> scaledPositions = new List<float3>();
+        List<float> scaledRadiiSq = new List<float>();
+        int nearbyCount = 0;
+
+        foreach ((ResidueID residueID1, Residue residue1) in nearbyResidues) {
+            foreach ((PDBID pdbID1, Atom atom1) in residue1.EnumerateAtoms()) {
+                AtomID atomID1 = new AtomID(residueID1, pdbID1);
+
+                // Ignore same atom
+                if (atomID0 == atomID1) {continue;}
+
+                int i1 = atomMap[atomID1];
+
+                float radius1 = radii[i1];
+                float3 position1 = positions[i1];
+
+                //Discard if atom pair's combined radius + solvent diameter is less than the distance between them
+                float cutoff = CustomMathematics.Squared(radius0 + radius1);
+                if (math.distancesq(position0, position1) > cutoff) {
+                    //Spheres are not touching
+                    continue;
+                }
+
+
+                scaledPositions.Add((position1 - position0) * scale);
+                scaledRadiiSq.Add(CustomMathematics.Squared((radius1) * scale));
+                nearbyCount++;
+
+            }
+        }
+
+
+        int count = numSpherePoints;
+
+        for (int pointNum=0; pointNum<numSpherePoints; pointNum++) {
+            float3 vertexPosition = vertices[pointNum];
+
+            for (int nearbyAtomIndex=0; nearbyAtomIndex<nearbyCount; nearbyAtomIndex++) {
+                float distanceSq = math.distancesq(vertexPosition, scaledPositions[nearbyAtomIndex]);
+                if (distanceSq < scaledRadiiSq[nearbyAtomIndex]) {
+                    count--;
+                    break;
+                }
+            }
+        }
+
+        float maxSA = 4 * math.PI * radius0 * radius0;
+
+        if (maxSA > this.maxSASA) {
+            this.maxSASA = maxSA;
+        }
+
+        return maxSA * ((float)count / numSpherePoints);
     }
 
     IEnumerator GetSASATypes(string path) {
@@ -92,6 +266,10 @@ public class SurfaceAnalysis : MonoBehaviour {
             if (!float.TryParse(splitLine[8], out maxSASA)) {
                 CustomLogger.LogFormat(EL.ERROR,"Unable to parse Max SASA: {0}",splitLine[8]);
                 continue;
+            }
+        
+            if (maxSASA > this.maxSASA) {
+                this.maxSASA = maxSASA;
             }
 
             SASAType sasaType = new SASAType(cutoff, sigma, epsilon, maxSASA);
@@ -213,7 +391,7 @@ public class SurfaceAnalysis : MonoBehaviour {
         return math.sqrt(sasaType0.epsilon * sasaType1.epsilon);
     }
 
-    public float GetSASAScore(AtomID atomID0, Atom atom0, List<(ResidueID, Residue)> nearbyResidues) {
+    public float GetPWSASAScore(AtomID atomID0, Atom atom0, List<(ResidueID, Residue)> nearbyResidues) {
         SASAType sasaType0 = atomTypes[atomID0]; 
         float3 position0 = atom0.position;
 

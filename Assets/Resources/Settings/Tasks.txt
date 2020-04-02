@@ -48,6 +48,11 @@
     </parentClass>
 
     <parentClass>
+        <name>surfaceAnalysis</name>
+        <fullName>Surface Analysis</fullName>
+    </parentClass>
+
+    <parentClass>
         <name>mutationTools</name>
         <fullName>Mutation</fullName>
     </parentClass>
@@ -388,6 +393,20 @@
         <parentClass>amberCalculator</parentClass>
         <fullName>Compute Parameter Scores</fullName>
         <description>Compute Parameter penalty scores for each atom</description>
+    </task>
+
+    <task>
+        <name>calculatePWSASA</name>
+        <parentClass>surfaceAnalysis</parentClass>
+        <fullName>Compute pw-SASA</fullName>
+        <description>Compute pairwise Solvent-Accessible Surface Area for each atom</description>
+    </task>
+
+    <task>
+        <name>calculateNumSASA</name>
+        <parentClass>surfaceAnalysis</parentClass>
+        <fullName>Compute Num-SASA</fullName>
+        <description>Compute numerical Solvent-Accessible Surface Area for each atom</description>
     </task>
 
     

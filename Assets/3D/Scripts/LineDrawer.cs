@@ -23,11 +23,14 @@ public class LineDrawer : MonoBehaviour {
     public List<Arc> arcs = new List<Arc>();
     public List<Line> lines = new List<Line>();
 
-    public enum AtomColour: int {ELEMENT, CHARGE, HAS_AMBER, PARAMETERS, CAP, MUTATE, REMOVE}
-    public static int numAtomColourTypes = 7; //Must be the length of the above enum
+    public enum AtomColour: int {ELEMENT, CHARGE, HAS_AMBER, PARAMETERS, SASA, CAP, MUTATE, REMOVE}
+    public static int numAtomColourTypes = 8; //Must be the length of the above enum
+
+    public static float maxSASA = 0.001f;
 
     void Start() {
         activeCamera = Camera.main;
+        maxSASA = 0.001f;
     }
 
     void Awake() {
@@ -404,6 +407,7 @@ class ResidueWireFrame {
             atomColours[LineDrawer.AtomColour.CHARGE][atomNum] = Settings.GetAtomColourFromCharge(atom.partialCharge);
             atomColours[LineDrawer.AtomColour.HAS_AMBER][atomNum] = Settings.GetAtomColourFromAMBER(atom.amber);
             atomColours[LineDrawer.AtomColour.PARAMETERS][atomNum] = Settings.GetAtomColourFromPenalty(atom.penalty);
+            atomColours[LineDrawer.AtomColour.SASA][atomNum] = Settings.GetAtomColourFromSASA(atom.sasa / LineDrawer.maxSASA);
             if (canCap) {
                 atomColours[LineDrawer.AtomColour.CAP][atomNum] = capSites.Contains(atomNum) 
                     ? LineDrawer.glowGreenColour
@@ -535,6 +539,7 @@ class ResidueWireFrame {
         bondColours[LineDrawer.AtomColour.CHARGE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CHARGE][i0];
         bondColours[LineDrawer.AtomColour.HAS_AMBER][bondAtomIndex] = atomColours[LineDrawer.AtomColour.HAS_AMBER][i0];
         bondColours[LineDrawer.AtomColour.PARAMETERS][bondAtomIndex] = atomColours[LineDrawer.AtomColour.PARAMETERS][i0];
+        bondColours[LineDrawer.AtomColour.SASA][bondAtomIndex] = atomColours[LineDrawer.AtomColour.SASA][i0];
         bondColours[LineDrawer.AtomColour.CAP][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CAP][i0];
         bondColours[LineDrawer.AtomColour.MUTATE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.MUTATE][i0];
         bondColours[LineDrawer.AtomColour.REMOVE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.REMOVE][i0];
@@ -551,6 +556,7 @@ class ResidueWireFrame {
         bondColours[LineDrawer.AtomColour.CHARGE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CHARGE][i1];
         bondColours[LineDrawer.AtomColour.HAS_AMBER][bondAtomIndex] = atomColours[LineDrawer.AtomColour.HAS_AMBER][i1];
         bondColours[LineDrawer.AtomColour.PARAMETERS][bondAtomIndex] = atomColours[LineDrawer.AtomColour.PARAMETERS][i1];
+        bondColours[LineDrawer.AtomColour.SASA][bondAtomIndex] = atomColours[LineDrawer.AtomColour.SASA][i1];
         bondColours[LineDrawer.AtomColour.CAP][bondAtomIndex] = atomColours[LineDrawer.AtomColour.CAP][i1];
         bondColours[LineDrawer.AtomColour.MUTATE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.MUTATE][i1];
         bondColours[LineDrawer.AtomColour.REMOVE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.REMOVE][i1];
@@ -572,6 +578,7 @@ class ResidueWireFrame {
         nonBondedColours[LineDrawer.AtomColour.CHARGE][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.CHARGE][nonBondedAtomIndex];
         nonBondedColours[LineDrawer.AtomColour.HAS_AMBER][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.HAS_AMBER][nonBondedAtomIndex];
         nonBondedColours[LineDrawer.AtomColour.PARAMETERS][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.PARAMETERS][nonBondedAtomIndex];
+        nonBondedColours[LineDrawer.AtomColour.SASA][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.SASA][nonBondedAtomIndex];
         nonBondedColours[LineDrawer.AtomColour.CAP][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.CAP][nonBondedAtomIndex];
         nonBondedColours[LineDrawer.AtomColour.MUTATE][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.MUTATE][nonBondedAtomIndex];
         nonBondedColours[LineDrawer.AtomColour.REMOVE][nonBondedAtomNum] = atomColours[LineDrawer.AtomColour.REMOVE][nonBondedAtomIndex];
@@ -731,6 +738,9 @@ class LinkerWireFrame {
         
         startColours[LineDrawer.AtomColour.PARAMETERS] = Settings.GetAtomColourFromPenalty(atom0.penalty);
         endColours[LineDrawer.AtomColour.PARAMETERS] = Settings.GetAtomColourFromPenalty(atom1.penalty);
+        
+        startColours[LineDrawer.AtomColour.SASA] = Settings.GetAtomColourFromSASA(atom0.sasa);
+        endColours[LineDrawer.AtomColour.SASA] = Settings.GetAtomColourFromSASA(atom1.sasa);
         
         startColours[LineDrawer.AtomColour.CAP] = LineDrawer.disabledColour;
         endColours[LineDrawer.AtomColour.CAP] = LineDrawer.disabledColour;

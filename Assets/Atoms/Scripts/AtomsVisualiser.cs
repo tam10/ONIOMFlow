@@ -191,6 +191,13 @@ public class AtomsVisualiser : MonoBehaviour {
 
 
         foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
+
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+                if (atom.sasa > LineDrawer.maxSASA) {
+                    LineDrawer.maxSASA = atom.sasa;
+                }
+            }
+
             lineDrawer.AddResidue(residue, -offset);
 
             foreach ((AtomID hostID, AtomID linkerID, Atom hostAtom, Atom linkerAtom) in residue.NeighbouringAtoms()) {
@@ -696,6 +703,7 @@ public class AtomsVisualiser : MonoBehaviour {
         colourGroup.AddButton(() => {SetColourMode(LineDrawer.AtomColour.CHARGE); HideContextMenu();}, "Charge", true);
         colourGroup.AddButton(() => {SetColourMode(LineDrawer.AtomColour.HAS_AMBER); HideContextMenu();}, "Has AMBER", true);
         colourGroup.AddButton(() => {SetColourMode(LineDrawer.AtomColour.PARAMETERS); HideContextMenu();}, "Parameter Penalty", true);
+        colourGroup.AddButton(() => {SetColourMode(LineDrawer.AtomColour.SASA); HideContextMenu();}, "Solvent SA", true);
 
 		contextMenu.AddSpacer();
 
@@ -908,6 +916,10 @@ public class AtomsVisualiser : MonoBehaviour {
             case LineDrawer.AtomColour.PARAMETERS:
                 description = geometry.parameters.GetAtomPenaltyString(hoveredAtomID);
                 sphereColour = Settings.GetAtomColourFromPenalty(hoveredAtom.penalty);
+                break;
+            case LineDrawer.AtomColour.SASA:
+                description = string.Format("SASA: {0,7:F4}", hoveredAtom.sasa);
+                sphereColour = Settings.GetAtomColourFromSASA(hoveredAtom.sasa);
                 break;
             case LineDrawer.AtomColour.ELEMENT:
             default:

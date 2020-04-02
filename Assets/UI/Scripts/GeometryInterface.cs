@@ -780,6 +780,8 @@ public class GeometryInterface :
 		contextMenu.AddButton(() => StartCoroutine(CheckAll()), "Check Atoms", geometryEnabled);
 		contextMenu.AddButton(() => ShowAnalysis(), "Analyse", geometryEnabled);
 		contextMenu.AddButton(() => StartCoroutine(ComputeParameterScores()), "Get Parameter Scores", geometryEnabled);
+		contextMenu.AddButton(() => StartCoroutine(CalculatePWSASA()), "Compute pw-Solvent SA", geometryEnabled);
+		contextMenu.AddButton(() => StartCoroutine(CalculateNumSASA()), "Compute num-Solvent SA", geometryEnabled);
 
 		contextMenu.AddSpacer();
 
@@ -974,6 +976,113 @@ public class GeometryInterface :
 		}
 
         NotificationBar.ClearTask(TID.COMPUTE_PARAMETER_SCORES);
+		activeTasks--;
+
+	}
+
+	public IEnumerator CalculatePWSASA() {
+
+		if (geometry == null || geometry.size == 0) {
+            CustomLogger.LogFormat(
+                EL.ERROR, 
+                "Geometry is empty on Geometry Interface ID: {0}.",
+				id
+            );
+			yield break;
+		}
+
+		activeTasks++;
+		
+        NotificationBar.SetTaskProgress(TID.CALCULATE_PW_SASA, 0f);
+
+		geometry.parameters.UpdateParameters(Settings.defaultParameters);
+
+        SurfaceAnalysis surfaceAnalysis = geometry.gameObject.AddComponent<SurfaceAnalysis>();
+		
+        yield return surfaceAnalysis.InitialisePWSASA(geometry);
+
+        NotificationBar.SetTaskProgress(TID.CALCULATE_PW_SASA, 0.2f);
+
+		int numResidues = geometry.residueCount;
+		int residueNum = 0;
+		
+        foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
+
+            List<(ResidueID, Residue)> nearbyResidues = residue.ResiduesWithinDistance(10)
+                .Select(x => (x, geometry.GetResidue(x)))
+                .ToList();
+
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+                AtomID atomID = new AtomID(residueID, pdbID);
+
+                float atomScore = surfaceAnalysis.GetPWSASAScore(atomID, atom, nearbyResidues);
+                atom.sasa = atomScore < 0 ? 0 : atomScore;
+
+            }
+
+            NotificationBar.SetTaskProgress(
+                TID.CALCULATE_PW_SASA, 
+                CustomMathematics.Map(residueNum++, 0, numResidues, 0, 1)
+            );
+            if (Timer.yieldNow) {yield return null;}
+        }
+
+        NotificationBar.ClearTask(TID.CALCULATE_PW_SASA);
+		activeTasks--;
+
+	}
+
+	public IEnumerator CalculateNumSASA() {
+
+		if (geometry == null || geometry.size == 0) {
+            CustomLogger.LogFormat(
+                EL.ERROR, 
+                "Geometry is empty on Geometry Interface ID: {0}.",
+				id
+            );
+			yield break;
+		}
+
+		activeTasks++;
+		
+        NotificationBar.SetTaskProgress(TID.CALCULATE_NUM_SASA, 0f);
+
+		geometry.parameters.UpdateParameters(Settings.defaultParameters);
+
+        SurfaceAnalysis surfaceAnalysis = geometry.gameObject.AddComponent<SurfaceAnalysis>();
+		
+        yield return surfaceAnalysis.InitialiseNumSASA(geometry);
+
+        NotificationBar.SetTaskProgress(TID.CALCULATE_NUM_SASA, 0.2f);
+
+		int numResidues = geometry.residueCount;
+		int residueNum = 0;
+		
+        foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
+
+			if (residue.isWater) {
+				continue;
+			}
+
+            List<(ResidueID, Residue)> nearbyResidues = residue.ResiduesWithinDistance(10)
+                .Select(x => (x, geometry.GetResidue(x)))
+				.Where(x => !x.Item2.isWater)
+                .ToList();
+
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+                AtomID atomID = new AtomID(residueID, pdbID);
+
+                atom.sasa = surfaceAnalysis.GetNumSASAScore(atomID, atom, nearbyResidues);
+            }
+
+            NotificationBar.SetTaskProgress(
+                TID.CALCULATE_NUM_SASA, 
+                CustomMathematics.Map(residueNum++, 0, numResidues, 0, 1)
+            );
+            if (Timer.yieldNow) {yield return null;}
+        }
+
+        NotificationBar.ClearTask(TID.CALCULATE_NUM_SASA);
 		activeTasks--;
 
 	}

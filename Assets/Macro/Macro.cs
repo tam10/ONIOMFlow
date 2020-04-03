@@ -963,53 +963,45 @@ public class MacroGroup {
             yield break;
         }
 
+        SurfaceAnalysis surfaceAnalysis = source.gameObject.AddComponent<SurfaceAnalysis>();
+
         // Get Numerical Method Parameters
-        float solventRadius;
         string solventRadiusStr = ParseXMLString(actionX, "solventRadius", "", source).ToLower();
-        if (string.IsNullOrEmpty(solventRadiusStr)) {
-            solventRadius = 1.4f;
-        } else if (!float.TryParse(solventRadiusStr, out solventRadius)) {
+        if (
+            !string.IsNullOrEmpty(solventRadiusStr) && 
+            !float.TryParse(solventRadiusStr, out surfaceAnalysis.solventRadius)
+        ) {
             Fail(actionX, "Could not parse solventRadius '{0}' to a float!", solventRadiusStr);
             yield break;
         }
 
-        int gridResolution;
         string gridResolutionStr = ParseXMLString(actionX, "gridResolution", "", source).ToLower();
-        if (string.IsNullOrEmpty(gridResolutionStr)) {
-            gridResolution = 4;
-        } else if (!int.TryParse(gridResolutionStr, out gridResolution)) {
+        if (
+            !string.IsNullOrEmpty(gridResolutionStr) &&
+            !int.TryParse(gridResolutionStr, out surfaceAnalysis.gridResolution)
+        ) {
             Fail(actionX, "Could not parse gridResolution '{0}' to a int!", gridResolutionStr);
             yield break;
         }
 
         // Get Pairwise Method Parameters
-        int param_m;
         string param_mStr = ParseXMLString(actionX, "param_m", "", source).ToLower();
-        if (string.IsNullOrEmpty(param_mStr)) {
-            param_m = 10;
-        } else if (!int.TryParse(param_mStr, out param_m)) {
+        if (
+            !string.IsNullOrEmpty(param_mStr) && 
+            !int.TryParse(param_mStr, out surfaceAnalysis.param_m)
+        ) {
             Fail(actionX, "Could not parse param_m '{0}' to a int!", param_mStr);
             yield break;
         }
 
-        int param_n;
         string param_nStr = ParseXMLString(actionX, "param_n", "", source).ToLower();
-        if (string.IsNullOrEmpty(param_nStr)) {
-            param_n = 10;
-        } else if (!int.TryParse(param_nStr, out param_n)) {
+        if (
+            !string.IsNullOrEmpty(param_nStr) && 
+            !int.TryParse(param_nStr, out surfaceAnalysis.param_n)
+        ) {
             Fail(actionX, "Could not parse param_n '{0}' to a int!", param_nStr);
             yield break;
         }
-
-
-        SurfaceAnalysis surfaceAnalysis = source.gameObject.AddComponent<SurfaceAnalysis>();
-
-        //Set parameters
-        surfaceAnalysis.solventRadius = solventRadius;
-        surfaceAnalysis.gridResolution = gridResolution;
-        surfaceAnalysis.param_m = param_m;
-        surfaceAnalysis.param_n = param_n;
-
 
         if (usePWMethod) {
             NotificationBar.SetTaskProgress(TID.CALCULATE_PW_SASA, 0f);
@@ -1790,10 +1782,29 @@ public class MacroGroup {
 
         string residueIDsStr = ParseXMLAttrString(reportX, "residueIDs", "", source);
         List<(ResidueID, Residue)> residues = GetResiduesFromString(residueIDsStr, source, true).ToList();
-
+        
         if (failed) {yield break;}
 
+        Dictionary<ResidueID, float3> centroids;
+
         foreach (XElement itemX in reportX.Elements()) {
+
+            string searchDistanceStr = ParseXMLAttrString(itemX, "searchDistance", "8", source);
+            float searchDistance;
+            if (!float.TryParse(searchDistanceStr, out searchDistance)) {
+                Fail(itemX, "Failed to parse Search Distance '{0}' as a Float!", searchDistanceStr);
+                yield break;
+            }
+            float searchDistanceSq = searchDistance * searchDistance;
+
+            string thresholdScaleStr = ParseXMLAttrString(itemX, "scale", "1.2", source);
+            float thresholdScale;
+            if (!float.TryParse(thresholdScaleStr, out thresholdScale)) {
+                Fail(itemX, "Failed to parse Threshold Scale '{0}' as a Float!", thresholdScaleStr);
+                yield break;
+            }
+            float thresholdScaleSq = thresholdScale * thresholdScale;
+
             string itemName = itemX.Name.ToString().ToLower();
             switch (itemName) {
                 case "positions":
@@ -1862,32 +1873,11 @@ public class MacroGroup {
                     yield return "";
                     break;
                 case "contact":
-                    string searchDistanceStr = ParseXMLAttrString(itemX, "searchDistance", "8", source);
-                    float searchDistance;
-                    if (!float.TryParse(searchDistanceStr, out searchDistance)) {
-                        Fail(itemX, "Failed to parse Search Distance '{0}' as a Float!", searchDistanceStr);
-                        yield break;
-                    }
-                    float searchDistanceSq = searchDistance * searchDistance;
 
-                    string thresholdScaleStr = ParseXMLAttrString(itemX, "scale", "8", source);
-                    float thresholdScale;
-                    if (!float.TryParse(thresholdScaleStr, out thresholdScale)) {
-                        Fail(itemX, "Failed to parse Threshold Scale '{0}' as a Float!", thresholdScaleStr);
-                        yield break;
-                    }
-                    float thresholdScaleSq = thresholdScale * thresholdScale;
-
-                    Dictionary<ResidueID, float3> centroids = source.EnumerateResidues()
+                    centroids = source.EnumerateResidues()
                         .ToDictionary(x => x.residueID, x => x.residue.GetCentre());
 
                     foreach ((ResidueID residueID, Residue residue) in residues) {
-                        yield return string.Format(
-                            "Close Contacts of {0} ({1})",
-                            residueID,
-                            residue.residueName
-                        );
-                        yield return "Atom ID   Atom ID   Distance";
 
                         foreach ((ResidueID closeResidueID, float3 centroid) in centroids) {
 
@@ -1895,6 +1885,8 @@ public class MacroGroup {
                                 //Residue is far enought to ignore 
                                 continue;
                             }
+
+                            bool internalResidue = residueID == closeResidueID;
 
                             //Residues nearby
 
@@ -1906,7 +1898,21 @@ public class MacroGroup {
 
                                     AtomID atomID = new AtomID(residue.residueID, pdbID);
 
-                                    if (atomID == closeAtomID) {continue;}
+                                    //Internal residue checks
+                                    if (internalResidue) {
+
+                                        if (pdbID == closePDBID) {continue;}
+
+                                        if (atom.internalConnections.ContainsKey(closePDBID)) {
+                                            //Atoms are internally connected
+                                            continue;
+                                        }
+                                    }
+
+                                    if (atom.externalConnections.ContainsKey(closeAtomID)) {
+                                        //Atoms are externally connected
+                                        continue;
+                                    }
 
                                     float distanceSq = math.distancesq(atom.position, closeAtom.position);
                                     if (Data.GetBondOrderDistanceSquared(closePDBID.element, pdbID.element, distanceSq * thresholdScaleSq) == BT.NONE) {
@@ -1914,13 +1920,9 @@ public class MacroGroup {
                                         continue;
                                     }
 
-                                    if (atom.externalConnections.ContainsKey(closeAtomID)) {
-                                        //Atoms are connected anyway
-                                        continue;
-                                    }
-
+                                    //Close contact
                                     yield return string.Format(
-                                        "{0,8} {1,8} {2,8:0.000}",
+                                        "Close contact: '{0,8}' - '{1,8}' {2,8:0.000} A",
                                         atomID,
                                         closeAtomID,
                                         math.sqrt(distanceSq)
@@ -1930,10 +1932,52 @@ public class MacroGroup {
                             }
                             
                         }
+
                         yield return "";
 
                     }
                     yield return "";
+                    break;
+                case "clashscore":
+
+                    centroids = source.EnumerateResidues()
+                        .ToDictionary(x => x.residueID, x => x.residue.GetCentre());
+
+                    foreach ((ResidueID residueID, Residue residue) in residues) {
+
+                        float3 centre = centroids[residueID];
+
+                        List<Residue> nearbyResidues = centroids
+                            .Where(x => x.Key != residueID && (math.distancesq(centre, x.Value) < searchDistanceSq))
+                            .Select(x => source.GetResidue(x.Key))
+                            .ToList();
+
+                        DihedralScanner dihedralScanner = new DihedralScanner(source, residue, nearbyResidues);
+
+                        bool clash;
+                        float clashScore;
+                        if (dihedralScanner.numDihedralGroups == 0) {
+                            clashScore = 0f;
+                            clash = false;
+                        } else {
+                            int fixedIdentifier = dihedralScanner.numDihedralGroups + 2;
+                            (clashScore, clash) = dihedralScanner.GetClashScore(
+                                residue.EnumerateAtoms().Select(x => x.atom.position).ToArray(),
+                                fixedIdentifier
+                            );
+                        }
+
+                        string clashStr = clash ? "#########" : $"{clashScore,8:#.##E+00}";
+
+                        yield return string.Format(
+                            "Clash Score for {0} ({1}): {2}",
+                            residueID,
+                            residue.residueName,
+                            clashStr
+                        );
+                    }
+
+
                     break;
                 default:
                     Fail(itemX, "Unrecognised Residue Report Item '{0}'!", itemName);
@@ -2009,7 +2053,7 @@ public class MacroGroup {
                             residue.residueName
                         );
 
-                        yield return "PDBID        distance";
+                        yield return "PDBID   distance";
                         foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
 
                             //Skip hydrogen atoms if requested
@@ -2024,7 +2068,7 @@ public class MacroGroup {
                             }
 
                             yield return string.Format(
-                                "{0,5} {1,8:0.000}",
+                                "{0,4} {1,8:0.000}",
                                 pdbID,
                                 math.distance(atom.position, targetAtom.position)
                             );

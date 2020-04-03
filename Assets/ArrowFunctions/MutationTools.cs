@@ -297,6 +297,8 @@ public class ResidueMutator {
         }
         yield return NotificationBar.UpdateTaskProgress(TID.MUTATE_RESIDUE, 0.95f);
         
+        clashScore = dihedralScanner.bestScore;
+
         try {
             dihedralScanner.UpdatePositions(oldResidue);
         } catch (System.Exception e) {
@@ -675,7 +677,7 @@ public class DihedralScanner {
         }
     }
 
-    (float, bool) GetClashScore(float3[] positions, int identifier) {
+    public (float, bool) GetClashScore(float3[] positions, int identifier) {
         
         ClashGroupAtom[] nearbyAtoms = nearbyClashGroup.groupAtoms;
 

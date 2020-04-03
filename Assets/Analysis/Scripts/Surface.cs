@@ -67,6 +67,7 @@ public class SurfaceAnalysis : MonoBehaviour {
     // 5) Translate the system so p0 is on the origin
     // 6) Scale the system by 1 / (r0 + (r(H2O) = 1.4A)) so the solvent accessible surface of a0 is equal to the sphere
     // 7) For each point on the sphere, if it is within (r1 + r(H2O)) / (r0 + r(H2O)) of p1, it is not solvent accessible
+    // 8) The score for an atom is its solvent surface area multiplied by the fraction of solvent accessible points on its sphere
 
     public float solventRadius = 1.4f;
     public int gridResolution = 4;

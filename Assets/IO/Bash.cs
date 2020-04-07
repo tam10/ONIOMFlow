@@ -518,7 +518,7 @@ public static class Bash {
 		) {
 
 			inputPath = inputPath ?? GetInputPath();
-			outputPath = outputPath ?? GetInputPath();
+			outputPath = outputPath ?? GetOutputPath();
 				
         	NotificationBar.SetTaskProgress(taskID, 0f);
 			
@@ -564,7 +564,7 @@ public static class Bash {
 		) {	
 
 			inputPath = inputPath ?? GetInputPath();
-			outputPath = outputPath ?? GetInputPath();
+			outputPath = outputPath ?? GetOutputPath();
 
 			FileWriter fileWriter;
 			try {

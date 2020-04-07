@@ -231,7 +231,7 @@ public class Geometry : MonoBehaviour {
 	/// <param name="residueID">The Residue ID of the Residue to set.</param>
 	public void SetResidueProperties(ResidueID residueID) {
 		Residue residue = residueDict[residueID];
-		Data.SetResidueProperties(ref residue);
+		Data.SetResidueProperties(residue);
 	}
 
 	public bool HasResidue(ResidueID residueID) => residueDict.ContainsKey(residueID);

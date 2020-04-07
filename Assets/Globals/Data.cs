@@ -29,12 +29,14 @@ public static class Data {
 
 
 	public static List<PDBID> backbonePDBs = new List<PDBID> {
-		new PDBID(Element.N, "", 0),
-		new PDBID(Element.C, "", 0),
-		new PDBID(Element.O, "", 0),
-		new PDBID(Element.C, "A", 0),
-		new PDBID(Element.H, "", 0),
-		new PDBID(Element.H, "A", 0)
+		PDBID.N,
+		PDBID.C,
+		PDBID.O,
+		PDBID.CA,
+		PDBID.H,
+		new PDBID(Element.H, "A", 0),
+		new PDBID(Element.H, "A", 1),
+		new PDBID(Element.H, "A", 2)
 	};
 
 	public static Dictionary<string, string> residueName3To1 = new Dictionary<string, string> {
@@ -482,26 +484,26 @@ public static class Data {
 		return Amber.H;
 	}
 
-	public static void SetResidueProperties(ref Residue residue) {
+	public static void SetResidueProperties(Residue residue) {
 
 		//Determine state using terminal atom PDBs
 		List<PDBID> pdbIDs = residue.pdbIDs.ToList();
 		int size = residue.size;;
 
 		if (size > 3) {
-			SetLargeResidueProperties(ref residue, pdbIDs, size);
+			SetLargeResidueProperties(residue, pdbIDs, size);
 		} else {
-			SetSmallResidueProperties(ref residue, pdbIDs, size);
+			SetSmallResidueProperties(residue, pdbIDs, size);
 		}
 
 	}
 
-	public static void SetResidueAmbers(ref Residue residue) {
+	public static void SetResidueAmbers(Residue residue) {
 
 		string residueName = residue.residueName;
 
 		if (residue.state == RS.ION) {
-			SetIonAmbers(ref residue);
+			SetIonAmbers(residue);
 			return;
 		}
 
@@ -538,7 +540,7 @@ public static class Data {
 					residue.state, 
 					residue.residueName
 				);
-				if (SetResidueAmbersWrongState(ref residue, family)) {
+				if (SetResidueAmbersWrongState(residue, family)) {
 					CustomLogger.LogFormat(
 						EL.INFO,
 						"Changed Residue State to {0} for ResidueID {1}", 
@@ -559,7 +561,7 @@ public static class Data {
 		}
 	}
 
-	private static void SetIonAmbers(ref Residue residue) {
+	private static void SetIonAmbers(Residue residue) {
 
 		PDBID[] pdbIDs = residue.pdbIDs.ToArray();
 		PDBID pdbID = pdbIDs.First();
@@ -591,7 +593,7 @@ public static class Data {
 		atom.amber = amber;
 	}
 
-	private static bool SetResidueAmbersWrongState(ref Residue residue, Dictionary<RS, Residue> family) {
+	private static bool SetResidueAmbersWrongState(Residue residue, Dictionary<RS, Residue> family) {
 		// If the wrong state is declared for a residue, look up all residues with the same name.
 		// Set the correct Ambers for this state
 		// Assign the correct state for the residue
@@ -618,11 +620,11 @@ public static class Data {
 		return false;
 	}
 
-	private static void SetSmallResidueProperties(ref Residue residue, List<PDBID> pdbIDs, int size) {
+	private static void SetSmallResidueProperties(Residue residue, List<PDBID> pdbIDs, int size) {
 		//Hetero-residue/Water
 		if (size == 3) {
 			if (residue.residueName == "ACE" || residue.residueName == "NME") { 
-				SetLargeResidueProperties(ref residue, pdbIDs, size); 
+				SetLargeResidueProperties(residue, pdbIDs, size); 
 				return;
 			} else if (pdbIDs.Select(x => x.element).OrderBy(x => x).SequenceEqual(new List<Element> {Element.H, Element.H, Element.O})) {
 				//Water
@@ -670,7 +672,7 @@ public static class Data {
 		residue.protonated = false;
 	}
 
-	private static void SetLargeResidueProperties(ref Residue residue, List<PDBID> pdbIDs, int size) {
+	private static void SetLargeResidueProperties(Residue residue, List<PDBID> pdbIDs, int size) {
 		//Could be an amino acid. Use signature to determine what it is
 
 		//Reduce number of lookups using carbon and nitrogen count
@@ -689,7 +691,7 @@ public static class Data {
 				if (matchedFamily == "ACE" || matchedFamily == "NME") {
 					residue.state = RS.CAP;
 				} else {
-					residue.state = GetTerminalState(pdbIDs, size);
+					residue.state = GetTerminalState(residue, pdbIDs, size);
 				}
 				break;
 			}
@@ -699,8 +701,14 @@ public static class Data {
 		if (residue.protonated && residue.standard) {
 			foreach (AminoAcidState state in families) {
 				if (state.family == matchedFamily && state.signature.HydrogensMatch(signature)) {
+
+					//Set name
 					residue.residueName = state.residueName;
-					residue.state = state.residueState;
+
+					//Terminal/Cap residues already determined 
+					if (residue.state == RS.STANDARD || residue.state == RS.ION) {
+						residue.state = state.residueState;
+					}
 					break;
 				}
 			}
@@ -709,12 +717,37 @@ public static class Data {
 		}
 	}
 
-	public static Constants.ResidueState GetTerminalState(List<PDBID> pdbIDs, int size) {
+	public static Constants.ResidueState GetTerminalState(Residue residue, List<PDBID> pdbIDs, int size) {
 		for (int i=0; i<size; i++) {
-			if (pdbIDs[i] == Data.CTER_ID) {
+			PDBID pdbID = pdbIDs[i];
+			if (pdbID == Data.CTER_ID) {
 				return RS.C_TERMINAL;
-			} else if (pdbIDs[i] == Data.NTER_ID) {
+			} else if (pdbID == Data.NTER_ID) {
 				return RS.N_TERMINAL;
+			} else if (pdbID == PDBID.N) {
+				Atom nAtom;
+				if (!residue.TryGetAtom(PDBID.N, out nAtom)) {
+					CustomLogger.LogFormat(
+						EL.ERROR,
+						"Cannot find Atom '{0}' in Residue '{1} when determining Terminal State!",
+						PDBID.N,
+						residue.residueID
+					);
+					return RS.UNKNOWN;
+				}
+				
+			} else if (pdbID == PDBID.C) {
+				Atom cAtom;
+				if (!residue.TryGetAtom(PDBID.C, out cAtom)) {
+					CustomLogger.LogFormat(
+						EL.ERROR,
+						"Cannot find Atom '{0}' in Residue '{1} when determining Terminal State!",
+						PDBID.N,
+						residue.residueID
+					);
+					return RS.UNKNOWN;
+				}
+				
 			}
 		}
 		return RS.STANDARD;

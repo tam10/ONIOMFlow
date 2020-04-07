@@ -35,7 +35,7 @@ public static class AmberCalculator {
         foreach (ResidueID residueID in geometry.EnumerateResidueIDs().ToList()) {
             Residue residue = geometry.GetResidue(residueID);
             //Set their Amber types
-            Data.SetResidueAmbers(ref residue);
+            Data.SetResidueAmbers(residue);
 
             numProcessedResidues++;
             if (Timer.yieldNow) {

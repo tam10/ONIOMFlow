@@ -98,10 +98,16 @@ public class ResidueMutator {
         );
 
         yield return AlignTargetResidue(targetResidue);
-        if (failed) {yield break;}
+        if (failed) {
+            yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
+            yield break;
+        }
 
         yield return ReplaceSideChain(targetResidue);
-        if (failed) {yield break;}
+        if (failed) {
+            yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
+            yield break;
+        }
         
 
         if (optisationMethod == OptisationMethod.NONE) {
@@ -111,7 +117,10 @@ public class ResidueMutator {
             );
         } else {
             yield return Optimise(targetResidue, deltaTheta, optisationMethod);
-            if (failed) {yield break;}
+            if (failed) {
+                yield return NotificationBar.UpdateClearTask(TID.MUTATE_RESIDUE);
+                yield break;
+            }
         }
 
         oldResidue.residueName = targetResidue.residueName;
@@ -641,6 +650,7 @@ public class DihedralScanner {
 
                     //Last iteration - these are the best positions
                     if (dihedralGroupIndex == numDihedralGroups - 1) {
+
                         (float score, bool clash) = GetClashScore(positionsClone, fixedIdentifier);
                         if (!clash) {
                             acceptedPositions.Add(positionsClone);
@@ -678,7 +688,7 @@ public class DihedralScanner {
     }
 
     public (float, bool) GetClashScore(float3[] positions, int identifier) {
-        
+
         ClashGroupAtom[] nearbyAtoms = nearbyClashGroup.groupAtoms;
 
         float score = 0;
@@ -813,7 +823,6 @@ public class DihedralScanner {
         bool scoreDecreased = false;
 
         float[] scores = new float[steps];
-        bool[] keptPositions = new bool[steps];
         for (int step=0; step<steps; step++) {
 
             float currentDihedral = currentDihedrals[fixedIdentifier - 2];
@@ -839,7 +848,6 @@ public class DihedralScanner {
                     
                     if (scoreDecreased) {
                         //Score went down then up - keep
-                        keptPositions[step-1] = true;
                         yield return previousPositions;
         
                         if (debug)
@@ -890,7 +898,6 @@ public class DihedralScanner {
 
                     if (scoreDecreased) {
                         //Score went down then up - keep
-                        keptPositions[step-1] = true;
                         yield return previousPositions;
         
                         if (debug)
@@ -924,7 +931,6 @@ public class DihedralScanner {
         
         if (scores != null && scores.Count() > 0) {
 
-            int bestIndex = CustomMathematics.IndexOfMin(scores);
             float3[] bestPositions = acceptedPositions[bestIndex];
 
             if (residue.size != bestPositions.Length) {

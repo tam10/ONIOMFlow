@@ -72,6 +72,35 @@ public static class Protonator {
         
         Geometry geometry = geometryInterface.geometry;
 
+        foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
+
+            //Check standard
+            if (!(residue.standard || residue.isWater)) {
+                CustomLogger.LogFormat(
+                    EL.WARNING,
+                    "Trying to protonate non-standard residue '{0}' with pdb2pqr - this can cause problems!",
+                    residueID
+                );
+            }
+
+            //Ensure C_TERMINAL residues have 2 oxygens. This is skipped by pdb2pqr
+            Atom cAtom;
+            if (!residue.TryGetAtom(PDBID.C, out cAtom)) {
+                continue;
+            }
+
+            //Normal in-chain connection - skip
+            if (cAtom.externalConnections.Count(x => x.Key.pdbID.ElementEquals(Element.N)) == 1) {
+                continue;
+            }
+
+            //Only one O atom - needs another
+            if (cAtom.internalConnections.Count(x => x.Key.ElementEquals(Element.O)) == 1) {
+                residue.AddAtomToHost(PDBID.C, new PDBID("O", "XT"));
+                residue.state = RS.C_TERMINAL;
+            }
+        }
+        
         Geometry tempGeometry = geometry.Take(
             null, 
             x => x.pdbID.element != Element.H
@@ -317,16 +346,31 @@ public static class Protonator {
         foreach ((ResidueID protonatedResidueID, Residue protonatedResidue) in residueGroup.EnumerateResidues()) {
 
             //Check Residue hasn't changed its ID and cannot be mapped
+            ResidueID originalResidueID;
             Residue originalResidue;
             if (!geometryInterface.geometry.TryGetResidue(protonatedResidueID, out originalResidue)) {
-                CustomLogger.LogFormat(
-                    EL.WARNING,
-                    "Couldn't find Residue ID '{0}' in Geometry Interface {1} {2}",
-                    protonatedResidueID,
-                    geometryInterface.id,
-                    groupString
-                );
-                continue;
+
+                // PDB2PQR has the tendency to mess up Chain IDs. Use residue number and a last resort
+                originalResidue = geometryInterface.geometry
+                    .EnumerateResidues()
+                    .Where(x => x.residueID.residueNumber == protonatedResidueID.residueNumber)
+                    .Select(x => x.residue)
+                    .FirstOrDefault();
+
+                originalResidueID = originalResidue.residueID;
+
+                if (originalResidue == null) {
+                    CustomLogger.LogFormat(
+                        EL.WARNING,
+                        "Couldn't find Residue ID '{0}' in Geometry Interface {1} {2}",
+                        protonatedResidueID,
+                        geometryInterface.id,
+                        groupString
+                    );
+                    continue;
+                }
+            } else {
+                originalResidueID = protonatedResidueID;
             }
 
             //Check Residue hasn't changed name - this would indicate something went seriously wrong
@@ -348,7 +392,7 @@ public static class Protonator {
                 CustomLogger.LogFormat(
                     EL.WARNING,
                     "Heavy atoms did not remain the same during protonation for Residue ID {0}! {1}",
-                    protonatedResidueID,
+                    originalResidueID,
                     groupString
                 );
             }
@@ -359,7 +403,8 @@ public static class Protonator {
             }
 
             //Set the Residue
-            geometryInterface.geometry.AddResidue(protonatedResidueID, protonatedResidue);
+            geometryInterface.geometry.AddResidue(originalResidueID, protonatedResidue);
+            geometryInterface.geometry.SetResidueProperties(originalResidueID);
         }
     }
 

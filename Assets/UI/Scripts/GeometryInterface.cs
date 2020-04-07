@@ -778,10 +778,12 @@ public class GeometryInterface :
 		
 		contextMenu.AddButton(() => ComputeConnectivity(), "Compute Connectivity", geometryEnabled);
 		contextMenu.AddButton(() => StartCoroutine(CheckAll()), "Check Atoms", geometryEnabled);
-		contextMenu.AddButton(() => ShowAnalysis(), "Analyse", geometryEnabled);
-		contextMenu.AddButton(() => StartCoroutine(ComputeParameterScores()), "Get Parameter Scores", geometryEnabled);
-		contextMenu.AddButton(() => StartCoroutine(CalculatePWSASA()), "Compute pw-Solvent SA", geometryEnabled);
-		contextMenu.AddButton(() => StartCoroutine(CalculateNumSASA()), "Compute num-Solvent SA", geometryEnabled);
+
+        ContextButtonGroup analysisGroup = contextMenu.AddButtonGroup("Analysis", true);
+		analysisGroup.AddButton(() => ShowAnalysis(), "Analyse", geometryEnabled);
+		analysisGroup.AddButton(() => StartCoroutine(ComputeParameterScores()), "Get Parameter Scores", geometryEnabled);
+		analysisGroup.AddButton(() => StartCoroutine(CalculatePWSASA()), "Compute pw-Solvent SA", geometryEnabled);
+		analysisGroup.AddButton(() => StartCoroutine(CalculateNumSASA()), "Compute num-Solvent SA", geometryEnabled);
 
 		contextMenu.AddSpacer();
 

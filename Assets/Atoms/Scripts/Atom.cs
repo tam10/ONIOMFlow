@@ -230,6 +230,9 @@ public struct PDBID : IComparable<PDBID> {
 
 	/// <summary>Returns true if this PDB ID's Element matches other.</summary>
 	public bool ElementEquals(PDBID other) => this.element == other.element;
+
+	/// <summary>Returns true if this PDB ID's Element matches other.</summary>
+	public bool ElementEquals(Element other) => this.element == other;
 	/// <summary>Returns true if this PDB ID's Element and Identifier matches other.</summary>
 	public bool TypeEquals(PDBID other) => (
 		this.element == other.element && 

@@ -1960,7 +1960,7 @@ public class MacroGroup {
                             clashScore = 0f;
                             clash = false;
                         } else {
-                            int fixedIdentifier = dihedralScanner.numDihedralGroups + 2;
+                            int fixedIdentifier = dihedralScanner.numDihedralGroups + 1;
                             (clashScore, clash) = dihedralScanner.GetClashScore(
                                 residue.EnumerateAtoms().Select(x => x.atom.position).ToArray(),
                                 fixedIdentifier

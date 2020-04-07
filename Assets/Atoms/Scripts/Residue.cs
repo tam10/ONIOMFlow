@@ -78,7 +78,6 @@ public class Residue {
 		state == RS.STANDARD || 
 		state == RS.C_TERMINAL || 
 		state == RS.N_TERMINAL ||
-		state == RS.STANDARD ||
 		state == RS.CAP ||
 		state == RS.ION
 	);
@@ -651,6 +650,7 @@ public class Residue {
 		//
 		//
 		Residue ace = Data.standardResidues["ACE"][RS.CAP].Take(parent);
+		ace.state = RS.CAP;
 
 		// Get ACE anchor PDBIDs
 		PDBID aceCPDBID = PDBID.C;
@@ -742,6 +742,7 @@ public class Residue {
 		//
 		//
 		Residue nme = Data.standardResidues["NME"][RS.CAP].Take(parent);
+		nme.state = RS.CAP;
 
 		// Get NME anchor PDBIDs
 		PDBID nmeNPDBID = PDBID.N;

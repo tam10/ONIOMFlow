@@ -60,6 +60,11 @@ public class SurfaceAnalysis : MonoBehaviour {
     // Numerical SASA //
     ////////////////////
     
+    // Modified Shrake-Rupley algorithm
+    // Journal of Molecular Biology 1973, 79 (2), 351–371.
+    // 57. Shrake A; Rupley JA
+    // Environment and Exposure to Solvent of Protein Atoms-Lysozyme and Insulin. 
+
     // 1) Generate a sphere of radius 1 on the origin
     // 2) For each Atom a0 and nearby Atoms a1, get their radii and positions (r0, r1, p0 and p1).
     // 3) Define a cutoff as r0 + r1 + (2*r(H2O) = 2.8A)
@@ -70,12 +75,9 @@ public class SurfaceAnalysis : MonoBehaviour {
     // 8) The score for an atom is its solvent surface area multiplied by the fraction of solvent accessible points on its sphere
 
     public float solventRadius = 1.4f;
-    public int gridResolution = 4;
+    public int gridResolution = 3;
 
-    Map<int, AtomID> atomMap;
-    float3[] positions;
-    float[] radii;
-
+    Dictionary<AtomID, (float3 position, float radius)> positionsRadii;
 
     float3[] vertices;
     int3[] tris;
@@ -95,8 +97,8 @@ public class SurfaceAnalysis : MonoBehaviour {
         numSpherePoints = vertices.Length;
 
         int size = geometry.size;
-        positions = new float3[size];
-        radii = new float[size];
+        //positions = new float3[size];
+        //radii = new float[size];
 
         CustomLogger.LogFormat(
             EL.VERBOSE,
@@ -110,7 +112,11 @@ public class SurfaceAnalysis : MonoBehaviour {
             size
         );
 
-        atomMap = new Map<int, AtomID>();
+    //    //TEMP
+    //    surfacePoints = new List<(float3, float3, Color)>();
+    //    //TEMP
+
+        positionsRadii = new Dictionary<AtomID, (float3, float)>();
         int atomIndex = 0;
         foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
 
@@ -122,9 +128,7 @@ public class SurfaceAnalysis : MonoBehaviour {
                 radius = 0;
             }
 
-            radii[atomIndex] = radius + solventRadius;
-            positions[atomIndex] = atom.position;
-            atomMap[atomIndex] = atomID;
+            positionsRadii[atomID] = (atom.position, radius + solventRadius);
 
             CustomLogger.LogFormat(
                 EL.DEBUG,
@@ -144,73 +148,106 @@ public class SurfaceAnalysis : MonoBehaviour {
 
     public float GetNumSASAScore(AtomID atomID0, Atom atom0, List<(ResidueID, Residue)> nearbyResidues) {
 
-        int i0 = atomMap[atomID0];
-        float radius0 = radii[i0];
+        float radius0 = positionsRadii[atomID0].radius;
 
-        if (radius0 == 0) {
+        if (radius0 == 0f) {
             return 0;
         }
 
         float3 position0 = atom0.position;
 
         //Get factor that scales system to the unit sphere
-        float scale = 1 / (radius0);
+        float scale = 1 / radius0;
 
-        //Nearby atoms and radii to scale and keep
-        List<float3> scaledPositions = new List<float3>();
-        List<float> scaledRadiiSq = new List<float>();
-        int nearbyCount = 0;
+        (ResidueID residueID0, PDBID pdbID0) = atomID0;
 
-        foreach ((ResidueID residueID1, Residue residue1) in nearbyResidues) {
+        // Cache AtomID
+        AtomID atomID1 = AtomID.Empty;
+
+        // For each nearby atom, if their sphere (radius + solvent r_VdW) intersects this atom's sphere, yield its offset to this atom and its scaled radius
+        IEnumerable<(float3, float)> GetNearbyAtomPosRadiusSq(ResidueID residueID1, Residue residue1) {
+            atomID1.residueID = residueID1;
+            bool sameResidue = residueID1 == residueID0;
             foreach ((PDBID pdbID1, Atom atom1) in residue1.EnumerateAtoms()) {
-                AtomID atomID1 = new AtomID(residueID1, pdbID1);
+                atomID1.pdbID = pdbID1;
 
                 // Ignore same atom
-                if (atomID0 == atomID1) {continue;}
+                if (sameResidue && pdbID1 == pdbID0) {continue;}
 
-                int i1 = atomMap[atomID1];
+                (float3 position1, float radius1) = positionsRadii[atomID1];
 
-                float radius1 = radii[i1];
-                float3 position1 = positions[i1];
+                float3 v01 = position1 - position0;
 
-                //Discard if atom pair's combined radius + solvent diameter is less than the distance between them
+                // Discard if atom pair's combined radius + solvent diameter is less than the distance between them
                 float cutoff = CustomMathematics.Squared(radius0 + radius1);
-                if (math.distancesq(position0, position1) > cutoff) {
+                if (math.lengthsq(v01) > cutoff) {
                     //Spheres are not touching
                     continue;
                 }
 
-
-                scaledPositions.Add((position1 - position0) * scale);
-                scaledRadiiSq.Add(CustomMathematics.Squared((radius1) * scale));
-                nearbyCount++;
-
+                // Return vector from this atom to atom0 along with its scaled sphere radius
+                yield return (
+                    v01 * scale,
+                    CustomMathematics.Squared(radius1 * scale)
+                );
             }
         }
 
+        // Get all spheres that intersect this atom as a list
+        List<(float3, float)> scaledPositionsRadiiSq = nearbyResidues
+            //.AsParallel() // Don't parallelise
+            .SelectMany(
+                ((ResidueID residueID1, Residue residue1) x) => 
+                GetNearbyAtomPosRadiusSq(x.residueID1, x.residue1)
+            )
+            .ToList();
 
-        int count = numSpherePoints;
+        // Number of sphere vertices that are within another atom's sphere
+        int shieldedVerts = vertices
+            // For each vertex...
+            .AsParallel()
+            // ...count... 
+            .Count(
+                // ...if the distance squared between any vertex and a nearby atom is less than the scaled sphere radius squared
+                vert => scaledPositionsRadiiSq.Any(((float3 pos, float r2) x) => math.distancesq(vert, x.pos) < x.r2)
+            );
 
-        for (int pointNum=0; pointNum<numSpherePoints; pointNum++) {
-            float3 vertexPosition = vertices[pointNum];
-
-            for (int nearbyAtomIndex=0; nearbyAtomIndex<nearbyCount; nearbyAtomIndex++) {
-                float distanceSq = math.distancesq(vertexPosition, scaledPositions[nearbyAtomIndex]);
-                if (distanceSq < scaledRadiiSq[nearbyAtomIndex]) {
-                    count--;
-                    break;
-                }
-            }
-        }
+// Visualise surface
+////TEMP
+//        // Number of sphere vertices that are within another atom's sphere
+//        int shieldedVerts = vertices
+//            // For each vertex...
+//            // .AsParallel()
+//            // ...count... 
+//            .Count(
+//                // ...if the distance squared between any vertex and a nearby atom is less than the scaled sphere radius squared
+//                vert => {
+//                    if (scaledPositionsRadiiSq.Any(((float3 pos, float r2) x) => math.distancesq(vert, x.pos) < x.r2)) {
+//                        return true;
+//                    } else {
+//                        surfacePoints.Add((0.99f * radius0 * vert + position0, radius0 * vert + position0, Settings.GetAtomColourFromElement(pdbID0.element)));
+//                        return false;
+//                    }
+//                    
+//                }
+//            );
+////TEMP
 
         float maxSA = 4 * math.PI * radius0 * radius0;
 
+
+        // Keep track of largest SASA for colour scaling
         if (maxSA > this.maxSASA) {
             this.maxSASA = maxSA;
         }
 
-        return maxSA * ((float)count / numSpherePoints);
+        // The SASA is the fraction of unshielded sphere verts times the maximum surface area
+        return maxSA * ((float)(numSpherePoints - shieldedVerts) / numSpherePoints);
     }
+
+//    //TEMP
+//    public List<(float3, float3, Color)> surfacePoints;
+//    //TEMP
 
     IEnumerator GetSASATypes(string path) {
         sasaTypes = new List<(uint[], SASAType)>();

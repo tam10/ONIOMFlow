@@ -1010,7 +1010,7 @@ public class GeometryInterface :
 		
         foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
 
-            List<(ResidueID, Residue)> nearbyResidues = residue.ResiduesWithinDistance(10)
+            List<(ResidueID, Residue)> nearbyResidues = residue.ResiduesWithinDistance(Settings.maxNonBondingCutoff)
                 .Select(x => (x, geometry.GetResidue(x)))
                 .ToList();
 
@@ -1066,10 +1066,12 @@ public class GeometryInterface :
 				continue;
 			}
 
-            List<(ResidueID, Residue)> nearbyResidues = residue.ResiduesWithinDistance(10)
+            List<(ResidueID, Residue)> nearbyResidues = residue.ResiduesWithinDistance(Settings.maxNonBondingCutoff)
                 .Select(x => (x, geometry.GetResidue(x)))
 				.Where(x => !x.Item2.isWater)
                 .ToList();
+
+			nearbyResidues.Add((residueID, residue));
 
             foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                 AtomID atomID = new AtomID(residueID, pdbID);

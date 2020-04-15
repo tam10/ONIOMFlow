@@ -1020,9 +1020,13 @@ public class MacroGroup {
         foreach ((ResidueID residueID, Residue residue) in source.EnumerateResidues()) {
             float residueScore = 0f;
 
-            List<(ResidueID, Residue)> nearbyResidues = residue.ResiduesWithinDistance(8)
+            List<(ResidueID, Residue)> nearbyResidues = residue.ResiduesWithinDistance(Settings.maxNonBondingCutoff)
                 .Select(x => (x, source.GetResidue(x)))
+				.Where(x => !x.Item2.isWater)
                 .ToList();
+
+            
+			nearbyResidues.Add((residueID, residue));
 
             foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                 AtomID atomID = new AtomID(residueID, pdbID);
@@ -1045,12 +1049,11 @@ public class MacroGroup {
             string residueKey = string.Format("sasa_{0}", residueID.ToString().ToLower());
             variableDict[residueKey] = string.Format("{0,8:0.0000}", residueScore);
 
-
             if (Timer.yieldNow) {
                 yield return null;
                 NotificationBar.SetTaskProgress(
                     usePWMethod ? TID.CALCULATE_PW_SASA : TID.CALCULATE_NUM_SASA, 
-                    CustomMathematics.Map(counter, 0, max, 0, 1)
+                    CustomMathematics.Map(counter, 0, max, 0.2f, 1)
                 );
             }
             counter++;
@@ -1858,6 +1861,9 @@ public class MacroGroup {
                                 yield return string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup));
                                 continue;
                             }
+
+                            dihedral = math.degrees(dihedral);
+                            if (dihedral < 0) {dihedral += math.PI * 2;}
                             
                             yield return string.Format(
                                 "{0,5} {1,5} {2,5} {3,5} {4,7:0.00}",
@@ -1865,7 +1871,7 @@ public class MacroGroup {
                                 dihedralGroup[1],
                                 dihedralGroup[2],
                                 dihedralGroup[3],
-                                math.degrees(dihedral)
+                                dihedral
                             );
                         }
                         yield return "";
@@ -2135,6 +2141,9 @@ public class MacroGroup {
                                 yield return string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup));
                                 continue;
                             }
+
+                            float angleDifference = math.degrees(originalDihedral - targetDihedral);
+                            if (angleDifference < 0) {angleDifference += math.PI * 2;}
                             
                             yield return string.Format(
                                 "{0,5} {1,5} {2,5} {3,5} {4,7:0.00}",
@@ -2142,7 +2151,7 @@ public class MacroGroup {
                                 dihedralGroup[1],
                                 dihedralGroup[2],
                                 dihedralGroup[3],
-                                math.degrees(originalDihedral - targetDihedral)
+                                angleDifference
                             );
                         }
                         yield return "";

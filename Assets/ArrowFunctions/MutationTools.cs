@@ -280,7 +280,7 @@ public class ResidueMutator {
         // 7. Continue at 2.
 
         // Get all the nearby residues that might clash with new residue
-        List<Residue> nearbyResidues = oldResidue.ResiduesWithinDistance(8)
+        List<Residue> nearbyResidues = oldResidue.ResiduesWithinDistance(Settings.maxNonBondingCutoff)
             .Select(x => geometry.GetResidue(x))
             .ToList();
 
@@ -695,7 +695,6 @@ public class DihedralScanner {
 
         for (int dihedralGroupIndex=identifier-2; dihedralGroupIndex<identifier-2; dihedralGroupIndex++) {
             Torsion torsion = torsions[dihedralGroupIndex];
-            float[] energies = new float[3]; 
             score += CustomMathematics.ETorsion(currentDihedrals[dihedralGroupIndex], torsion.barrierHeights, torsion.phaseOffsets, 0);
         }
 

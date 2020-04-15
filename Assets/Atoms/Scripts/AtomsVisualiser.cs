@@ -242,6 +242,21 @@ public class AtomsVisualiser : MonoBehaviour {
 
             }
         }
+        //TEMP
+
+//        //TEMP
+//        SurfaceAnalysis surfaceAnalysis = geometry.GetComponent<SurfaceAnalysis>();
+//        if (surfaceAnalysis != null) {
+//            foreach ((float3 point0, float3 point1, Color color) in surfaceAnalysis.surfacePoints) {
+//                lineDrawer.AddLine(
+//                    point0,
+//                    point1,
+//                    color,
+//                    -offset
+//                );
+//            }
+//        }
+//        //TEMP
 
         MakeInteractive(draggableInterface);
 

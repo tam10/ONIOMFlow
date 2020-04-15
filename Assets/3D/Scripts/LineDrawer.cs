@@ -739,8 +739,8 @@ class LinkerWireFrame {
         startColours[LineDrawer.AtomColour.PARAMETERS] = Settings.GetAtomColourFromPenalty(atom0.penalty);
         endColours[LineDrawer.AtomColour.PARAMETERS] = Settings.GetAtomColourFromPenalty(atom1.penalty);
         
-        startColours[LineDrawer.AtomColour.SASA] = Settings.GetAtomColourFromSASA(atom0.sasa);
-        endColours[LineDrawer.AtomColour.SASA] = Settings.GetAtomColourFromSASA(atom1.sasa);
+        startColours[LineDrawer.AtomColour.SASA] = Settings.GetAtomColourFromSASA(atom0.sasa / LineDrawer.maxSASA);
+        endColours[LineDrawer.AtomColour.SASA] = Settings.GetAtomColourFromSASA(atom1.sasa / LineDrawer.maxSASA);
         
         startColours[LineDrawer.AtomColour.CAP] = LineDrawer.disabledColour;
         endColours[LineDrawer.AtomColour.CAP] = LineDrawer.disabledColour;

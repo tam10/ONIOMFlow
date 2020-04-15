@@ -10,6 +10,10 @@
 
 <macro>
 
+    <var id="METHOD">numerical</var>
+    <var id="SOLVENT_RADIUS">1.4</var>
+    <var id="GRID_RESOLUTION">2</var>
+
     <action id="userLoad" destination="geometry" />
     <action id="copy" source="geometry" destination="clone" />
 
@@ -24,7 +28,11 @@
     
 
     <!--Surface Analysis-->
-    <action id="sasaAnalysis" source="geometry" />
+    <action id="sasaAnalysis" source="geometry">
+        <method>$(METHOD)</method>
+        <solventRadius>$(SOLVENT_RADIUS)</solventRadius>
+        <gridResolution>$(GRID_RESOLUTION)</gridResolution>
+    </action>
 
 
     <group type="perResidue" name="residueGroup" source="geometry" var="RESIDUE_ID">
@@ -40,12 +48,38 @@
         <branch test="equal" value1="$(RESIDUE_STATE)" value2="STANDARD">
             <true>
 
+                <var id="PROTEIN_SASA">$(sasa_$(RESIDUE_ID))</var> 
+
+                <!--Repeat SASA for vacuum-->
+                <action id="sasaAnalysis" source="residueGroup">
+                    <method>$(METHOD)</method>
+                    <solventRadius>$(SOLVENT_RADIUS)</solventRadius>
+                    <gridResolution>$(GRID_RESOLUTION)</gridResolution>
+                </action>
+
+                <var id="VACUUM_SASA">$(sasa_$(RESIDUE_ID))</var>
+
+                <!--Report changes-->
+                <action id="report" overwrite="false" source="geometry">
+                    <directory>$(PROJECT)/Reports</directory>
+                    <name>Benchmark.log</name>
+                    <items>
+                        <text>Residue $(RESIDUE_ID) '$(RESIDUE_NAME)': Before mutation</text>
+                        <text>SASA: Protein: $(PROTEIN_SASA) Vacuum: $(VACUUM_SASA)</text>
+                        <residues residueIDs="$(RESIDUE_ID)">
+                            <contact />
+                            <clashScore />
+                        </residues>
+                        <text></text>
+                    </items>
+                </action>
+
                 <!--Perform mutation-->
                 <action id="mutateResidue" source="geometry">
                     <residueID>$(RESIDUE_ID)</residueID>
                     <target>$(RESIDUE_NAME)</target>
                     <optimise>true</optimise>
-                    <deltaTheta>10</deltaTheta>
+                    <deltaTheta>5</deltaTheta>
                 </action>
 
                 <!--Report changes-->
@@ -53,14 +87,14 @@
                     <directory>$(PROJECT)/Reports</directory>
                     <name>Benchmark.log</name>
                     <items>
-                        <text>$(RESIDUE_ID) '$(RESIDUE_NAME)'</text>
-                        <text>SASA Score: $(sasa_$(RESIDUE_ID))</text>
+                        <text>$(RESIDUE_ID) '$(RESIDUE_NAME)': After mutation</text>
                         <compareResidues residueIDs="$(RESIDUE_ID)" target="clone">
                             <distances heavy="true" />
                             <torsionAngles />
                         </compareResidues>
                         <residues residueIDs="$(RESIDUE_ID)">
                             <contact />
+                            <clashScore />
                         </residues>
                         <text></text>
                     </items>

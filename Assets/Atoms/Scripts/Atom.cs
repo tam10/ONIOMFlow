@@ -9,6 +9,7 @@ using CT = Constants.ConnectionType;
 using BT = Constants.BondType;
 using OLID = Constants.OniomLayerID;
 using EL = Constants.ErrorLevel;
+using ChainID = Constants.ChainID;
 using Unity.Mathematics;
 
 ///<summary>The Atom Class</summary>
@@ -470,7 +471,7 @@ public struct AtomID {
 	///<param name="element">The element of the  PDB ID of this Atom ID.</summary>
 	///<param name="identifier">The identifier of the  PDB ID of this Atom ID.</summary>
 	///<param name="number">The number of the  PDB ID of this Atom ID.</summary>
-	public AtomID(string chainID, int residueNumber, Element element, string identifier="", int number=0) {
+	public AtomID(ChainID chainID, int residueNumber, Element element, string identifier="", int number=0) {
 		this.residueID = new ResidueID(chainID, residueNumber);
 		this.pdbID = new PDBID(element, identifier, number);
 	}

@@ -62,34 +62,34 @@ public class Parameters : MonoBehaviour {
 		toParameters.dielectricConstant = fromParameters.dielectricConstant;
 	}
 
-	public static void UpdateParameters(Geometry fromParent, Geometry toParent, bool replace=false, bool skipInvalid=true) {
+	public static void UpdateParameters(Geometry fromParent, Geometry toParent, bool replace=false, bool skipInvalid=true, bool suppress=false) {
 
 		Parameters updateTo = toParent.parameters;
 		Parameters updateFrom = fromParent.parameters;
 		
-		updateTo.UpdateNonBonding(updateFrom);
-		updateTo.UpdateAtomicParameters(updateFrom, replace, skipInvalid);
-		updateTo.UpdateStretches(updateFrom, replace, skipInvalid);
-		updateTo.UpdateBends(updateFrom, replace, skipInvalid);
-		updateTo.UpdateTorsions(updateFrom, replace, skipInvalid);
-		updateTo.UpdateImproperTorsions(updateFrom, replace, skipInvalid);
+		updateTo.UpdateNonBonding(updateFrom, suppress);
+		updateTo.UpdateAtomicParameters(updateFrom, replace, skipInvalid, suppress);
+		updateTo.UpdateStretches(updateFrom, replace, skipInvalid, suppress);
+		updateTo.UpdateBends(updateFrom, replace, skipInvalid, suppress);
+		updateTo.UpdateTorsions(updateFrom, replace, skipInvalid, suppress);
+		updateTo.UpdateImproperTorsions(updateFrom, replace, skipInvalid, suppress);
 
 	}
 
-	public void UpdateParameters(Parameters updateFrom, bool replace=false, bool skipInvalid=true) {
-		UpdateNonBonding(updateFrom);
-		UpdateAtomicParameters(updateFrom, replace, skipInvalid);
-		UpdateStretches(updateFrom, replace, skipInvalid);
-		UpdateBends(updateFrom, replace, skipInvalid);
-		UpdateTorsions(updateFrom, replace, skipInvalid);
-		UpdateImproperTorsions(updateFrom, replace, skipInvalid);
+	public void UpdateParameters(Parameters updateFrom, bool replace=false, bool skipInvalid=true, bool suppress=false) {
+		UpdateNonBonding(updateFrom, suppress);
+		UpdateAtomicParameters(updateFrom, replace, skipInvalid, suppress);
+		UpdateStretches(updateFrom, replace, skipInvalid, suppress);
+		UpdateBends(updateFrom, replace, skipInvalid, suppress);
+		UpdateTorsions(updateFrom, replace, skipInvalid, suppress);
+		UpdateImproperTorsions(updateFrom, replace, skipInvalid, suppress);
 	}
 
-	public void UpdateNonBonding(Parameters updateFrom) {
+	public void UpdateNonBonding(Parameters updateFrom, bool suppress=false) {
 		nonbonding = updateFrom.nonbonding.Copy();
 	}
 
-	public void UpdateAtomicParameters(Parameters other, bool replace=false, bool skipInvalid=true) {
+	public void UpdateAtomicParameters(Parameters other, bool replace=false, bool skipInvalid=true, bool suppress=false) {
 		foreach ((Amber1 types, AtomicParameter otherP) in other.atomicParameters) {
 
 			AtomicParameter thisP;
@@ -107,16 +107,18 @@ public class Parameters : MonoBehaviour {
 	}
 	
 
-	public void UpdateStretches(Parameters other, bool replace=false, bool skipInvalid=true) {
+	public void UpdateStretches(Parameters other, bool replace=false, bool skipInvalid=true, bool suppress=false) {
 		foreach ((Amber2 types, Stretch otherP) in other.stretches) {
 
 			//Validate Parameter
 			if (skipInvalid && otherP.IsInvalid()) {
-				CustomLogger.LogFormat(
-					EL.WARNING,
-					"Skipping invalid Stretch: {0}",
-					otherP
-				);
+				if (!suppress) {
+					CustomLogger.LogFormat(
+						EL.WARNING,
+						"Skipping invalid Stretch: {0}",
+						otherP
+					);
+				}
 				continue;
 			}
 
@@ -134,16 +136,18 @@ public class Parameters : MonoBehaviour {
 		}
 	}
 
-	public void UpdateBends(Parameters other, bool replace=false, bool skipInvalid=true) {
+	public void UpdateBends(Parameters other, bool replace=false, bool skipInvalid=true, bool suppress=false) {
 		foreach ((Amber3 types, Bend otherP) in other.bends) {
 
 			//Validate Parameter
 			if (skipInvalid && otherP.IsInvalid()) {
-				CustomLogger.LogFormat(
-					EL.WARNING,
-					"Skipping invalid Bend: {0}",
-					otherP
-				);
+				if (!suppress) {
+					CustomLogger.LogFormat(
+						EL.WARNING,
+						"Skipping invalid Bend: {0}",
+						otherP
+					);
+				}
 				continue;
 			}
 
@@ -161,16 +165,18 @@ public class Parameters : MonoBehaviour {
 		}
 	}
 	
-	public void UpdateTorsions(Parameters other, bool replace=false, bool skipInvalid=true) {
+	public void UpdateTorsions(Parameters other, bool replace=false, bool skipInvalid=true, bool suppress=false) {
 		foreach ((Amber4 types, Torsion otherP) in other.torsions) {
 
 			//Validate Parameter
 			if (skipInvalid && otherP.IsInvalid()) {
-				CustomLogger.LogFormat(
-					EL.WARNING,
-					"Skipping invalid Torsion: {0}",
-					otherP
-				);
+				if (!suppress) {
+					CustomLogger.LogFormat(
+						EL.WARNING,
+						"Skipping invalid Torsion: {0}",
+						otherP
+					);
+				}
 				continue;
 			}
 
@@ -188,16 +194,18 @@ public class Parameters : MonoBehaviour {
 		}
 	}
 	
-	public void UpdateImproperTorsions(Parameters other, bool replace=false, bool skipInvalid=true) {
+	public void UpdateImproperTorsions(Parameters other, bool replace=false, bool skipInvalid=true, bool suppress=false) {
 		foreach ((Amber4 types, ImproperTorsion otherP) in other.improperTorsions) {
 
 			//Validate Parameter
 			if (skipInvalid && otherP.IsInvalid()) {
-				CustomLogger.LogFormat(
-					EL.WARNING,
-					"Skipping invalid ImproperTorsion: {0}",
-					otherP
-				);
+				if (!suppress) {
+					CustomLogger.LogFormat(
+						EL.WARNING,
+						"Skipping invalid ImproperTorsion: {0}",
+						otherP
+					);
+				}
 				continue;
 			}
 
@@ -273,7 +281,7 @@ public class Parameters : MonoBehaviour {
 		}
 
 		UpdateParameters(Settings.defaultParameters);
-
+		
 		//Loop through all connected groups
 		foreach (ResidueID[] residueGroup in parent.GetGroupedResidues().Select(x => x.ToArray())) {
 
@@ -295,9 +303,10 @@ public class Parameters : MonoBehaviour {
 
 				//Create a geometry from this - this also copies current set of parameters
 				Geometry tempGeometry = parent.TakeResidues(residueSubgroup, transform);
-				
+
 				//Check if any parameters are missing 
 				Parameters missingParameters = GetMissingParameters(tempGeometry, false);
+
 
 				if (!missingParameters.IsEmpty()) {
 					//Cap atoms
@@ -315,11 +324,11 @@ public class Parameters : MonoBehaviour {
 						(float)tempGeometry.size / 500
 					);
 
-
 					if (externalCommand.succeeded) {
 						yield return missingParameters.FromFRCMODFile(
 							externalCommand.GetOutputPath()
 						);
+
 						UpdateParameters(missingParameters, true, true);
 					}
 				}
@@ -624,7 +633,9 @@ public class Parameters : MonoBehaviour {
 					oldParameter, 
 					newParameter
 				);
-				atomicParameters[newParameter.type] = newParameter.Copy();
+
+				oldParameter.CopyFrom(newParameter);
+				atomicParameters[oldParameter.type] = oldParameter; 
 			}
 		} else {
 			atomicParameters[newParameter.type] = newParameter.Copy();
@@ -634,7 +645,10 @@ public class Parameters : MonoBehaviour {
 	public void AddStretch(Stretch newParameter) {
 		Stretch oldParameter;
 		//Check if this has parameter
-		if (stretches.TryGetValue(newParameter.types, out oldParameter)) {
+		if (
+			stretches.TryGetValue(newParameter.types, out oldParameter) ||
+			stretches.TryGetValue(newParameter.types.Reversed(), out oldParameter)
+		) {
 			//Has parameter
 			if (!oldParameter.ValuesClose(newParameter)) {
 				CustomLogger.LogFormat(
@@ -643,7 +657,9 @@ public class Parameters : MonoBehaviour {
 					oldParameter, 
 					newParameter
 				);
-				stretches[newParameter.types] = newParameter.Copy();
+				
+				oldParameter.CopyFrom(newParameter);
+				stretches[oldParameter.types] = oldParameter; 
 			}
 		} else {
 			stretches[newParameter.types] = newParameter.Copy();
@@ -653,7 +669,10 @@ public class Parameters : MonoBehaviour {
 	public void AddBend(Bend newParameter) {
 		Bend oldParameter;
 		//Check if this has parameter
-		if (bends.TryGetValue(newParameter.types, out oldParameter)) {
+		if (
+			bends.TryGetValue(newParameter.types, out oldParameter) ||
+			bends.TryGetValue(newParameter.types.Reversed(), out oldParameter)
+		) {
 			//Has parameter
 			if (!oldParameter.ValuesClose(newParameter)) {
 				CustomLogger.LogFormat(
@@ -662,7 +681,9 @@ public class Parameters : MonoBehaviour {
 					oldParameter, 
 					newParameter
 				);
-				bends[newParameter.types] = newParameter.Copy();
+
+				oldParameter.CopyFrom(newParameter);
+				bends[oldParameter.types] = oldParameter; 
 			}
 		} else {
 			bends[newParameter.types] = newParameter.Copy();
@@ -670,9 +691,14 @@ public class Parameters : MonoBehaviour {
 	}
 
 	public void AddTorsion(Torsion newParameter) {
+
 		Torsion oldParameter;
 		//Check if this has parameter
-		if (torsions.TryGetValue(newParameter.types, out oldParameter)) {
+		if (
+			torsions.TryGetValue(newParameter.types, out oldParameter) || 
+			torsions.TryGetValue(newParameter.types.Reversed(), out oldParameter)
+		) {
+			
 			//Has parameter
 			if (!oldParameter.ValuesClose(newParameter)) {
 				CustomLogger.LogFormat(
@@ -681,9 +707,13 @@ public class Parameters : MonoBehaviour {
 					oldParameter, 
 					newParameter
 				);
-				torsions[newParameter.types] = newParameter.Copy();
+
+				oldParameter.CopyFrom(newParameter);
+				torsions[oldParameter.types] = oldParameter; 
+
 			}
 		} else {
+
 			torsions[newParameter.types] = newParameter.Copy();
 		}
 	}
@@ -691,7 +721,10 @@ public class Parameters : MonoBehaviour {
 	public void AddImproperTorsion(ImproperTorsion newParameter) {
 		ImproperTorsion oldParameter;
 		//Check if this has parameter
-		if (improperTorsions.TryGetValue(newParameter.types, out oldParameter)) {
+		if (
+			improperTorsions.TryGetValue(newParameter.types, out oldParameter) || 
+			improperTorsions.TryGetValue(newParameter.types.Reversed(), out oldParameter)
+		) {
 			//Has parameter
 			if (!oldParameter.ValuesClose(newParameter)) {
 				CustomLogger.LogFormat(
@@ -700,7 +733,9 @@ public class Parameters : MonoBehaviour {
 					oldParameter, 
 					newParameter
 				);
-				improperTorsions[newParameter.types] = newParameter.Copy();
+
+				oldParameter.CopyFrom(newParameter);
+				improperTorsions[oldParameter.types] = oldParameter; 
 			}
 		} else {
 			improperTorsions[newParameter.types] = newParameter.Copy();
@@ -747,6 +782,7 @@ public class Parameters : MonoBehaviour {
 			return true;
 		}
 
+
 		Parameters currentParameters = geometry.parameters;
 		Parameters missingParameters = PrefabManager.InstantiateParameters(null);
 
@@ -762,8 +798,8 @@ public class Parameters : MonoBehaviour {
 				AtomicParameter atomicParameter = new AtomicParameter(amber0);
 				CustomLogger.LogFormat(
 					EL.INFO,
-					"Found missing Atomic Parameter: {0}",
-					atomicParameter.ToString()
+					"Found missing Atomic Parameter: '{0}'",
+					atomicParameter.GetType()
 				);
 				missingParameters.AddAtomicParameter(atomicParameter);
 			}
@@ -790,7 +826,7 @@ public class Parameters : MonoBehaviour {
 					CustomLogger.LogFormat(
 						EL.INFO,
 						"Found missing Stretch Parameter: {0}",
-						stretch.ToString()
+						stretch.GetTypesString()
 					);
 					missingParameters.AddStretch(stretch);
 				}
@@ -811,7 +847,7 @@ public class Parameters : MonoBehaviour {
 						CustomLogger.LogFormat(
 							EL.INFO,
 							"Found missing Bend Parameter: {0}",
-							bend.ToString()
+							bend.GetTypesString()
 						);
 						missingParameters.AddBend(bend);
 					}
@@ -832,7 +868,7 @@ public class Parameters : MonoBehaviour {
 							CustomLogger.LogFormat(
 								EL.INFO,
 								"Found missing Torsion Parameter: {0}",
-								torsion.ToString()
+								torsion.GetTypesString()
 							);
 							missingParameters.AddTorsion(torsion);
 						}
@@ -1184,6 +1220,12 @@ public class AtomicParameter {
 	}
 
 	public AtomicParameter Copy() => new AtomicParameter (type, radius, wellDepth, mass, penalty);
+	public void CopyFrom(AtomicParameter other) {
+		radius = other.radius;
+		wellDepth = other.wellDepth;
+		mass = other.mass;
+		penalty = other.penalty;
+	}
 	
 }
 
@@ -1260,6 +1302,12 @@ public struct Stretch {
 	}
 
 	public Stretch Copy() => new Stretch (types, req, keq, penalty);
+
+	public void CopyFrom(Stretch other) {
+		req = other.req;
+		keq = other.keq;
+		penalty = other.penalty;
+	}
 	
 	public bool IsDefault() {
 		return types.IsEmpty();
@@ -1344,6 +1392,12 @@ public struct Bend {
 	}
 
 	public Bend Copy() => new Bend (types, aeq, keq, penalty);
+
+	public void CopyFrom(Bend other) {
+		aeq = other.aeq;
+		keq = other.keq;
+		penalty = other.penalty;
+	}
 	
 }
 
@@ -1466,6 +1520,15 @@ public struct Torsion {
 
 	public Torsion Copy() => new Torsion (types, barrierHeights, phaseOffsets, npaths, penalty);
 	
+	public void CopyFrom(Torsion other) {
+		for (int i=0; i<4; i++) {
+			barrierHeights[i] = other.barrierHeights[i];
+			phaseOffsets[i] = other.phaseOffsets[i];
+		}
+		npaths = other.npaths;
+		penalty = other.penalty;
+	}
+
 	public bool IsDefault() {
 		return types.IsEmpty();
 	}
@@ -1555,6 +1618,13 @@ public struct ImproperTorsion {
 
 	public ImproperTorsion Copy() => new ImproperTorsion (types, barrierHeight, phaseOffset, periodicity, penalty);
 	
+	public void CopyFrom(ImproperTorsion other) {
+		barrierHeight = other.barrierHeight;
+		phaseOffset = other.barrierHeight;
+		periodicity = other.periodicity;
+		penalty = other.penalty;
+	}
+
 	public bool IsDefault() {
 		return types.IsEmpty();
 	}
@@ -1586,6 +1656,17 @@ public class NonBonding {
 	}
 
 	public NonBonding Copy() => new NonBonding(vdwType, coulombType, vCutoff, cCutoff, vScales[1], vScales[2], vScales[3], cScales[1], cScales[2], cScales[3]);
+
+	public void CopyFrom(NonBonding other) {
+		vdwType = other.vdwType;
+		coulombType = other.coulombType;
+		vCutoff = other.vCutoff;
+		cCutoff = other.cCutoff;
+		for (int i=0; i<3; i++) {
+			vScales[i] = other.vScales[i];
+			cScales[i] = other.cScales[i];
+		}
+	}
 	
 	public string GetGaussianParamStr() {
 		return string.Format (
@@ -1901,17 +1982,7 @@ public struct Amber4 {
 	}
 
 	public bool TypeEquivalent(Amber4 other) {
-		return ( //Check forward Equality
-			Amber1.TypeEquivalent(amber0, other.amber0) &&
-			Amber1.TypeEquivalent(amber1, other.amber1) &&
-			Amber1.TypeEquivalent(amber2, other.amber2) &&
-			Amber1.TypeEquivalent(amber3, other.amber3)
-		) || ( //Check backward Equality
-		 	Amber1.TypeEquivalent(amber0, other.amber3) &&
-			Amber1.TypeEquivalent(amber1, other.amber2) &&
-			Amber1.TypeEquivalent(amber2, other.amber1) &&
-			Amber1.TypeEquivalent(amber3, other.amber0)
-		);
+		return TypeEquivalent(other.amber0, other.amber1, other.amber2, other.amber3);
 	}
 	
 	public bool TypeEquivalent(Amber other0, Amber other1, Amber other2, Amber other3) {
@@ -1929,17 +2000,7 @@ public struct Amber4 {
 	}
 	
 	public bool TypeEquivalentOrWild(Amber4 other) {
-		return ( //Check forward Equality
-			Amber1.TypeEquivalentOrWild(amber0, other.amber0) &&
-			Amber1.TypeEquivalentOrWild(amber1, other.amber1) &&
-			Amber1.TypeEquivalentOrWild(amber2, other.amber2) &&
-			Amber1.TypeEquivalentOrWild(amber3, other.amber3)
-		) || ( //Check backward Equality
-		 	Amber1.TypeEquivalentOrWild(amber0, other.amber3) &&
-			Amber1.TypeEquivalentOrWild(amber1, other.amber2) &&
-			Amber1.TypeEquivalentOrWild(amber2, other.amber1) &&
-			Amber1.TypeEquivalentOrWild(amber3, other.amber0)
-		);
+		return TypeEquivalentOrWild(other.amber0, other.amber1, other.amber2, other.amber3);
 	}
 	
 	public bool TypeEquivalentOrWild(Amber other0, Amber other1, Amber other2, Amber other3) {

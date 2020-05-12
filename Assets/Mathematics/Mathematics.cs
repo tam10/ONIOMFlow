@@ -96,6 +96,44 @@ public static class CustomMathematics {
 		return Mathf.Acos(math.dot(v0n, v1n));
 	}
 
+	/// <summary>
+	/// Wraps a float value between minBound and maxBound.
+	/// </summary>
+	/// <param name="value">The value to wrap.</param>
+	/// <param name="minBound">The smallest allowed result.</param>
+	/// <param name="maxBound">The largest allowed result.</param>
+	/// <returns></returns>
+    public static float CircleWrap(float value, float minBound, float maxBound) {
+		float x = value - minBound;
+		float y = maxBound - minBound;
+
+		if (y == 0f) {return x;}
+
+		float res = value - y * Mathf.Floor(x/y);
+
+		if (y > 0) {
+
+			if (res < minBound ) {
+				if (y + res == y) {
+					return 0;
+				} else {
+					return y + res;
+				}
+			}
+		} else {
+			
+			if (res > minBound) {
+				if (y + res == y) {
+					return 0;
+				} else {
+					return y + res;
+				}
+			}
+		}
+
+    	return res;
+	}
+
 	/// <summary>Returns the square of a float.</summary>
 	/// <param name="x">Input float.</param>
     public static float Squared(float x) => x * x;
@@ -1524,6 +1562,97 @@ public static class CustomMathematics {
 			dihedral = SignedAngleRad(w01, w32, v21n);
 		}
 
+		public DihedralRuler(float3 position0, float3 position1, float3 position2, float3 position3) {
+			p0 = position0;
+			p1 = position1;
+			p2 = position2;
+			p3 = position3;
+
+			v01 = p1 - p0;
+			v21n = math.normalize(p1 - p2);
+			v32 = p2 - p3;
+
+			w01 = v01 - v21n * math.dot(v01, v21n);
+			w32 = v32 - v21n * math.dot(v32, v21n);
+
+			dihedral = SignedAngleRad(w01, w32, v21n);
+		}
+
+		public quaternion GetRotation(float angleRad) {
+			return quaternion.AxisAngle(v21n, angleRad);
+		}
+
+
+		public float3 Rotate(float3 position, float angleRad) {
+			return Rotate(position, GetRotation(angleRad));
+		}
+
+		public float3 Rotate(float3 position, Quaternion rotation) {
+			return math.rotate(rotation, position - p2) + p2;
+		}
+
+		public float3[] Rotate(float3[] positions, float angleRad) {
+			return Rotate(positions, GetRotation(angleRad));
+		}
+
+		public float3[] Rotate(float3[] positions, Quaternion rotation) {
+			return positions
+				.AsParallel()
+				.Select(position => Rotate(position, rotation))
+				.ToArray();
+		}
+
+		public float3[] Rotate(float3[] positions, float angleRad, bool[] mask) {
+			return Rotate(positions, GetRotation(angleRad), mask);
+		}
+
+		public float3[] Rotate(float3[] positions, Quaternion rotation, bool[] mask) {
+			int posLen = positions.Length;
+			if (posLen != mask.Length) {
+				throw new System.ArgumentException(string.Format(
+					"Length of positions ({0}) not equal to length of mask ({1})",
+					posLen,
+					mask.Length
+				));
+			}
+			
+			return positions
+				.AsParallel()
+				.Select((position, index) => mask[index] ? Rotate(position, rotation) : position)
+				.ToArray();
+
+		}
+
+		public void RotateIP(float3[] positions, float angleRad) {
+			RotateIP(positions, GetRotation(angleRad));
+		}
+
+		public void RotateIP(float3[] positions, Quaternion rotation) {
+            for (int index=0; index<positions.Length; index++) {
+                positions[index] = Rotate(positions[index], rotation);
+            }
+		}
+
+		public void RotateIP(float3[] positions, float angleRad, bool[] mask) {
+			RotateIP(positions, GetRotation(angleRad), mask);
+		}
+
+		public void RotateIP(float3[] positions, Quaternion rotation, bool[] mask) {
+			int posLen = positions.Length;
+			if (posLen != mask.Length) {
+				throw new System.ArgumentException(string.Format(
+					"Length of positions ({0}) not equal to length of mask ({1})",
+					posLen,
+					mask.Length
+				));
+			}
+
+            for (int index=0; index<posLen; index++) {
+                // Ignore masked atoms
+                if (! mask[index]) {continue;}
+                positions[index] = Rotate(positions[index], rotation);
+            }
+		}
 	}
 
 

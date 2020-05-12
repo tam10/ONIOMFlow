@@ -59,7 +59,7 @@
 
                 <var id="VACUUM_SASA">$(sasa_$(RESIDUE_ID))</var>
 
-                <!--Report changes-->
+                <!--Report initial properties-->
                 <action id="report" overwrite="false" source="geometry">
                     <directory>$(PROJECT)/Reports</directory>
                     <name>Benchmark.log</name>
@@ -68,7 +68,7 @@
                         <text>SASA: Protein: $(PROTEIN_SASA) Vacuum: $(VACUUM_SASA)</text>
                         <residues residueIDs="$(RESIDUE_ID)">
                             <contact />
-                            <clashScore />
+                            <clashScore keepParameters="true"/>
                         </residues>
                         <text></text>
                     </items>
@@ -94,13 +94,14 @@
                         </compareResidues>
                         <residues residueIDs="$(RESIDUE_ID)">
                             <contact />
-                            <clashScore />
+                            <clashScore keepParameters="true"/>
                         </residues>
                         <text></text>
                     </items>
                 </action>
 
-                <!--Reset geometry-->
+                <!--Reset geometry but keep any new parameters-->
+                <action id="update" source="geometry" destination="clone" parameters="true"/>
                 <action id="copy" source="clone" destination="geometry" />
                 
             </true>

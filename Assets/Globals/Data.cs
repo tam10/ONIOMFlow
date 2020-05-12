@@ -428,17 +428,18 @@ public static class Data {
 		return bondDistancesSquaredDict.TryGetValue(GetHash(element0, element1), out bondDistances);
 	}
 
-	private static float[] cachedDistances;
 	public static BT GetBondOrder(Element element0, Element element1, float distance) {
 
-		if (!bondDistancesDict.TryGetValue(GetHash(element0, element1), out cachedDistances)) {
+		float[] distances;
+
+		if (!bondDistancesDict.TryGetValue(GetHash(element0, element1), out distances)) {
 			return BT.NONE;
 		}
 
-		if (distance > cachedDistances[0]) return BT.NONE;
-		if (distance > cachedDistances[1]) return BT.SINGLE;
-		if (distance > cachedDistances[2]) return BT.AROMATIC;
-		if (distance > cachedDistances[3]) return BT.DOUBLE;
+		if (distance > distances[0]) return BT.NONE;
+		if (distance > distances[1]) return BT.SINGLE;
+		if (distance > distances[2]) return BT.AROMATIC;
+		if (distance > distances[3]) return BT.DOUBLE;
 		return BT.TRIPLE;
 
 	}
@@ -446,14 +447,16 @@ public static class Data {
 
 	public static BT GetBondOrderDistanceSquared(Element element0, Element element1, float distanceSquared) {
 
-		if (!bondDistancesSquaredDict.TryGetValue(GetHash(element0, element1), out cachedDistances)) {
+		float[] distances;
+
+		if (!bondDistancesSquaredDict.TryGetValue(GetHash(element0, element1), out distances)) {
 			return BT.NONE;
 		}
 
-		if (distanceSquared > cachedDistances[0]) {return BT.NONE;}
-		if (distanceSquared > cachedDistances[1]) {return BT.SINGLE;}
-		if (distanceSquared > cachedDistances[2]) {return BT.AROMATIC;}
-		if (distanceSquared > cachedDistances[3]) {return BT.DOUBLE;}
+		if (distanceSquared > distances[0]) {return BT.NONE;}
+		if (distanceSquared > distances[1]) {return BT.SINGLE;}
+		if (distanceSquared > distances[2]) {return BT.AROMATIC;}
+		if (distanceSquared > distances[3]) {return BT.DOUBLE;}
 		return BT.TRIPLE;
 
 	}
@@ -735,6 +738,12 @@ public static class Data {
 					);
 					return RS.UNKNOWN;
 				}
+
+				int hCount = nAtom.internalConnections.Keys.Count(neighbourID => neighbourID.ElementEquals(Element.H));
+
+				if (hCount == 3) {
+					return RS.N_TERMINAL;
+				}
 				
 			} else if (pdbID == PDBID.C) {
 				Atom cAtom;
@@ -746,6 +755,12 @@ public static class Data {
 						residue.residueID
 					);
 					return RS.UNKNOWN;
+				}
+
+				int oCount = cAtom.internalConnections.Keys.Count(neighbourID => neighbourID.ElementEquals(Element.H));
+
+				if (oCount == 2) {
+					return RS.C_TERMINAL;
 				}
 				
 			}

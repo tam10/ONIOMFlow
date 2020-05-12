@@ -12,7 +12,7 @@ public class TableInputField : TableField
     public override void GetValue() {
         switch (residueProperty) {
             case (RP.CHAINID):
-                tmpInputField.text = residue.chainID;
+                tmpInputField.text = Constants.ChainIDMap[residue.chainID];
                 break;
             case (RP.CHARGE):
                 tmpInputField.text = string.Format("{0:0.00}", residue.GetCharge());

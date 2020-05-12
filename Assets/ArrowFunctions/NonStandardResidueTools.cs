@@ -311,7 +311,9 @@ public static class NonStandardResidueTools {
 
         int numProcessedResidues = 0;
 
-        foreach ((ResidueID residueID, Residue residue) in geometry.EnumerateResidues()) {
+        foreach (ResidueID residueID in residueIDs) {
+
+            Residue residue = geometry.GetResidue(residueID);
             
             //Loop through each Atom
             foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
@@ -516,12 +518,25 @@ public static class NonStandardResidueTools {
         Residue nme;
         if (! geometryInterface.geometry.TryGetResidue(neighbourID.residueID, out nme)) {
             CustomLogger.LogFormat(
-                EL.ERROR,
-                "Couldn't find neighbouring residue: {0}",
+                EL.INFO,
+                "Couldn't find neighbouring residue '{0}'. Adding NME.",
                 neighbourID.residueID
             );
-            return false;
+
+            try {
+                nme = siteResidue.AddNeighbourResidue("NME", sitePDBID, neighbourID.residueID, RS.CAP);
+            } catch {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Couldn't add NME cap to residue '{0}'.",
+                    siteID.residueID
+                );
+                return false;
+            }
+
+            return true;
         }
+
 
         CustomLogger.LogFormat(
             EL.VERBOSE,
@@ -565,11 +580,23 @@ public static class NonStandardResidueTools {
         Residue nme;
         if (! geometry.TryGetResidue(neighbourID.residueID, out nme)) {
             CustomLogger.LogFormat(
-                EL.ERROR,
-                "Couldn't find neighbouring residue: {0}",
+                EL.INFO,
+                "Couldn't find neighbouring residue '{0}'. Adding NME.",
                 neighbourID.residueID
             );
-            return false;
+
+            try {
+                nme = siteResidue.AddNeighbourResidue("NME", sitePDBID, neighbourID.residueID, RS.CAP);
+            } catch {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Couldn't add NME cap to residue '{0}'.",
+                    siteID.residueID
+                );
+                return false;
+            }
+
+            return true;
         }
 
         CustomLogger.LogFormat(
@@ -614,11 +641,23 @@ public static class NonStandardResidueTools {
         Residue ace;
         if (! geometryInterface.geometry.TryGetResidue(neighbourID.residueID, out ace)) {
             CustomLogger.LogFormat(
-                EL.ERROR,
-                "Couldn't find neighbouring residue: {0}",
+                EL.INFO,
+                "Couldn't find neighbouring residue '{0}'. Adding ACE.",
                 neighbourID.residueID
             );
-            return false;
+
+            try {
+                ace = siteResidue.AddNeighbourResidue("ACE", sitePDBID, neighbourID.residueID, RS.CAP);
+            } catch {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Couldn't add ACE cap to residue '{0}'.",
+                    siteID.residueID
+                );
+                return false;
+            }
+
+            return true;
         }
 
         CustomLogger.LogFormat(
@@ -660,11 +699,23 @@ public static class NonStandardResidueTools {
         Residue ace;
         if (!geometry.TryGetResidue(neighbourID.residueID, out ace)) {
             CustomLogger.LogFormat(
-                EL.ERROR,
-                "Couldn't find neighbouring residue: {0}",
+                EL.INFO,
+                "Couldn't find neighbouring residue '{0}'. Adding ACE.",
                 neighbourID.residueID
             );
-            return false;
+
+            try {
+                ace = siteResidue.AddNeighbourResidue("ACE", sitePDBID, neighbourID.residueID, RS.CAP);
+            } catch {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Couldn't add ACE cap to residue '{0}'.",
+                    siteID.residueID
+                );
+                return false;
+            }
+
+            return true;
         }
 
         CustomLogger.LogFormat(

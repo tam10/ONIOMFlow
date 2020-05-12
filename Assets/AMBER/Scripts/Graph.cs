@@ -264,9 +264,9 @@ public class Graph {
                         ij.y = j;
                         AtomicParameter atomicParameter1 = atomicParameters[j];
 
-                        float averageRadius = (atomicParameter0.radius + atomicParameter1.radius) * 0.5f;
+                        float vdwR = (atomicParameter0.radius + atomicParameter1.radius);
 
-                        if (averageRadius == 0f) {
+                        if (vdwR == 0f) {
                             continue;
                         }
 
@@ -278,7 +278,7 @@ public class Graph {
                             GetGraphDistance(connections, i, j),
                             charge0 * charges[j],
                             parameters.dielectricConstant,
-                            averageRadius
+                            vdwR
                         ));
 
                     }

@@ -14,6 +14,7 @@ using GIID = Constants.GeometryInterfaceID;
 using TID = Constants.TaskID;
 using GIS = Constants.GeometryInterfaceStatus;
 using BT = Constants.BondType;
+using ChainID = Constants.ChainID;
 using Element = Constants.Element;
 
 /// <summary>
@@ -55,19 +56,17 @@ public class Macro : MacroGroup {
         NotificationBar.ClearTask(TID.RUN_MACRO);
     }
 
-    /// <summary>Constructs a Macro object from a geometry and an XElement</summary>
-    /// <param name="geometry">The root Geometry of the Macro.</param>
-    /// <param name="xElement">The root XElement of the Macro.</param>
-    public Macro(Geometry geometry, XElement xElement) : base (geometry, xElement) {
-        rootGeometry = geometry;
-        rootX = xElement;
-    }
-
     /// <summary>Constructs a Macro object from a Geometry Interface</summary>
     /// <param name="geometryInterfaceID">The ID of the Geometry Interface to run the Macro on.</param>
     static Macro FromGeometryInterface(GIID geometryInterfaceID) {
 
-        Macro macro = new Macro(null, null);
+        GeometryInterface geometryInterface = Flow.GetGeometryInterface(geometryInterfaceID);
+
+        GameObject gameObject = new GameObject("Macro");
+
+        gameObject.transform.parent = geometryInterface.transform;
+
+        Macro macro = gameObject.AddComponent<Macro>();
 
         //Clear arrays and 'failed' flag
         geometryDict = new Dictionary<string, Geometry>();
@@ -177,7 +176,7 @@ public class Macro : MacroGroup {
 /// Macro Group Object. 
 /// Performs tasks parsed in from a Root XElement
 /// </summary>
-public class MacroGroup {
+public class MacroGroup : MonoBehaviour {
 
     /// <summary>Dictionary of Geometries available to the Macro Group.</summary>
     public static Dictionary<string, Geometry> geometryDict = new Dictionary<string, Geometry>();
@@ -192,12 +191,13 @@ public class MacroGroup {
     public XElement rootX;
     /// <summary>Root Geometry that is referenced when this Macro Group is processed.</summary>
     public Geometry rootGeometry;
+    public static Parameters parameters;
 
 
-    /// <summary>Contructs a Macro Group Object.</summary>
+    /// <summary>Initialise a Macro Group Object.</summary>
     /// <param name="geometry">Root Geometry that is referenced when this Macro Group is processed.</param>
     /// <param name="xElement">Root XElement that is parsed when this Macro Group is processed.</param>
-    public MacroGroup(Geometry geometry, XElement xElement) {
+    public void Initialise(Geometry geometry, XElement xElement) {
         rootGeometry = geometry;
         rootX = xElement;
     }
@@ -226,10 +226,17 @@ public class MacroGroup {
         groupGeometry.name = name;
 
         //Create new Macro Group
-        MacroGroup groupMacro = new MacroGroup(groupGeometry, groupX);
+        GameObject gameObject = new GameObject(string.Format("Macro Group {0}", name));
+
+        gameObject.transform.parent = transform;
+
+        MacroGroup groupMacro = gameObject.AddComponent<MacroGroup>();
+        groupMacro.Initialise(groupGeometry, groupX);
         
         //Process Macro Group using groupX
+
         yield return groupMacro.ProcessRoot();
+
         if (failed) {yield break;}
 
     }
@@ -246,6 +253,7 @@ public class MacroGroup {
 
         foreach (XElement elementX in parentX.Elements()) {
             string elementName = elementX.Name.ToString().ToLower();
+
             switch (elementName) {
                 case "var":         yield return ParseVariable(elementX);        break;
                 case "uservar":     yield return ParseUserVariable(elementX);    break;
@@ -431,6 +439,7 @@ public class MacroGroup {
         string actionID = ParseXMLAttrString(actionX, "id", "", source).ToLower();
         switch (actionID) {
             case "copy":                       yield return Copy(actionX);                       break;
+            case "update":                     yield return UpdateGeometry(actionX);             break;
             case "movetolayer":                yield return MoveToLayer(actionX);                break;
             case "estimatechargemultiplicity": yield return EstimateChargeMultiplicity(actionX); break;
             case "generateatommap":            yield return GenerateAtomMap(actionX);            break;
@@ -767,6 +776,51 @@ public class MacroGroup {
         }
 
         SetGeometry(destinationStr, source.Take(null));
+    }
+    
+    /// <summary>
+    /// Update a Geometry. <br /> 
+    /// <para>Attributes: </para> <br />
+    /// <para>source:            (required) Geometry to copy.</para> <br />
+    /// <para>destination:       (required) Name of copied Geometry.</para> <br />
+    /// <para>positions:         (optional) (bool) Whether to update positions (defaults to false).</para> <br />
+    /// <para>charges:           (optional) (bool) Whether to update charges (defaults to false).</para> <br />
+    /// <para>ambers:            (optional) (bool) Whether to update ambers (defaults to false).</para> <br />
+    /// <para>parameters:        (optional) (bool) Whether to update parameters (defaults to false).</para> <br />
+    /// <para>replaceParameters: (optional) (bool) Whether to replace parameters (defaults to false).</para> <br />
+    /// <para>Elements: </para> <br />
+    /// <para>none.</para> <br />
+    /// </summary>
+    /// <param name="actionX">The XElement with details about the action.</param>
+    IEnumerator UpdateGeometry(XElement actionX) {
+
+        Geometry source = GetGeometry(actionX, "source", false);
+        if (source == null) {
+            Fail(actionX, "Cannot Update Geometry - No source Geometry!");
+            yield break;
+        }
+
+        Geometry destination = GetGeometry(actionX, "destination", false);
+        if (destination == null) {
+            Fail(actionX, "Cannot Update Geometry - No destination Geometry!");
+            yield break;
+        }
+
+        bool updatePositions = (ParseXMLAttrString(actionX, "positions", "false", source).ToLower() == "true");
+        bool updateCharges = (ParseXMLAttrString(actionX, "charges", "false", source).ToLower() == "true");
+        bool updateAmbers = (ParseXMLAttrString(actionX, "ambers", "false", source).ToLower() == "true");
+
+        bool updateParameters = (ParseXMLAttrString(actionX, "parameters", "false", source).ToLower() == "true");
+        bool replaceParameters = (ParseXMLAttrString(actionX, "replaceParameters", "false", source).ToLower() == "true");
+
+        yield return destination.UpdateFrom(source, updatePositions, updateCharges, updateAmbers);
+
+        if (replaceParameters) {
+            destination.parameters.UpdateParameters(source.parameters, true);
+        } else if (updateParameters) {
+            destination.parameters.UpdateParameters(source.parameters);
+        }
+        
     }
 
     /// <summary>
@@ -1367,31 +1421,19 @@ public class MacroGroup {
                         streamWriter.WriteLine(ExpandVariables(itemX.Value, source));
                         break;
                     case ("geometry"):
-                        foreach (string reportStr in GetGeometryReportStrings(itemX, source)) {
-                            streamWriter.WriteLine(reportStr);
-                            if (Timer.yieldNow) {yield return null;}
-                        }
+                        yield return WriteGeometryReport(itemX, source, streamWriter);
                         break;
                     case ("residues"):
-                        foreach (string reportStr in GetResidueReportStrings(itemX, source)) {
-                            streamWriter.WriteLine(reportStr);
-                            if (Timer.yieldNow) {yield return null;}
-                        }
+                        yield return WriteResidueReport(itemX, source, streamWriter);
                         break;
                     case ("atoms"):
-                        foreach (string reportStr in GetAtomsReportStrings(itemX, source)) {
-                            streamWriter.WriteLine(reportStr);
-                            if (Timer.yieldNow) {yield return null;}
-                        }
+                        yield return WriteAtomsReport(itemX, source, streamWriter);
                         break;
                     case ("comparegeometry"):
 
                         break;
                     case ("compareresidues"):
-                        foreach (string reportStr in GetResidueComparisonReportStrings(itemX, source)) {
-                            streamWriter.WriteLine(reportStr);
-                            if (Timer.yieldNow) {yield return null;}
-                        }
+                        yield return WriteResidueComparisonReport(itemX, source, streamWriter);
                         break;
                     case ("compareatoms"):
 
@@ -1451,13 +1493,17 @@ public class MacroGroup {
             Fail(actionX, "Empty Target Variable ID in MutateResidue!");
             yield break;
         }
+
+        Data.SetResidueProperties(oldResidue);
         
         try {
-            newResidue = Residue.FromString(targetStr);
+            newResidue = Residue.FromString(targetStr, oldResidue.state);
         } catch (System.Exception e) {
             Fail(actionX, "Failed to parse Target Residue in MutateResidue in Group '{0}': {1}", source.name, e.Message);
             yield break;
         }
+
+        newResidue.residueID = oldResidue.residueID;
 
         bool optimise = (ParseXMLString(actionX, "optimise", "false", source).ToLower() == "true");
 
@@ -1483,13 +1529,31 @@ public class MacroGroup {
             yield break;
         }
 
-        ResidueMutator residueMutator;
-        try {
-            residueMutator = new ResidueMutator(source, residueID);
-        } catch (System.Exception e) {
-            Fail(actionX, "Failed to Mutate Residue in Group '{0}': {1}", source.name, e.Message);
+        ResidueMutator residueMutator = GetComponent<ResidueMutator>();
+
+        if (residueMutator == null) {
+            //Create a new Residue Mutator on this gameObject
+            residueMutator = gameObject.AddComponent<ResidueMutator>();
+
+        }
+
+        //Initialise ResidueMutator
+        residueMutator.Initialise(source, residueID, parameters);
+
+        if (residueMutator.failed) {
+            CustomLogger.LogFormat(
+                EL.ERROR,
+                "Failed to create Dihedral Scanner"
+            );
+            failed = true;
             yield break;
         }
+
+        if (residueMutator.failed) {
+            Fail(actionX, "Failed to Mutate Residue in Group '{0}'", source.name);
+            yield break;
+        }
+
 
         yield return residueMutator.MutateStandard(
             newResidue,
@@ -1728,7 +1792,7 @@ public class MacroGroup {
     /// </summary>
     /// <param name="reportX">XElement containing information about Geometry Report.</param>
     /// <param name="defaultSource">Default Geometry to report if source isn't given</param>
-    IEnumerable<string> GetGeometryReportStrings(XElement reportX, Geometry defaultSource) {
+    IEnumerator WriteGeometryReport(XElement reportX, Geometry defaultSource, StreamWriter streamWriter) {
 
         //Allow optional source
         Geometry source = (reportX.Attribute("source") == null)
@@ -1739,21 +1803,22 @@ public class MacroGroup {
             string itemName = itemX.Name.ToString().ToLower();
             switch (itemName) {
                 case ("numatoms"):
-                    yield return string.Format("Number of Atoms: {0}", source.size);
+                    streamWriter.WriteLine(string.Format("Number of Atoms: {0}", source.size));
                     break;
                 case ("numresidues"):
-                    yield return string.Format("Number of Residue: {0}", source.residueCount);
+                    streamWriter.WriteLine(string.Format("Number of Residue: {0}", source.residueCount));
                     break;
                 case ("sequence"):
-                    foreach (string chainID in source.GetChainIDs()) {
-                        yield return string.Format("Chain '{0}' Sequence: {1}", chainID, source.GetSequence(chainID));
+                    foreach (ChainID chainID in source.GetChainIDs()) {
+                        streamWriter.WriteLine(string.Format("Chain '{0}' Sequence: {1}", Constants.ChainIDMap[chainID], source.GetSequence(chainID)));
+                        if (Timer.yieldNow) {yield return null;}
                     }
                     break;
                 case ("mass"):
-                    yield return string.Format("Mass: {0,6:###.00} Da", source.GetMass());
+                    streamWriter.WriteLine(string.Format("Mass: {0,6:###.00} Da", source.GetMass()));
                     break;
                 case "charge":
-                     yield return string.Format("Charge: {0,6:###.00} au", source.GetCharge()); 
+                    streamWriter.WriteLine(string.Format("Charge: {0,6:###.00} au", source.GetCharge())); 
                     break;
                 default:
                     Fail(itemX, "Unrecognised Geometry Report Item '{0}'!", itemName);
@@ -1776,7 +1841,7 @@ public class MacroGroup {
     /// </summary>
     /// <param name="reportX">XElement containing information about Geometry Report.</param>
     /// <param name="defaultSource">Default Geometry to report if source isn't given</param>
-    IEnumerable<string> GetResidueReportStrings(XElement reportX, Geometry defaultSource) {
+    IEnumerator WriteResidueReport(XElement reportX, Geometry defaultSource, StreamWriter streamWriter) {
 
         //Allow optional source
         Geometry source = (reportX.Attribute("source") == null)
@@ -1812,71 +1877,74 @@ public class MacroGroup {
             switch (itemName) {
                 case "positions":
                     foreach ((ResidueID residueID, Residue residue) in residues) {
-                        yield return string.Format(
+                        streamWriter.WriteLine(string.Format(
                             "Positions of {0} ({1})",
                             residueID,
                             residue.residueName
-                        );
-                        yield return "PDBID        x        y        z";
+                        ));
+                        streamWriter.WriteLine("PDBID        x        y        z");
                         foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
                             float3 position = atom.position;
-                            yield return string.Format(
+                            streamWriter.WriteLine(string.Format(
                                 "{0,5} {1,8:0.000} {2,8:0.000} {3,8:0.000}",
                                 pdbID,
                                 position.x,
                                 position.y,
                                 position.z
-                            );
+                            ));
                         }
-                        yield return "";
+                        streamWriter.WriteLine();
+                        if (Timer.yieldNow) {yield return null;}
                     }
-                    yield return "";
                     break;
                 case "torsionangles":
                     foreach ((ResidueID residueID, Residue residue) in residues) {
 
                         AminoAcid aminoAcid;
                         if (!Data.aminoAcids.TryGetValue(residue.residueName, out aminoAcid)) {
-                            yield return string.Format(
+                            streamWriter.WriteLine(string.Format(
                                 "Residue '{0}' not present in Amino Acid Database.",
                                 residue.residueName
-                            );
+                            ));
                         }
 
                         PDBID[][] dihedralGroups = aminoAcid.GetDihedralPDBIDs(residue.state);
 
-                        yield return string.Format(
+                        streamWriter.WriteLine(string.Format(
                             "Torsion Angles of {0} ({1})",
                             residueID,
                             residue.residueName
-                        );
+                        ));
 
-                        yield return "ID1   ID2   ID3   ID4   Angle";
+                        streamWriter.WriteLine("ID1   ID2   ID3   ID4   Angle");
 
                         foreach (PDBID[] dihedralGroup in dihedralGroups) {
 
                             float dihedral;
                             if (!TryGetDihedral(dihedralGroup, residue, out dihedral)) {
                                 Warn(itemX, "Failed to get Torsion angle for '{0}'", residueID);
-                                yield return string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup));
+                                streamWriter.WriteLine(string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup)));
                                 continue;
                             }
 
-                            dihedral = math.degrees(dihedral);
-                            if (dihedral < 0) {dihedral += math.PI * 2;}
+                            dihedral = CustomMathematics.CircleWrap(
+                                math.degrees(dihedral),
+                                0,
+                                360
+                            );
                             
-                            yield return string.Format(
+                            streamWriter.WriteLine(string.Format(
                                 "{0,5} {1,5} {2,5} {3,5} {4,7:0.00}",
                                 dihedralGroup[0],
                                 dihedralGroup[1],
                                 dihedralGroup[2],
                                 dihedralGroup[3],
                                 dihedral
-                            );
+                            ));
                         }
-                        yield return "";
+                        streamWriter.WriteLine();
+                        if (Timer.yieldNow) {yield return null;}
                     }
-                    yield return "";
                     break;
                 case "contact":
 
@@ -1927,60 +1995,94 @@ public class MacroGroup {
                                     }
 
                                     //Close contact
-                                    yield return string.Format(
+                                    streamWriter.WriteLine(string.Format(
                                         "Close contact: '{0,8}' - '{1,8}' {2,8:0.000} A",
                                         atomID,
                                         closeAtomID,
                                         math.sqrt(distanceSq)
-                                    );
+                                    ));
                                     
                                 }
-                            }
-                            
+                            }   
                         }
-
-                        yield return "";
-
+                        if (Timer.yieldNow) {yield return null;}
                     }
-                    yield return "";
                     break;
                 case "clashscore":
 
                     centroids = source.EnumerateResidues()
                         .ToDictionary(x => x.residueID, x => x.residue.GetCentre());
 
+                    bool keepParameters = (ParseXMLAttrString(itemX, "keepParameters", "false", source).ToLower() == "true");
+
                     foreach ((ResidueID residueID, Residue residue) in residues) {
-
-                        float3 centre = centroids[residueID];
-
-                        List<Residue> nearbyResidues = centroids
-                            .Where(x => x.Key != residueID && (math.distancesq(centre, x.Value) < searchDistanceSq))
-                            .Select(x => source.GetResidue(x.Key))
-                            .ToList();
-
-                        DihedralScanner dihedralScanner = new DihedralScanner(source, residue, nearbyResidues);
-
-                        bool clash;
-                        float clashScore;
-                        if (dihedralScanner.numDihedralGroups == 0) {
-                            clashScore = 0f;
-                            clash = false;
-                        } else {
-                            int fixedIdentifier = dihedralScanner.numDihedralGroups + 1;
-                            (clashScore, clash) = dihedralScanner.GetClashScore(
-                                residue.EnumerateAtoms().Select(x => x.atom.position).ToArray(),
-                                fixedIdentifier
-                            );
+                            
+                        if (parameters == null) {
+                            parameters = PrefabManager.InstantiateParameters(transform);
+                        
+                            parameters.UpdateParameters(source.parameters);
                         }
 
-                        string clashStr = clash ? "#########" : $"{clashScore,8:#.##E+00}";
+                        DihedralScanner dihedralScanner = GetComponent<DihedralScanner>();
 
-                        yield return string.Format(
-                            "Clash Score for {0} ({1}): {2}",
-                            residueID,
-                            residue.residueName,
-                            clashStr
-                        );
+                        if (dihedralScanner == null) {
+                            //Create a new Dihedral scanner on this geometry
+                            dihedralScanner = gameObject.AddComponent<DihedralScanner>();
+
+                        }
+
+                        //Initialise Scanner
+                        dihedralScanner.Initialise(source, parameters);
+
+                        if (dihedralScanner.failed) {
+                            CustomLogger.LogFormat(
+                                EL.ERROR,
+                                "Failed to create Dihedral Scanner"
+                            );
+                            failed = true;
+                            yield break;
+                        }
+
+                        yield return dihedralScanner.SetResidue(residue);
+
+                        if (keepParameters) {
+                            parameters.UpdateParameters(dihedralScanner.parameters);
+                        }
+
+                        if (dihedralScanner.numDihedralGroups == 0) {
+                            streamWriter.WriteLine(string.Format(
+                                "Clash Score for {0} ({1}): {2,8:#.##E+00} (No dihedral groups)",
+                                residueID,
+                                residue.residueName,
+                                0
+                            ));
+                        } else {
+
+                            (float clashScore, bool clash) = dihedralScanner.GetClashScore(residue);
+
+                            if (dihedralScanner.failed) {
+                                CustomLogger.LogFormat(
+                                    EL.ERROR,
+                                    "Failed to get Clash Score for Residue {0} ({1}).",
+                                    residue.residueID,
+                                    residue.residueName
+                                );
+                                failed = true;
+                                yield break;
+                            }
+
+                            string clashStr = clash ? "#########" : $"{clashScore,8:#.##E+00}";
+
+                            streamWriter.WriteLine(string.Format(
+                                "Clash Score for {0} ({1}): {2}",
+                                residueID,
+                                residue.residueName,
+                                clashStr
+                            ));
+                        }
+
+                        if (Timer.yieldNow) {yield return null;}
+                        
                     }
 
 
@@ -2006,7 +2108,7 @@ public class MacroGroup {
     /// </summary>
     /// <param name="reportX">XElement containing information about Geometry Report.</param>
     /// <param name="defaultSource">Default Geometry to report if source isn't given</param>
-    IEnumerable<string> GetResidueComparisonReportStrings(XElement reportX, Geometry defaultSource) {
+    IEnumerator WriteResidueComparisonReport(XElement reportX, Geometry defaultSource, StreamWriter streamWriter) {
 
         //Allow optional source
         Geometry source = (reportX.Attribute("source") == null)
@@ -2037,7 +2139,7 @@ public class MacroGroup {
                         Residue targetResidue;
                         if (!targetResidues.TryGetValue(residueID, out targetResidue)) {
                             Warn(itemX, "Residue ID '{0}' missing in target geometry", residueID);
-                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            streamWriter.WriteLine(string.Format("Skipping Residue ID '{0}'", residueID));
                             continue;
                         }
 
@@ -2049,17 +2151,17 @@ public class MacroGroup {
                                 residue.residueName,
                                 targetResidue.residueName
                             );
-                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            streamWriter.WriteLine(string.Format("Skipping Residue ID '{0}'", residueID));
                             continue;
                         }
 
-                        yield return string.Format(
+                        streamWriter.WriteLine(string.Format(
                             "Distances between atoms of {0} ({1})",
                             residueID,
                             residue.residueName
-                        );
+                        ));
 
-                        yield return "PDBID   distance";
+                        streamWriter.WriteLine("PDBID   distance");
                         foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
 
                             //Skip hydrogen atoms if requested
@@ -2073,15 +2175,14 @@ public class MacroGroup {
                                 yield break;
                             }
 
-                            yield return string.Format(
+                            streamWriter.WriteLine(string.Format(
                                 "{0,4} {1,8:0.000}",
                                 pdbID,
                                 math.distance(atom.position, targetAtom.position)
-                            );
+                            ));
                         }
-                        yield return "";
+                        streamWriter.WriteLine();
                     }
-                    yield return "";
                     break;
                 case "torsionangles":
 
@@ -2090,7 +2191,7 @@ public class MacroGroup {
                         Residue targetResidue;
                         if (!targetResidues.TryGetValue(residueID, out targetResidue)) {
                             Warn(itemX, "Residue ID '{0}' missing in target geometry", residueID);
-                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            streamWriter.WriteLine(string.Format("Skipping Residue ID '{0}'", residueID));
                             continue;
                         }
 
@@ -2102,7 +2203,7 @@ public class MacroGroup {
                                 residue.residueName,
                                 targetResidue.residueName
                             );
-                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            streamWriter.WriteLine(string.Format("Skipping Residue ID '{0}'", residueID));
                             continue;
                         }
 
@@ -2113,50 +2214,52 @@ public class MacroGroup {
                                 "Residue '{0}' not present in Amino Acid Database.",
                                 residue.residueName
                             );
-                            yield return string.Format("Skipping Residue ID '{0}'", residueID);
+                            streamWriter.WriteLine(string.Format("Skipping Residue ID '{0}'", residueID));
                             continue;
                         }
 
                         PDBID[][] dihedralGroups = aminoAcid.GetDihedralPDBIDs(residue.state);
 
-                        yield return string.Format(
+                        streamWriter.WriteLine(string.Format(
                             "Torsion Angle differences of {0} ({1})",
                             residueID,
                             residue.residueName
-                        );
+                        ));
 
-                        yield return "ID1   ID2   ID3   ID4   Angle";
+                        streamWriter.WriteLine("ID1   ID2   ID3   ID4   Angle");
 
                         foreach (PDBID[] dihedralGroup in dihedralGroups) {
                             float originalDihedral;
                             if (!TryGetDihedral(dihedralGroup, residue, out originalDihedral)) {
                                 Warn(itemX, "Failed to get Torsion angle for '{0}'", residueID);
-                                yield return string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup));
+                                streamWriter.WriteLine(string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup)));
                                 continue;
                             }
 
                             float targetDihedral;
                             if (!TryGetDihedral(dihedralGroup, targetResidue, out targetDihedral)) {
                                 Warn(itemX, "Failed to get Torsion angle for '{0}'", residueID);
-                                yield return string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup));
+                                streamWriter.WriteLine(string.Format("Skipping Dihedral Group: ", string.Join(" ", dihedralGroup)));
                                 continue;
                             }
 
-                            float angleDifference = math.degrees(originalDihedral - targetDihedral);
-                            if (angleDifference < 0) {angleDifference += math.PI * 2;}
+                            float angleDifference = CustomMathematics.CircleWrap(
+                                math.degrees(originalDihedral - targetDihedral),
+                                -180,
+                                180
+                            );
                             
-                            yield return string.Format(
+                            streamWriter.WriteLine(string.Format(
                                 "{0,5} {1,5} {2,5} {3,5} {4,7:0.00}",
                                 dihedralGroup[0],
                                 dihedralGroup[1],
                                 dihedralGroup[2],
                                 dihedralGroup[3],
                                 angleDifference
-                            );
+                            ));
                         }
-                        yield return "";
+                        streamWriter.WriteLine();
                     }
-                    yield return "";
                     break;
                 default:
                     Fail(itemX, "Unrecognised Residue Comparison Report Item '{0}'!", itemName);
@@ -2177,7 +2280,7 @@ public class MacroGroup {
     /// </summary>
     /// <param name="reportX">XElement containing information about Geometry Report.</param>
     /// <param name="defaultSource">Default Geometry to report if source isn't given</param>
-    IEnumerable<string> GetAtomsReportStrings(XElement reportX, Geometry defaultSource) {
+    IEnumerator WriteAtomsReport(XElement reportX, Geometry defaultSource, StreamWriter streamWriter) {
 
         //Allow optional source
         Geometry source = (reportX.Attribute("source") == null)
@@ -2193,20 +2296,18 @@ public class MacroGroup {
             string itemName = itemX.Name.ToString().ToLower();
             switch (itemName) {
                 case "positions":
-                    yield return "Atomic Positions";
-                    yield return "Atom ID          x        y        z";
+                    streamWriter.WriteLine("Atomic Positions");
+                    streamWriter.WriteLine("Atom ID          x        y        z");
                     foreach ((AtomID atomID, Atom atom) in atoms) {
                         float3 position = atom.position;
-                        yield return string.Format(
+                        streamWriter.WriteLine(string.Format(
                             "{0,8} {1,8:0.000} {2,8:0.000} {3,8:0.000}",
                             atomID,
                             position.x,
                             position.y,
                             position.z
-                        );
-                        yield return "";
+                        ));
                     }
-                    yield return "";
                     break;
                 default:
                     Fail(itemX, "Unrecognised Residue Report Item '{0}'!", itemName);

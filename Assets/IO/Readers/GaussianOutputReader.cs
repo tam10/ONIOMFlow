@@ -9,12 +9,14 @@ using System.Text;
 using BT = Constants.BondType;
 using OLID = Constants.OniomLayerID;
 using EL = Constants.ErrorLevel;
+using ChainID = Constants.ChainID;
 
 public class GaussianOutputReader : GeometryReader {
 
-	public GaussianOutputReader(Geometry geometry) {
+	public GaussianOutputReader(Geometry geometry, ChainID chainID=ChainID._) {
 		
 		this.geometry = geometry;
+		this.chainID = chainID;
 		
 		layerDict = new Dictionary<OLID, Layer>();
 
@@ -77,6 +79,7 @@ public class GaussianOutputReader : GeometryReader {
 
 	bool atomInfoSet = false;
 	int[] atomNumbers;
+	ChainID chainID;
 
 	List<float> energies;
 	float3[] currentPositions;
@@ -266,7 +269,7 @@ public class GaussianOutputReader : GeometryReader {
 			//Read the atom
 			AtomID atomID;
 			try {
-				atomID = GaussianPDBLineReader.ParseLine(geometry, line);
+				atomID = GaussianPDBLineReader.ParseLine(geometry, line, chainID);
 			} catch {
 				charNum = GaussianPDBLineReader.charNum;
 				throw;

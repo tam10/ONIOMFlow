@@ -7,6 +7,7 @@ using GIID = Constants.GeometryInterfaceID;
 using RCID = Constants.ResidueCheckerID;
 using ACID = Constants.AtomCheckerID;
 using GIS = Constants.GeometryInterfaceStatus;
+using ChainID = Constants.ChainID;
 using System.Linq;
 using UnityEngine;
 
@@ -69,7 +70,7 @@ public static class AmberCalculator {
         Geometry geometry = geometryInterface.geometry.TakeDry(geometryInterface.transform);
 
         //Get the chainIDs
-        IEnumerable<string> chainIDs = geometry.GetChainIDs();
+        IEnumerable<ChainID> chainIDs = geometry.GetChainIDs();
 
         NotificationBar.SetTaskProgress(TID.CALCULATE_AMBER_TYPES_ANTECHAMBER, 0.1f);
         yield return null;
@@ -90,12 +91,12 @@ public static class AmberCalculator {
 		}
 
         //Loop through each chain
-        foreach (string chainID in chainIDs) {
+        foreach (ChainID chainID in chainIDs) {
 
             CustomLogger.LogFormat(
                 EL.INFO, 
                 "Calculating AMBER Types for chainID: {0}.", 
-                chainID
+                Constants.ChainIDMap[chainID]
             );
             
             //Isolate Chain
@@ -122,7 +123,7 @@ public static class AmberCalculator {
                 );
 
                 if (externalCommand.succeeded) {
-                    yield return new Mol2Reader(geometryInterface.geometry).SetAtomAmbersFromMol2File(
+                    yield return new Mol2Reader(geometryInterface.geometry, chainID).SetAtomAmbersFromMol2File(
                         externalCommand.GetOutputPath(), 
                         geometryInterface.geometry, 
                         chainID,

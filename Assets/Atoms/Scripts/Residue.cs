@@ -7,6 +7,7 @@ using Element = Constants.Element;
 using RS = Constants.ResidueState;
 using BT = Constants.BondType;
 using EL = Constants.ErrorLevel;
+using ChainID = Constants.ChainID;
 using OLID = Constants.OniomLayerID;
 using Amber = Constants.Amber;
 using Unity.Mathematics;
@@ -40,7 +41,7 @@ public class Residue {
 	/// <summary>Returns the number of Atom objects in this Residue.</summary>
 	public int size => atoms.Count;
 	/// <summary>Returns the Chain ID of this Residue ID.</summary>
-	public string chainID {
+	public ChainID chainID {
 		get => residueID.chainID;
 	}
 	/// <summary>Returns the Number of this Residue ID.</summary>
@@ -81,6 +82,17 @@ public class Residue {
 		state == RS.CAP ||
 		state == RS.ION
 	);
+
+
+
+	static PDBID cPDBID = PDBID.C;
+	static PDBID caPDBID = PDBID.CA;
+	static PDBID nPDBID = PDBID.N;
+	static PDBID oPDBID = PDBID.O;
+	static PDBID hPDBID = PDBID.H;
+
+	static PDBID ch3PDBID = new PDBID(Element.C, "H", 3);  // Special case: NME and ACE for CA
+	static PDBID hh31PDBID = new PDBID(Element.H, "H3", 1); // Special case: NME for C, and ACE for N
 
 
 	//Atoms are accessed by their PDB Names
@@ -631,7 +643,7 @@ public class Residue {
 	/// Convert this Residue to an ACE Cap residue
 	///</summary>
 	///<param name="cPDBID">The PDBID of the atom that will be the central C Atom of the ACE Cap</param>
-	public Residue ConvertToACE(PDBID cPDBID) {
+	public Residue ConvertToACE(PDBID anchor) {
 		// Get the ACE cap equivalent of this residue:
 		// Translate ACE ' C  ' to this ' C  '
 		// Rotate ACE ' O  ' to this ' O  '
@@ -652,13 +664,8 @@ public class Residue {
 		Residue ace = Data.standardResidues["ACE"][RS.CAP].Take(parent);
 		ace.state = RS.CAP;
 
-		// Get ACE anchor PDBIDs
-		PDBID aceCPDBID = PDBID.C;
-		PDBID aceOPDBID = PDBID.O;
-		PDBID aceCH3PDBID = new PDBID(Element.C,"H",3);
-
 		// Get this residue's anchor Atoms
-		Atom cAtom = atoms[cPDBID];
+		Atom cAtom = atoms[anchor];
 		Atom oAtom = cAtom.internalConnections
 			.Where(x => x.Key.element == Element.O)
 			.Select(x => atoms[x.Key])
@@ -687,28 +694,28 @@ public class Residue {
 		float3 vC_O = pO - pC;
 
 		//Translate ACE ' C  ' to residue ' C  '
-		ace.TranslateTo(aceCPDBID, cAtom.position);
+		ace.TranslateTo(cPDBID, cAtom.position);
 
 		//Align ACE [' C  '->' CH3'] to residue [' C  '-> ' CA ']
-		ace.AlignBond(aceCPDBID, aceCH3PDBID, vC_CA);
+		ace.AlignBond(cPDBID, ch3PDBID, vC_CA);
 		
 		//ace.AlignBond(aceCPDBID, aceOPDBID, vC_O);
 
 		//Align ACE [' C  '->' O  '] to residue [' C  '-> ' O  ']
 		CustomMathematics.DihedralRuler dihedralRuler = new CustomMathematics.DihedralRuler(
-			ace.atoms[aceOPDBID],
-			ace.atoms[aceCH3PDBID],
-			ace.atoms[aceCPDBID],
+			ace.atoms[oPDBID],
+			ace.atoms[ch3PDBID],
+			ace.atoms[cPDBID],
 			oAtom
 		);
 
-		ace.atoms[aceOPDBID].position = math.rotate(quaternion.AxisAngle(
+		ace.atoms[oPDBID].position = math.rotate(quaternion.AxisAngle(
 				dihedralRuler.v21n,
 				dihedralRuler.dihedral
 			), (
-			ace.atoms[aceOPDBID].position -
-			ace.atoms[aceCPDBID].position
-		)) + ace.atoms[aceCPDBID].position;
+			ace.atoms[oPDBID].position -
+			ace.atoms[cPDBID].position
+		)) + ace.atoms[cPDBID].position;
 
 		return ace;
 	}
@@ -724,7 +731,7 @@ public class Residue {
 	/// Convert this Residue to an NME Cap residue
 	///</summary>
 	///<param name="nPDBID">The PDBID of the atom that will be the central N Atom of the NME Cap</param>
-	public Residue ConvertToNME(PDBID nPDBID) {
+	public Residue ConvertToNME(PDBID anchor) {
 		// Get the NME cap equivalent of this residue:
 		// Translate NME ' N  ' to this ' N  '
 		// Rotate NME ' CH3' to this ' CA '
@@ -744,13 +751,8 @@ public class Residue {
 		Residue nme = Data.standardResidues["NME"][RS.CAP].Take(parent);
 		nme.state = RS.CAP;
 
-		// Get NME anchor PDBIDs
-		PDBID nmeNPDBID = PDBID.N;
-		PDBID nmeCH3PDBID = new PDBID(Element.C,"H",3);
-		PDBID nmeHPDBID = PDBID.H;
-
 		// Get this residue's anchor Atoms
-		Atom nAtom = atoms[nPDBID];
+		Atom nAtom = atoms[anchor];
 		Atom caAtom = nAtom.internalConnections
 			.Where(x => x.Key.element == Element.C)
 			.Select(x => atoms[x.Key])
@@ -766,10 +768,10 @@ public class Residue {
 		float3 vN_CA = pCA - pN;
 
 		//Translate NME ' N  ' to residue ' N  '
-		nme.TranslateTo(nmeNPDBID, nAtom.position);
+		nme.TranslateTo(nPDBID, nAtom.position);
 
 		//Align NME [' N  '->' CH3'] to residue [' N  '-> ' CA ']
-		nme.AlignBond(nmeNPDBID, nmeCH3PDBID, vN_CA);
+		nme.AlignBond(nPDBID, ch3PDBID, vN_CA);
 
 		//See if we can align the H using the neighbouring residue
 		if (nAtom.externalConnections.Count == 1) {
@@ -781,7 +783,7 @@ public class Residue {
 				//Alignment is the negative of the average of two bonds from N.
 				float3 hAlignment = - (math.normalize(vN_Neighbour) + math.normalize(vN_CA)) * 0.5f;
 
-				nme.AlignBond(nmeNPDBID, nmeHPDBID, hAlignment);
+				nme.AlignBond(nPDBID, hPDBID, hAlignment);
 
 			}
 		}
@@ -949,6 +951,8 @@ public class Residue {
 	///</summary>
 	///<param name="newResidueName">The three letter name of the Residue.</param>
 	///<param name="residueState">The Residue State of the new Residue.</param>
+	///<param name="parent">The Parent Geometry of the new Residue.</param>
+	///<param name="condition">Only take atoms that meet this condition.</param>
     public static Residue FromString(string newResidueName, RS residueState=RS.STANDARD, Geometry parent=null, Func<(PDBID pdbID, Atom atom), bool> condition=null) {
         //Use the name to get all the Residues of that family
         Dictionary<RS, Residue> residueFamily;
@@ -1004,6 +1008,13 @@ public class Residue {
 	///</summary>
 	///<param name="pdbID">The PDB ID to look up.</param>
     public Atom GetSingleAtom(PDBID pdbID) {
+
+		if (pdbID.number != 0) {
+			Atom atom;
+			TryGetAtom(pdbID, out atom);
+			return atom;
+		}
+		
         //Get the list of atoms that have the same element and identifier
         List<Atom> matchingAtoms = EnumerateAtoms(x => (x.element == pdbID.element && x.identifier == pdbID.identifier))
             .Select(x => x.Item2)
@@ -1054,11 +1065,6 @@ public class Residue {
             );
             return null;
         }
-
-        //Get the lookup PDBIDs for the backbone Atoms
-        PDBID cPDBID = new PDBID(Element.C);
-        PDBID caPDBID = new PDBID(Element.C, "A");
-        PDBID nPDBID = new PDBID(Element.N);
 
         //Check what kind of Atom the new Residue is linking to
         bool cTerminal = hostAtom == cPDBID;
@@ -1112,26 +1118,28 @@ public class Residue {
 
          */
 
+		//Error message if atom isn't found
+		string message = "";
+
 		bool TryGetAtom(Residue residue, PDBID pdbID, out Atom atom) {
 			atom = residue.GetSingleAtom(pdbID);
 			if (atom == null) {
-				CustomLogger.LogFormat(
-					EL.ERROR,
+
+				message = string.Format(
 					"Cannot add Residue '{0}' to '{1}' - Required Atom {2} is null.",
 					newResidueName,
 					residueID,
-					new AtomID(residue.residueID, pdbID)
+					pdbID
 				);
 				return false;
 			}
 
 			if (math.all(math.isnan(atom.position))) {
-				CustomLogger.LogFormat(
-					EL.ERROR,
+				message = string.Format(
 					"Cannot add Residue '{0}' to '{1}' - Position of atom {2} is {3}.",
 					newResidueName,
 					residueID,
-					new AtomID(residue.residueID, pdbID),
+					pdbID,
 					atom.position
 				);
 				return false;
@@ -1149,19 +1157,49 @@ public class Residue {
         Atom newConnector;
         Atom newAnchor;
 
-		if (!TryGetAtom(this, caPDBID, out myCA)) {return null;}
-		if (!TryGetAtom(newResidue, caPDBID, out newCA)) {return null;}
+		if (!TryGetAtom(this, caPDBID, out myCA) && !TryGetAtom(this, ch3PDBID, out myCA)) {
+			CustomLogger.LogFormat(EL.ERROR, message);
+			return null;
+		}
+		if (!TryGetAtom(newResidue, caPDBID, out newCA) && !TryGetAtom(newResidue, ch3PDBID, out newCA)) {
+			CustomLogger.LogFormat(EL.ERROR, message);
+			return null;
+		}
 
 		if (cTerminal) {
-			if (!TryGetAtom(this, cPDBID, out myConnector)) {return null;}
-			if (!TryGetAtom(this, nPDBID, out myAnchor)) {return null;}
-			if (!TryGetAtom(newResidue, nPDBID, out newConnector)) {return null;}
-			if (!TryGetAtom(newResidue, cPDBID, out newAnchor)) {return null;}
+			if (!TryGetAtom(this, cPDBID, out myConnector)) {
+				CustomLogger.LogFormat(EL.ERROR, message);
+				return null;
+			}
+			if (!TryGetAtom(this, nPDBID, out myAnchor)) {
+				CustomLogger.LogFormat(EL.ERROR, message);
+				return null;
+			}
+			if (!TryGetAtom(newResidue, nPDBID, out newConnector)) {
+				CustomLogger.LogFormat(EL.ERROR, message);
+				return null;
+			}
+			if (!TryGetAtom(newResidue, cPDBID, out newAnchor) && !TryGetAtom(newResidue, hh31PDBID, out newAnchor)) {
+				CustomLogger.LogFormat(EL.ERROR, message);
+				return null;
+			}
 		} else {
-			if (!TryGetAtom(this, nPDBID, out myConnector)) {return null;}
-			if (!TryGetAtom(this, cPDBID, out myAnchor)) {return null;}
-			if (!TryGetAtom(newResidue, cPDBID, out newConnector)) {return null;}
-			if (!TryGetAtom(newResidue, nPDBID, out newAnchor)) {return null;}
+			if (!TryGetAtom(this, nPDBID, out myConnector)) {
+				CustomLogger.LogFormat(EL.ERROR, message);
+				return null;
+			}
+			if (!TryGetAtom(this, cPDBID, out myAnchor)) {
+				CustomLogger.LogFormat(EL.ERROR, message);
+				return null;
+			}
+			if (!TryGetAtom(newResidue, cPDBID, out newConnector)) {
+				CustomLogger.LogFormat(EL.ERROR, message);
+				return null;
+			}
+			if (!TryGetAtom(newResidue, nPDBID, out newAnchor) && !TryGetAtom(newResidue, hh31PDBID, out newAnchor)) {
+				CustomLogger.LogFormat(EL.ERROR, message);
+				return null;
+			}
 		}
 
         //Use myAnchor -> myCA as initial bond offset for myConnector -> newConnector
@@ -1228,14 +1266,14 @@ public class Residue {
 /// <remarks>The unique ID of a Residue composed of a Chain ID and Residue Number.</remarks>
 public struct ResidueID : IComparable<ResidueID> {
 	/// <summary>The Single-letter Chain identifier of this Residue ID.</summary>
-	public string chainID;
+	public ChainID chainID;
 	/// <summary>The Index of this Residue in its Chain.</summary>
 	public int residueNumber;
 	
 	///<summary>Creates a Residue structure.</summary>
 	///<param name="chainID">The Single-letter Chain identifier of this Residue ID.</summary>
 	///<param name="residueNumber">The Index of this Residue in its Chain.</summary>
-	public ResidueID(string chainID, int residueNumber) {
+	public ResidueID(ChainID chainID, int residueNumber) {
 		this.chainID = chainID;
 		this.residueNumber = residueNumber;
 	}
@@ -1297,23 +1335,41 @@ public struct ResidueID : IComparable<ResidueID> {
 	///<summary>Creates a Residue structure from a string.</summary>
 	///<param name="residueIDString">>The string to convert.</summary>
 	public static ResidueID FromString(string residueIDString) {
-		List<char> chainID = new List<char>();
+		ChainID chainID = ChainID._;
 		List<char> numberString = new List<char>();
+		int alphaCount = 0;
 		foreach (char idChar in residueIDString) {
 			if (char.IsDigit(idChar)) {
 				numberString.Add(idChar);
 			} else {
-				chainID.Add(idChar);
+				if (idChar == ' ') {continue;}
+				if (!Constants.ChainIDCharMap.TryGetValue(idChar, out chainID)) {
+					CustomLogger.LogFormat(
+						EL.WARNING,
+						"Invalid character in Residue ID: '{0}'",
+						idChar
+					);
+				}
+				alphaCount++;
 			}
 		}
-		return new ResidueID(string.Concat(chainID), int.Parse(string.Concat(numberString)));
+		ResidueID residueID = new ResidueID(chainID, int.Parse(string.Concat(numberString)));
+		if (alphaCount > 1) {
+			CustomLogger.LogFormat(
+				EL.ERROR,
+				"Multiple Chain IDs found in ResidueID string: '{0}' - parsing as '{1}'",
+				residueIDString,
+				residueID
+			);
+		}
+		return residueID;
 	}
 
 	///<summary>Returns a placeholder ResidueID</summary>
-	public static ResidueID Empty = new ResidueID("", 0);
+	public static ResidueID Empty = new ResidueID(ChainID._, 0);
 	///<summary>Returns true if this ResidueID is Empty or uninitialised</summary>
 	public bool IsEmpty() {
-		return (String.IsNullOrEmpty(chainID) && residueNumber == 0);
+		return (chainID == ChainID._ && residueNumber == 0);
 	}
 	///<summary>Returns true if value is Empty or uninitialised</summary>
 	public static bool IsEmpty(ResidueID value) {
@@ -1337,7 +1393,7 @@ public struct ResidueID : IComparable<ResidueID> {
 	///<summary>Deconstruct this Residue ID into a Chain ID and Residue Number.</summary>
 	///<param name="chainID">This Residue ID's Chain ID.</param>
 	///<param name="residueNumber">This Residue ID's Residue Number.</param>
-	public void Deconstruct(out string chainID, out int residueNumber) {
+	public void Deconstruct(out ChainID chainID, out int residueNumber) {
 		chainID = this.chainID;
 		residueNumber = this.residueNumber;
 	}

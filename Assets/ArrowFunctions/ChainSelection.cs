@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using ChainID = Constants.ChainID;
 
 public class ChainSelection : MonoBehaviour {
 
@@ -32,21 +33,21 @@ public class ChainSelection : MonoBehaviour {
         }
     }
 
-    public void Initialise(List<string> chainStrings) {
+    public void Initialise(List<ChainID> chainStrings) {
         Populate(chainStrings);
         userResponded = false;
         cancelled = false;
         Show();
     }
 
-    void Populate(List<string> chainStrings) {
+    void Populate(List<ChainID> chainStrings) {
 
 
         foreach (Transform child in contentTransform) {
             GameObject.Destroy(child);
         }
 
-        foreach (string chainString in chainStrings) {
+        foreach (ChainID chainString in chainStrings) {
             AddToggle(chainString);
         }
 
@@ -55,9 +56,9 @@ public class ChainSelection : MonoBehaviour {
 
     }
 
-    void AddToggle(string chainString) {
+    void AddToggle(ChainID chainString) {
         GameObject toggleGO = Instantiate<GameObject>(togglePrefab, contentTransform);
-        toggleGO.GetComponentInChildren<TextMeshProUGUI>().text = chainString;
+        toggleGO.GetComponentInChildren<TextMeshProUGUI>().text = Constants.ChainIDMap[chainString];
         
         Toggle toggle = toggleGO.GetComponent<Toggle>();
         toggle.isOn = (toggleGO.transform.GetSiblingIndex() == selectedToggle);

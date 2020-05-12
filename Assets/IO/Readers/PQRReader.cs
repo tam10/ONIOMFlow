@@ -6,11 +6,15 @@ using Unity.Mathematics;
 using EL = Constants.ErrorLevel;
 using OLID = Constants.OniomLayerID;
 using Amber = Constants.Amber;
+using ChainID = Constants.ChainID;
 
 public class PQRReader : GeometryReader {
 	
-	public PQRReader(Geometry geometry) {
+	ChainID chainID;
+	
+	public PQRReader(Geometry geometry, ChainID chainID=ChainID._) {
 		this.geometry = geometry;
+        this.chainID = chainID;
 		atomIndex = 0;
 		commentString = "#";
 		activeParser = ParseAll;
@@ -59,9 +63,10 @@ public class PQRReader : GeometryReader {
 		}
 
 		//Chain ID is optional in PQR, but can also merge with residue number
-		string chainID = line.Substring(21, 1);
-		int residueNumber = int.Parse(line.Substring(22, 4));
-		ResidueID residueID = new ResidueID(chainID, residueNumber);
+		// Get ResidueID from string
+		ResidueID residueID = ResidueID.FromString(line.Substring((charNum = 21), 5));
+		// Set ChainID to A if it's missing
+		if (residueID.chainID == ChainID._) {residueID.chainID = chainID;}
 
 		//Position
 		float3 position = new float3 (

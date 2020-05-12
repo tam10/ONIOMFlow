@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
 using EL = Constants.ErrorLevel;
+using ChainID = Constants.ChainID;
 using System.Linq;
 
 /// <summary>
@@ -15,23 +16,23 @@ public static class FileReader {
 	/// <summary>
 	/// Returns the appropriate Geometry Loader IEnumerator based on the path's file extension
 	/// </summary>
-	static IEnumerator GetGeometryLoader(Geometry geometry, string path) {
+	static IEnumerator GetGeometryLoader(Geometry geometry, string path, ChainID chainID=ChainID._) {
 
 		string filetype = Path.GetExtension (path).ToLower();
 		switch (filetype) {
 		case ".com": 
 		case ".gjf":
-			return new GaussianInputReader(geometry).GeometryFromFile (path);
+			return new GaussianInputReader(geometry, chainID).GeometryFromFile (path);
 		case ".log":
-			return new GaussianOutputReader(geometry).GeometryFromFile (path);
+			return new GaussianOutputReader(geometry, chainID).GeometryFromFile (path);
 		case ".pdb":
-			return new PDBReader(geometry).GeometryFromFile (path);
+			return new PDBReader(geometry, chainID).GeometryFromFile (path);
 		case ".pqr":
-			return new PQRReader(geometry).GeometryFromFile (path);
+			return new PQRReader(geometry, chainID).GeometryFromFile (path);
 		case ".xat":
-			return XATReader.GeometryFromXATFile (path, geometry);
+			return XATReader.GeometryFromXATFile (path, geometry, chainID);
 		case ".mol2":
-			return new Mol2Reader(geometry).GeometryFromFile(path);
+			return new Mol2Reader(geometry, chainID).GeometryFromFile(path);
 		case ".chk":
 			return GetCHKLoader(geometry, path);
 		case ".fchk":
@@ -78,32 +79,68 @@ public static class FileReader {
         bool updateAmbers=false, 
         bool updateCharges=false, 
         bool updatePositions=false, 
-        Map<AtomID, int> atomMap=null
+        Map<AtomID, int> atomMap=null,
+		ChainID chainID=ChainID._
 	) {
 		
 		Geometry tempGeometry = PrefabManager.InstantiateGeometry(null);
 
 		tempGeometry.atomMap = atomMap ?? geometry.atomMap;
 
-		yield return LoadGeometry(tempGeometry, path);
+		yield return LoadGeometry(tempGeometry, path, chainID:chainID);
 
-        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
-            Atom tempAtom;
-            if (tempGeometry.TryGetAtom(atomID, out tempAtom)) {
-                if (updateAmbers) {
-                    atom.amber = tempAtom.amber;
-                }
-                if (updateCharges) {
-                    atom.partialCharge = tempAtom.partialCharge;
-                }
-                if (updatePositions) {
-                    atom.position = tempAtom.position;
-                }
-            }
-			if (Timer.yieldNow) {
-				yield return null;
+
+		if (chainID == ChainID._) {
+			//Update all atoms with exact match
+			foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
+				//Skip atoms with a different chainID
+
+				Atom tempAtom;
+				if (tempGeometry.TryGetAtom(atomID, out tempAtom)) {
+					if (updateAmbers) {
+						atom.amber = tempAtom.amber;
+					}
+					if (updateCharges) {
+						atom.partialCharge = tempAtom.partialCharge;
+					}
+					if (updatePositions) {
+						atom.position = tempAtom.position;
+					}
+				}
+				if (Timer.yieldNow) {
+					yield return null;
+				}
 			}
-        }
+
+		} else {
+			// Update atoms forcing to a particular chain
+			foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
+				//Skip atoms with a different chainID
+				if (atomID.residueID.chainID != chainID) {
+					continue;
+				}
+
+				AtomID altAtomID = atomID;
+				altAtomID.residueID.chainID = ChainID._;
+
+				Atom tempAtom;
+				if (tempGeometry.TryGetAtom(atomID, out tempAtom) || tempGeometry.TryGetAtom(altAtomID, out tempAtom)) {
+					if (updateAmbers) {
+						atom.amber = tempAtom.amber;
+					}
+					if (updateCharges) {
+						atom.partialCharge = tempAtom.partialCharge;
+					}
+					if (updatePositions) {
+						atom.position = tempAtom.position;
+					}
+				}
+				if (Timer.yieldNow) {
+					yield return null;
+				}
+			}
+		}
+
 
 		GameObject.Destroy(tempGeometry.gameObject);
 
@@ -115,10 +152,11 @@ public static class FileReader {
 	/// <param name="geometry">The Geometry object to load the file into.</param>
 	/// <param name="path">The full path of the file.</param>
 	/// <param name="loaderName">(optional) the class that is using this method.</param>
+	/// <param name="chainID">(optional) the default Chain ID to set missing Chain IDs.</param>
 	/// <returns>IEnumerator</returns>
-	public static IEnumerator LoadGeometry(Geometry geometry, string path, string loaderName=null) {
+	public static IEnumerator LoadGeometry(Geometry geometry, string path, string loaderName=null, ChainID chainID=ChainID._) {
 
-		IEnumerator atomLoader = GetGeometryLoader(geometry, path);
+		IEnumerator atomLoader = GetGeometryLoader(geometry, path, chainID);
 
 		geometry.path = path;
 		

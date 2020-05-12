@@ -14,6 +14,7 @@ using GIS = Constants.GeometryInterfaceStatus;
 using BT = Constants.BondType;
 using CT = Constants.ConnectionType;
 using EL = Constants.ErrorLevel;
+using ChainID = Constants.ChainID;
 using Amber = Constants.Amber;
 using System.Diagnostics;
 using Unity.Jobs;
@@ -377,7 +378,7 @@ public static class Cleaner {
         Geometry geometry = Flow.GetGeometry(geometryInterfaceID);
 
         //Get all the current chainIDs
-        List<string> chainIDs = geometry.GetChainIDs().ToList();
+        List<ChainID> chainIDs = geometry.GetChainIDs().ToList();
 
         if (chainIDs.Count == 0) {
             //Skip the routine if there are no chainIDs
@@ -421,11 +422,12 @@ public static class Cleaner {
         }
 
         //Keep track of which chain was chosen - might be redundant now
-        string chainID = chainIDs[chainSelection.selectedToggle];
+        ChainID chainID = chainIDs[chainSelection.selectedToggle];
+
         CustomLogger.LogFormat(
             EL.INFO, 
             "Taking Chain: {0}", 
-            chainID
+            Constants.ChainIDMap[chainID]
         );
 
         //Remove Residues not in chain

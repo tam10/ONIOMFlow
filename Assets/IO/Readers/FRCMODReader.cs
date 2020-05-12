@@ -302,7 +302,6 @@ public static class FRCMODReader {
             t2 = AmberCalculator.GetAmber(line.Substring(6, 2).Trim());
             t3 = AmberCalculator.GetAmber(line.Substring(9, 2).Trim());
 
-
             if (!torsion.types.TypeEquivalent(t0, t1, t2, t3)) {
                 CustomLogger.LogFormat(
                     EL.ERROR,
@@ -323,7 +322,7 @@ public static class FRCMODReader {
             float periodicity = float.Parse(line.Substring(47,7));
 
             int absPeriodicity = Mathf.RoundToInt(Math.Abs(periodicity)) - 1;
-
+            
             if (absPeriodicity == -1) {
                 CustomLogger.LogFormat(
                     EL.ERROR,

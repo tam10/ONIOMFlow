@@ -6,13 +6,16 @@ using Unity.Mathematics;
 using EL = Constants.ErrorLevel;
 using OLID = Constants.OniomLayerID;
 using Amber = Constants.Amber;
+using ChainID = Constants.ChainID;
 
 public class PDBReader : GeometryReader {
 	
 	bool readMissingResidues;
+	ChainID chainID;
 
-	public PDBReader(Geometry geometry) {
+	public PDBReader(Geometry geometry, ChainID chainID=ChainID._) {
 		this.geometry = geometry;
+        this.chainID = chainID;
 		commentString = "#";
 		atomIndex = 0;
         activeParser = ParseAll;
@@ -33,10 +36,10 @@ public class PDBReader : GeometryReader {
 			if (readMissingResidues) {
 				CustomLogger.LogFormat(EL.DEBUG, "Missing Residue Line: {0}", line);
 				string residueName = line.Substring (15, 3).Trim ();
-				string chainID = line.Substring (19, 1);
-				int residueNumber = int.Parse(line.Substring (21, 5).Trim());
 				
-				ResidueID residueID = new ResidueID(chainID, residueNumber);
+				ResidueID residueID = ResidueID.FromString(line.Substring (19, 7));
+				if (residueID.chainID == ChainID._) {residueID.chainID = chainID;}
+
 				geometry.missingResidues[residueID] = residueName;
 				CustomLogger.LogFormat(EL.VERBOSE, "Adding Missing Residue. ID: {0}. Name: {1}", residueID, residueName);
 			} else if (line.Substring(15, 3) == "RES") {
@@ -78,12 +81,12 @@ public class PDBReader : GeometryReader {
 			));
 		}
 
-		int residueNumber = int.Parse (line.Substring ((charNum = 22), 4).Trim ());
-		string chainID = line [(charNum = 21)].ToString ();
-		if (chainID == " ") {
-			chainID = "A";
+		// Get ResidueID from string
+		ResidueID residueID = ResidueID.FromString(line.Substring((charNum = 21), 5));
+		// Set ChainID to A if it's missing
+		if (residueID.chainID == ChainID._) {
+			residueID.chainID = ChainID.A;
 		}
-		ResidueID residueID = new ResidueID(chainID, residueNumber);
 
 		//Position
 		float3 position = new float3 (

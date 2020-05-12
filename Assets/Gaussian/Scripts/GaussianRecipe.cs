@@ -611,12 +611,14 @@ public static class GaussianRecipe {
             yield break;
         }
 
+        Data.SetResidueProperties(oldResidue);
+
         //Get the Residue to mutate to
         XAttribute targetX;
         Residue newResidue;
         if ((targetX = actionX.Attribute("target")) != null) {
             try {
-                newResidue = Residue.FromString(ExpandVariable(targetX.Value));
+                newResidue = Residue.FromString(ExpandVariable(targetX.Value), oldResidue.state);
             } catch (System.Exception e) {
                 CustomLogger.LogFormat(
                     EL.ERROR,
@@ -635,6 +637,8 @@ public static class GaussianRecipe {
             yield break;
         }
 
+        newResidue.residueID = oldResidue.residueID;
+
         bool optimise = false;
         XAttribute optimiseX = actionX.Attribute("optimise");
         if (optimiseX != null && optimiseX.Value == "true") {
@@ -643,16 +647,23 @@ public static class GaussianRecipe {
 
         
 
-        ResidueMutator residueMutator;
-        try {
-            residueMutator = new ResidueMutator(sourceGeometry, residueID);
-        } catch (System.Exception e) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Failed to Mutate Residue: {1}",
-                e.Message
-            );
-            yield break;
+        ResidueMutator residueMutator = sourceGeometry.GetComponent<ResidueMutator>();
+
+        if (residueMutator == null) {
+            //Create a new Dihedral scanner on this geometry
+            residueMutator = sourceGeometry.gameObject.AddComponent<ResidueMutator>();
+
+            //Initialise ResidueMutator
+            residueMutator.Initialise(sourceGeometry, residueID);
+
+            if (residueMutator.failed) {
+                CustomLogger.LogFormat(
+                    EL.ERROR,
+                    "Failed to create Dihedral Scanner"
+                );
+                failed = true;
+                yield break;
+            }
         }
 
         yield return residueMutator.MutateStandard(

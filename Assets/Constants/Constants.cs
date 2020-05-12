@@ -354,6 +354,15 @@ public static class Constants {
 		{GaussianForceConstant.OLD_ESTIMATE, "EstmFC"}
 	};
 
+	public enum ChainID : int {
+		_, A, B, C, D, E, F, G, H, 
+		I, J, K, L, M, N, O, P, Q, 
+		R, S, T, U, V, W, X, Y, Z
+	}
+
+	public static Map<string, ChainID> ChainIDMap = System.Enum.GetValues(typeof(ChainID)).Cast<ChainID>().ToMap(x => x.ToString(), x => x);
+	public static Map<char, ChainID> ChainIDCharMap = System.Enum.GetValues(typeof(ChainID)).Cast<ChainID>().ToMap(x => x.ToString()[0], x => x);
+
 	public enum Element : int {
 		X, H , He,
 		Li, Be, B , C , N , O , F , Ne,

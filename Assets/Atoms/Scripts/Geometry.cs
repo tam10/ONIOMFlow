@@ -10,6 +10,7 @@ using BT = Constants.BondType;
 using RS = Constants.ResidueState;
 using OLID = Constants.OniomLayerID;
 using EL = Constants.ErrorLevel;
+using ChainID = Constants.ChainID;
 
 /// <summary>Geometry Class</summary>
 /// <remarks>
@@ -36,7 +37,7 @@ public class Geometry : MonoBehaviour {
 	public int residueCount => residueDict.Count();
 
 	/// <summary>Return the unique chainIDs in this Geometry object</summary>
-	public IEnumerable<string> GetChainIDs() => 
+	public IEnumerable<ChainID> GetChainIDs() => 
 		//Select all ResidueIDs
 		residueDict.Keys
 			//Get their chainIDs
@@ -46,14 +47,14 @@ public class Geometry : MonoBehaviour {
 
 	/// <summary>Return the 1-Letter Amino Acid names for each Residue in each Chain.</summary>
 	public IEnumerable<string> EnumerateSequences() {
-		foreach (string chainID in GetChainIDs()) {
+		foreach (ChainID chainID in GetChainIDs()) {
 			yield return GetSequence(chainID);
 		}
 	}
 
 	/// <summary>Return the 1-Letter Amino Acid names for each Residue in a Chain.</summary>
 	/// <param name="chainID">The Chain to get the sequence for.</param>
-	public string GetSequence(string chainID) {
+	public string GetSequence(ChainID chainID) {
 
 		int maxResnum = residueDict
 			.Where(x => 
@@ -352,7 +353,7 @@ public class Geometry : MonoBehaviour {
 		return newGeometry;
 	}
 
-	public Geometry TakeChain(string chainID, Transform transform) {
+	public Geometry TakeChain(ChainID chainID, Transform transform) {
 		Geometry newGeometry = PrefabManager.InstantiateGeometry(transform);
 		Parameters.Copy(this, newGeometry);
 		newGeometry.missingResidues = missingResidues
@@ -905,8 +906,11 @@ public class Geometry : MonoBehaviour {
 			yield return residueID;
 
 			//Add all the neighbouring AtomIDs to the Stack
-			foreach (ResidueID neighbourID in GetResidue(residueID).NeighbouringResidues()) {
-				stack.Push((currentDepth + 1, neighbourID));
+			Residue residue;
+			if (TryGetResidue(residueID, out residue)) {
+				foreach (ResidueID neighbourID in residue.NeighbouringResidues()) {
+					stack.Push((currentDepth + 1, neighbourID));
+				}
 			}
 		}
 	}

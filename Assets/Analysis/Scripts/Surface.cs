@@ -97,8 +97,6 @@ public class SurfaceAnalysis : MonoBehaviour {
         numSpherePoints = vertices.Length;
 
         int size = geometry.size;
-        //positions = new float3[size];
-        //radii = new float[size];
 
         CustomLogger.LogFormat(
             EL.VERBOSE,
@@ -112,9 +110,9 @@ public class SurfaceAnalysis : MonoBehaviour {
             size
         );
 
-    //    //TEMP
-    //    surfacePoints = new List<(float3, float3, Color)>();
-    //    //TEMP
+        //TEMP
+        //surfacePoints = new List<(float3, float3, Color)>();
+        //TEMP
 
         positionsRadii = new Dictionary<AtomID, (float3, float)>();
         int atomIndex = 0;
@@ -245,10 +243,10 @@ public class SurfaceAnalysis : MonoBehaviour {
         return maxSA * ((float)(numSpherePoints - shieldedVerts) / numSpherePoints);
     }
 
-//    //TEMP
-//    public List<(float3, float3, Color)> surfacePoints;
-//    //TEMP
+    //TEMP
+    //public List<(float3, float3, Color)> surfacePoints;
 
+    //TEMP
     IEnumerator GetSASATypes(string path) {
         sasaTypes = new List<(uint[], SASAType)>();
 

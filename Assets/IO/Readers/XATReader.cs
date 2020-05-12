@@ -7,6 +7,7 @@ using Unity.Mathematics;
 using EL = Constants.ErrorLevel;
 using BT = Constants.BondType;
 using Amber = Constants.Amber;
+using ChainID = Constants.ChainID;
 
 /// <summary>The static XAT Reader Class</summary>
 /// <remarks>Populates an Geometry object using the contents of a .xat file.</remarks>
@@ -16,6 +17,7 @@ public static class XATReader {
     static XDocument xDocument;
     /// <summary>An internal reference to the dictionary of Residue IDs to Residue Names.</summary>
     static Dictionary<ResidueID, string> residueNameDict;
+	static ChainID chainID;
     
     static string path;
 	static string text;
@@ -23,8 +25,9 @@ public static class XATReader {
     /// <summary>Reads an XAT file and populates an Geometry object with the contents.</summary>
     /// <param name="filePath">The path of the XAT file.</param>
     /// <param name="geometry">The Geometry object to populate.</param>
-    public static IEnumerator GeometryFromXATFile(string filePath, Geometry geometry) {
+    public static IEnumerator GeometryFromXATFile(string filePath, Geometry geometry, ChainID chainID=ChainID._) {
 
+        XATReader.chainID = chainID;
         path = filePath;
         geometry.name = Path.GetFileName (path);
 		text = FileIO.Read (path);
@@ -90,6 +93,7 @@ public static class XATReader {
     private static void ReadResidue(Geometry geometry, XElement residueX) {
         //Get the ID and Name of the Residue
         ResidueID residueID = ResidueID.FromString(FileIO.ParseXMLAttrString(residueX, "ID"));
+		if (residueID.chainID == ChainID._) {residueID.chainID = chainID;}
         string residueName = residueNameDict[residueID];
 
         //Create the Residue object

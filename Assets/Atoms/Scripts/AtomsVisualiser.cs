@@ -2092,9 +2092,11 @@ public class AtomsVisualiser : MonoBehaviour {
 
         string newResidueName = multiPrompt.inputField.text.ToUpper();
 
+        Data.SetResidueProperties(residue);
+
         Residue newResidue;
         try {
-            newResidue = Residue.FromString(newResidueName);
+            newResidue = Residue.FromString(newResidueName, residue.state);
         } catch {
             newResidue = null;
         }
@@ -2108,14 +2110,22 @@ public class AtomsVisualiser : MonoBehaviour {
             yield break;
         }
 
-        ResidueMutator residueMutator;
-        try {
-            residueMutator = new ResidueMutator(geometry, residue.residueID);
-        } catch (System.Exception e) {
+        newResidue.residueID = residue.residueID;
+
+        ResidueMutator residueMutator = GetComponent<ResidueMutator>();
+
+        if (residueMutator == null) {
+            //Create a new Dihedral scanner on this geometry
+            residueMutator = gameObject.AddComponent<ResidueMutator>();
+        }
+
+        //Initialise ResidueMutator
+        residueMutator.Initialise(geometry, residue.residueID);
+
+        if (residueMutator.failed) {
             CustomLogger.LogFormat(
                 EL.ERROR,
-                "Failed to Mutate Residue: {1}",
-                e.Message
+                "Failed to Mutate Residue"
             );
             yield break;
         }
@@ -2137,59 +2147,60 @@ public class AtomsVisualiser : MonoBehaviour {
 
         StartCoroutine(Redraw());
 
-        DihedralScanner dihedralScanner = residueMutator.dihedralScanner;
+//        // TEMP
+//        DihedralScanner dihedralScanner = residueMutator.dihedralScanner;
+//
+//        List<int2> bonds = new List<int2>();
+//        foreach ((PDBID pdbID, int index) in residueMutator.dihedralScanner.residueClashGroup.pdbIDs.Select((x,i) => (x,i))) {
+//            if (pdbID.identifier == "" || pdbID.identifier == "A") {
+//                continue;
+//            }
+//
+//            Atom atom = residue.GetAtom(pdbID);
+//            foreach (PDBID neighbourID in atom.internalConnections.Keys) {
+//                int neighbourIndex = System.Array.IndexOf(residueMutator.dihedralScanner.residueClashGroup.pdbIDs, neighbourID);
+//                if (neighbourIndex > index) {
+//                    bonds.Add(new int2(index, neighbourIndex));
+//                }
+//            }
+//        }
+//
+//        int scoresCount = dihedralScanner.scores.Count;
+//        if (scoresCount > 1) {
+//            float minScore = dihedralScanner.scores.Min();
+//            float averageScore = dihedralScanner.scores.Sum() / scoresCount;
+//
+//            int vertexCount = scoresCount * bonds.Count;
+//
+//            foreach ((float score, int index) in dihedralScanner.scores.Select((x,i) => (x,i))) {
+//
+//                float normScore = CustomMathematics.Map(score, minScore, averageScore, 0, 1);
+//                normScore = Mathf.Clamp(normScore, 0, 1);
+//
+//                float3[] scorePositions = dihedralScanner.acceptedPositions[index];
+//                foreach (int2 bond in bonds) {
+//                    lineDrawer.AddLine(
+//                        scorePositions[bond.x], 
+//                        scorePositions[bond.y], 
+//                        Color.Lerp(Color.blue, Color.red, normScore),
+//                        -offset
+//                    );
+//                }
+//                if (Timer.yieldNow) {
+//                    yield return null;
+//                }
+//            }
+//            
+//            pointerClickHandler = () => {
+//                lineDrawer.ClearLines();
+//                ResetPointerHandler();
+//            };
+//        }
+//        
+//        // TEMP
 
         
-
-        List<int2> bonds = new List<int2>();
-        foreach ((PDBID pdbID, int index) in residueMutator.dihedralScanner.residueClashGroup.pdbIDs.Select((x,i) => (x,i))) {
-            if (pdbID.identifier == "" || pdbID.identifier == "A") {
-                continue;
-            }
-
-            Atom atom = residue.GetAtom(pdbID);
-            foreach (PDBID neighbourID in atom.internalConnections.Keys) {
-                int neighbourIndex = System.Array.IndexOf(residueMutator.dihedralScanner.residueClashGroup.pdbIDs, neighbourID);
-                if (neighbourIndex > index) {
-                    bonds.Add(new int2(index, neighbourIndex));
-                }
-            }
-        }
-
-        int scoresCount = dihedralScanner.scores.Count;
-        if (scoresCount > 1) {
-            float minScore = dihedralScanner.scores.Min();
-            float averageScore = dihedralScanner.scores.Sum() / scoresCount;
-
-            int vertexCount = scoresCount * bonds.Count;
-
-            foreach ((float score, int index) in dihedralScanner.scores.Select((x,i) => (x,i))) {
-
-                float normScore = CustomMathematics.Map(score, minScore, averageScore, 0, 1);
-                normScore = Mathf.Clamp(normScore, 0, 1);
-
-                float3[] scorePositions = dihedralScanner.acceptedPositions[index];
-                foreach (int2 bond in bonds) {
-                    lineDrawer.AddLine(
-                        scorePositions[bond.x], 
-                        scorePositions[bond.y], 
-                        Color.Lerp(Color.blue, Color.red, normScore),
-                        -offset
-                    );
-                }
-                if (Timer.yieldNow) {
-                    yield return null;
-                }
-            }
-            
-            pointerClickHandler = () => {
-                lineDrawer.ClearLines();
-                ResetPointerHandler();
-            };
-        }
-
-        
-        geometryHistory.SaveState(string.Format("Mutate Residue '{0}'", closestAtom.residueID));
+        geometryHistory.SaveState(string.Format("Mutate Residue '{0}'", residue.residueID));
 
     }
 

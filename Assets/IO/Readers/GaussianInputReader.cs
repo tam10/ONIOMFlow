@@ -9,20 +9,23 @@ using Unity.Mathematics;
 using BT = Constants.BondType;
 using OLID = Constants.OniomLayerID;
 using EL = Constants.ErrorLevel;
+using ChainID = Constants.ChainID;
 using Amber = Constants.Amber;
 
 public class GaussianInputReader : GeometryReader {
 
 	bool readConnectivity = false;
+	static ChainID chainID;
 
 	List<string> keywordsList;
 	List<string> titleLines;
 
-	public GaussianInputReader(Geometry geometry) {
+	public GaussianInputReader(Geometry geometry, ChainID chainID=ChainID._) {
 
 		commentString = "!";
 
 		this.geometry = geometry;
+		GaussianInputReader.chainID = chainID;
 		
 		keywordsList = new List<string>();
 		failed = false;
@@ -146,7 +149,7 @@ public class GaussianInputReader : GeometryReader {
 
 		AtomID atomID;
 		try {
-			atomID = GaussianPDBLineReader.ParseLine(geometry, line);
+			atomID = GaussianPDBLineReader.ParseLine(geometry, line, chainID);
 			if (GaussianPDBLineReader.failed) {
 				if (geometry.size == 0) {
 					
@@ -508,6 +511,7 @@ public static class GaussianPDBLineReader {
 	static string pdbName;
 	static string amberName;
 	static ResidueID residueID;
+	static ChainID chainID;
 	static string residueName;
 	static float3 position = new float3();
 	static float partialCharge;
@@ -516,11 +520,12 @@ public static class GaussianPDBLineReader {
 
 	public static bool failed = false;
 
-	public static AtomID ParseLine(Geometry geometry, string line) {
+	public static AtomID ParseLine(Geometry geometry, string line, ChainID chainID) {
 		GaussianPDBLineReader.line = line;
 		pdbOption = PDBOption.PDBNAME;
 		charNum = -1;
 		residueID = ResidueID.Empty;
+		GaussianPDBLineReader.chainID = chainID;
 		partialCharge = 0f;
 		pdbName = "";
 		amberName = "";
@@ -749,7 +754,7 @@ public static class GaussianPDBLineReader {
 				return;
 			case (PDBOption.RESNAME):
 				residueName = infoString;
-				residueID.chainID = "A";
+				residueID.chainID = chainID;
 				return;
 			case (PDBOption.RESNUM):
 				residueID.residueNumber = int.Parse(ToNumber(infoString));

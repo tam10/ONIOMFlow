@@ -4,14 +4,16 @@ using UnityEngine;
 using System.IO;
 using Unity.Mathematics;
 using EL = Constants.ErrorLevel;
+using ChainID = Constants.ChainID;
 
 public class Mol2Reader : GeometryReader {
     
     bool readAtoms;
-    string chainID = "A";
+    ChainID chainID;
 
-    public Mol2Reader(Geometry geometry) {
+    public Mol2Reader(Geometry geometry, ChainID chainID=ChainID._) {
         this.geometry = geometry;
+        this.chainID = chainID;
         readAtoms = false;
 		atomIndex = 0;
         activeParser = ParseAll;
@@ -91,12 +93,12 @@ public class Mol2Reader : GeometryReader {
         }
 	}
 
-    public IEnumerator SetAtomAmbersFromMol2File(string path, Geometry geometry, string chainID="A", Map<AtomID, int> atomMap=null) {
-        return FileReader.UpdateGeometry(geometry, path, updateAmbers:true, atomMap:atomMap);
+    public IEnumerator SetAtomAmbersFromMol2File(string path, Geometry geometry, ChainID chainID=ChainID.A, Map<AtomID, int> atomMap=null) {
+        return FileReader.UpdateGeometry(geometry, path, updateAmbers:true, atomMap:atomMap, chainID:chainID);
     }
 
-    public IEnumerator SetAtomChargesFromMol2File(string path, Geometry geometry, string chainID="A", Map<AtomID, int> atomMap=null) {
-        return FileReader.UpdateGeometry(geometry, path, updateCharges:true, atomMap:atomMap);
+    public IEnumerator SetAtomChargesFromMol2File(string path, Geometry geometry, ChainID chainID=ChainID.A, Map<AtomID, int> atomMap=null) {
+        return FileReader.UpdateGeometry(geometry, path, updateCharges:true, atomMap:atomMap, chainID:chainID);
     }
 
     private static PDBID GetMol2PDBID(string input, string residueName) {

@@ -1,0 +1,27 @@
+import numpy
+import os
+
+dim_i = int(input())
+dim_j = int(input())
+
+arr = numpy.empty((dim_i,dim_j))
+
+for i in range(dim_i):
+	for j in range(dim_j):
+		arr[i,j]=float(input())
+
+v,l,u = numpy.linalg.svd(arr)
+
+if input() == "1":
+    for i in range(dim_i):
+        for j in range(dim_i):
+            print(v[i,j], flush=True)
+
+if input() == "1":
+    for k in range(min(dim_i,dim_j)):
+        print(l[k], flush=True)
+
+if input() == "1":
+    for i in range(dim_j):
+        for j in range(dim_j):
+            print(u[i,j], flush=True)

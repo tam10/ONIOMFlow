@@ -254,6 +254,14 @@ public static class NonStandardResidueTools {
                     //If the external connection is not in our original list, it is now a dangling bond
                     if (!residueIDs.Contains(neighbourID.residueID)) {
 
+                        CustomLogger.LogFormat(
+                            EL.VERBOSE,
+                            "Found capping site on '{0}{1}' (-'{2}')",
+                            newResidueID,
+                            pdbID,
+                            neighbourID
+                        );
+
                         //Cap the dangling bond here
                         if (!TryCapSite(
                             geometryInterfaceID, 

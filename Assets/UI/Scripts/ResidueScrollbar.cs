@@ -4,8 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
-public class ResidueScrollbar : Scrollbar
-{
+public class ResidueScrollbar : Scrollbar {
     
     RectTransform rectTransform;
 
@@ -28,7 +27,7 @@ public class ResidueScrollbar : Scrollbar
         }
 
         //This is the position, between 0 and 1, that the cursor clicked the bar.
-        //The region is stretced so clicking anywhere between the top and the 
+        //The region is stretched so clicking anywhere between the top and the 
         // centre of the bar (were it at the top) results in a value of 0 
         float relativeY = 1f - Mathf.Clamp(
             (localPosition.y / rectTransform.rect.height) * (1f + size) - (size / 2f),

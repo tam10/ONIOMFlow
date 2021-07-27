@@ -10,6 +10,7 @@ using OLID = Constants.OniomLayerID;
 using EL = Constants.ErrorLevel;
 using BT = Constants.BondType;
 using RS = Constants.ResidueState;
+using TID = Constants.TaskID;
 using Unity.Mathematics;
 using UnityEngine.UI;
 
@@ -49,7 +50,7 @@ public class AtomsVisualiser : MonoBehaviour {
 	/// <summary>The reference to the Transform containing the lineDrawer.</summary>
     public Transform atomsRepresentation;
 	/// <summary>The initial position of the Atoms Representation relative to the Atoms Visualiser.</summary>
-    public Vector3 atomsRepresentationStartPosition = new Vector3(0, 0, 15);
+    public Vector3 atomsRepresentationStartPosition = new Vector3(0, 0, 10);
 	/// <summary>The Transform containing the Cube that forms the background of the Atoms Visualiser.</summary>
     public Transform cubeTransform;
     public GameObject dialogue;
@@ -96,7 +97,13 @@ public class AtomsVisualiser : MonoBehaviour {
     Atom[] chainAtoms = new Atom[4];
     private bool closestAtomEnumeratorRunning = false;
     private bool tooltipEnumeratorRunning = false;
+    private bool highlightClosestAtom = false;
+    private GameObject closestAtomLineGO;
 
+    private int activeTasks;
+    public bool isBusy {
+        get => activeTasks > 0;
+    }
 
     bool cmdMod;
     bool ctrlMod;
@@ -107,7 +114,7 @@ public class AtomsVisualiser : MonoBehaviour {
         CONNECTIVITY, OPTIMISE, 
         BOND, ANGLE, DIHEDRAL,
         REMOVE_RESIDUE, CAP_RESIDUE, MUTATE_RESIDUE,
-        MOVE_TO_LAYER, MODIFY_HYDROGEN
+        MOVE_ATOM_TO_LAYER, MOVE_RESIDUE_TO_LAYER, MODIFY_HYDROGEN
     };
     private EditMode selectedEditMode = EditMode.ROTATEXY;
     private EditMode finalEditMode = EditMode.ROTATEXY;
@@ -121,6 +128,8 @@ public class AtomsVisualiser : MonoBehaviour {
 
 
     void Awake() { 
+
+        activeTasks = 1;
 
         GameObject historyGO = new GameObject("History");
         historyGO.transform.SetParent(transform);
@@ -140,9 +149,13 @@ public class AtomsVisualiser : MonoBehaviour {
         //}
 
         ResetPointerHandler();
+
+        activeTasks--;
     }
 
     public IEnumerator Redraw() {
+
+        activeTasks++;
         
         ClearSelectedAtoms();
         Clear();
@@ -158,9 +171,14 @@ public class AtomsVisualiser : MonoBehaviour {
             if (Timer.yieldNow) {yield return null;}
         }
 
+        activeTasks--;
+
     }
 
     public IEnumerator VisualiseGeometry(GIID geometryInterfaceID) {
+
+        activeTasks++;
+
         this.geometryInterfaceID = geometryInterfaceID;
         geometry = Flow.GetGeometry(geometryInterfaceID);
 
@@ -260,6 +278,7 @@ public class AtomsVisualiser : MonoBehaviour {
 
         MakeInteractive(draggableInterface);
 
+        activeTasks--;
     }
 
     LineDrawer.AtomColour colourMode;
@@ -278,11 +297,18 @@ public class AtomsVisualiser : MonoBehaviour {
     }
 
     IEnumerator ShowMolecularOrbital() {
+
+        activeTasks++;
         Geometry tempGeo = geometry.Take(transform);
         tempGeo.atomMap = geometry.atomMap.ToMap(x => x.Key, x => x.Value);
         CubeReader cubeReader = new CubeReader(tempGeo);
 
         yield return geometry.gaussianCalculator.CubeGen(cubeReader);
+
+        if (cubeReader.numAtoms == 0) {
+            activeTasks--;
+            yield break;
+        }
         
         Color positiveColour = Color.red;
         Color noColour = Color.clear;
@@ -345,6 +371,79 @@ public class AtomsVisualiser : MonoBehaviour {
             );
         }
 
+        activeTasks--; 
+    }
+
+    IEnumerator AnimateVibrationalMode() {
+
+        activeTasks++;
+
+        VibrationalAnalysisWindow vibrationalAnalysisWindow = VibrationalAnalysisWindow.main;
+        yield return vibrationalAnalysisWindow.Initialise(geometry, lineDrawer);
+
+        while (!vibrationalAnalysisWindow.userResponded) {
+            yield return null;
+        }
+
+        vibrationalAnalysisWindow.Hide();
+
+
+        activeTasks--;
+
+//        lineDrawer.animateVibrations = false;
+//        NotificationBar.SetTaskProgress(TID.ANIMATE_NORMAL_MODE, 0f);
+//
+//        if (geometry.gaussianResults == null || geometry.gaussianResults.size <= 1) {
+//            yield break;
+//        }
+//        
+//        bool cancelled = false;
+//
+//        MultiPrompt multiPrompt = MultiPrompt.main;
+//        multiPrompt.Initialise(
+//            "Normal Modes",
+//            string.Format(
+//                "Input a Normal Mode Index."
+//            ),
+//            new ButtonSetup("Go", () => {}),
+//            new ButtonSetup("Cancel", () => {cancelled = true;}),
+//            input:true
+//        );
+//
+//        while (!multiPrompt.userResponded) {
+//            yield return null;
+//        }
+//
+//        multiPrompt.Hide();
+//
+//        if (cancelled || multiPrompt.cancelled) {
+//            NotificationBar.ClearTask(TID.ANIMATE_NORMAL_MODE);
+//            yield break;
+//        }
+//
+//        int modeIndex;
+//        if (!int.TryParse(multiPrompt.inputField.text, out modeIndex)) {
+//            NotificationBar.ClearTask(TID.ANIMATE_NORMAL_MODE);
+//            yield break;
+//        }
+//
+//        yield return geometry.gaussianResults.GetVibrationalMode(modeIndex);
+//        float3[] normalModes = geometry.gaussianResults.normalMode;
+//
+//        int progress = 0;
+//        int size = geometry.size;
+//        foreach ((AtomID atomID, int atomIndex) in geometry.atomMap) {
+//            lineDrawer.UpdateVibrationVector(atomID, normalModes[atomIndex]);
+//            if (Timer.yieldNow) {
+//                yield return null;
+//            }
+//            NotificationBar.SetTaskProgress(TID.ANIMATE_NORMAL_MODE, CustomMathematics.Map((float)progress, 0, size, 0.2f, 1f));
+//            progress++;
+//        }
+//
+//        lineDrawer.animateVibrations = true;
+//        NotificationBar.ClearTask(TID.ANIMATE_NORMAL_MODE);
+//        activeTasks--;
 
     }
 
@@ -360,6 +459,7 @@ public class AtomsVisualiser : MonoBehaviour {
     }
 
     public void Display() {
+        activeTasks++;
         dialogue.gameObject.SetActive(true);
         atomsRepresentation.gameObject.SetActive(true);
         atomsRepresentation.transform.localPosition = atomsRepresentationStartPosition;
@@ -379,7 +479,7 @@ public class AtomsVisualiser : MonoBehaviour {
         if (rotationCube != null) {
             rotationCube.LinkTransform(atomsRepresentation);
         }
-
+        activeTasks--;
     } 
 
     public void Hide() {
@@ -521,8 +621,11 @@ public class AtomsVisualiser : MonoBehaviour {
                     }
 
                     break;
-                case EditMode.MOVE_TO_LAYER:
-                    MoveToLayer(closestAtomID);
+                case EditMode.MOVE_ATOM_TO_LAYER:
+                    MoveAtomToLayer(closestAtomID);
+                    break;
+                case EditMode.MOVE_RESIDUE_TO_LAYER:
+                    MoveResidueToLayer(closestAtomID.residueID);
                     break;
                 case EditMode.MODIFY_HYDROGEN:
                     ModifyHydrogen(closestAtomID);
@@ -579,77 +682,101 @@ public class AtomsVisualiser : MonoBehaviour {
         this.finalEditMode = finalEditMode;
         switch (finalEditMode) {
             case (EditMode.ROTATEXY):
+                highlightClosestAtom = false;
                 title.text = "Geometry Visualiser - (Rotate XY)";
                 atomEnterHandler = (closestAtomID) => ShowToolTip(closestAtomID);
                 break;
             case (EditMode.ROTATEZ):
+                highlightClosestAtom = false;
                 title.text = "Geometry Visualiser - (Rotate Z)";
                 atomEnterHandler = (closestAtomID) => ShowToolTip(closestAtomID);
                 break;
             case (EditMode.TRANSLATE):
+                highlightClosestAtom = false;
                 title.text = "Geometry Visualiser - (Translate)";
                 atomEnterHandler = (closestAtomID) => ShowToolTip(closestAtomID);
                 break;
             case (EditMode.CONNECTIVITY):
+                highlightClosestAtom = true;
                 title.text = "Geometry Visualiser - (Edit Connectivity)";
                 atomEnterHandler = (closestAtomID) => ShowToolTip(closestAtomID);
                 break;
             case (EditMode.OPTIMISE):
+                highlightClosestAtom = true;
                 title.text = "Geometry Visualiser - (Local Optimisation)";
                 atomEnterHandler = (closestAtomID) => ShowToolTip(closestAtomID);
                 break;
             case (EditMode.BOND):
+                highlightClosestAtom = true;
                 title.text = "Geometry Visualiser - (Edit Distances)";
                 atomEnterHandler = (closestAtomID) => ShowToolTip(closestAtomID);
                 break;
             case (EditMode.ANGLE):
+                highlightClosestAtom = true;
                 title.text = "Geometry Visualiser - (Edit Angles)";
                 atomEnterHandler = (closestAtomID) => ShowToolTip(closestAtomID);
                 break;
             case (EditMode.DIHEDRAL):
+                highlightClosestAtom = true;
                 title.text = "Geometry Visualiser - (Edit Dihedrals)";
                 atomEnterHandler = (closestAtomID) => ShowToolTip(closestAtomID);
                 break;
             case (EditMode.REMOVE_RESIDUE):
+                highlightClosestAtom = true;
                 title.text = "Geometry Visualiser - (Remove Residue)";
                 atomEnterHandler = (closestAtomID) => {
                     if (closestAtom != null) {
                         SetResidueColourMode(LineDrawer.AtomColour.REMOVE, closestAtomID.residueID);
+                        title.text = $"Remove Residue: {closestAtomID.residueID}";
                         atomExitHandler = (emptyID) => {
                             ResetResidueColourMode(closestAtomID.residueID);
+                            title.text = "Geometry Visualiser - (Remove Residue)";
                         };
                     }
                 };
                 break;
             case (EditMode.CAP_RESIDUE):
+                highlightClosestAtom = true;
                 title.text = "Geometry Visualiser - (Cap Residue)";
                 atomEnterHandler = (closestAtomID) => {
                     if (closestAtom != null) {
                         SetResidueColourMode(LineDrawer.AtomColour.CAP, closestAtomID.residueID);
+                        title.text = $"Cap Residue: {closestAtomID.residueID}";
                         atomExitHandler = (emptyID) => {
                             ResetResidueColourMode(closestAtomID.residueID);
+                            title.text = "Geometry Visualiser - (Cap Residue)";
                         };
                     }
                 };
                 break;
             case (EditMode.MUTATE_RESIDUE):
+                highlightClosestAtom = true;
                 title.text = "Geometry Visualiser - (Mutate Residue)";
                 atomEnterHandler = (closestAtomID) => {
                     if (closestAtom != null) {
                         SetResidueColourMode(LineDrawer.AtomColour.MUTATE, closestAtomID.residueID);
+                        title.text = $"Mutate Residue: {closestAtomID.residueID}";
                         atomExitHandler = (emptyID) => {
                             ResetResidueColourMode(closestAtomID.residueID);
+                            title.text = "Geometry Visualiser - (Mutate Residue)";
                         };
                     }
                 };
                 break;
-            case (EditMode.MOVE_TO_LAYER):
-                title.text = "Geometry Visualiser - (Move To Layer)";
+            case (EditMode.MOVE_ATOM_TO_LAYER):
+                title.text = "Geometry Visualiser - (Move Atom To Layer)";
+                highlightClosestAtom = true;
+                break;
+            case (EditMode.MOVE_RESIDUE_TO_LAYER):
+                title.text = "Geometry Visualiser - (Move Residue To Layer)";
+                highlightClosestAtom = true;
                 break;
             case (EditMode.MODIFY_HYDROGEN):
+                highlightClosestAtom = true;
                 title.text = "Geometry Visualiser - (Add/Remove Hydrogen)";
                 break;
             default:
+                highlightClosestAtom = false;
                 title.text = "Geometry Visualiser";
                 break;
         }
@@ -662,6 +789,11 @@ public class AtomsVisualiser : MonoBehaviour {
 
 	/// <summary>Open the Context Menu (right clicked).</summary>
 	public void ShowContextMenu() {
+
+        if (isBusy) {
+            return;
+        }
+
 		ContextMenu contextMenu = ContextMenu.main;
 
 		//Clear the Context Menu
@@ -686,6 +818,12 @@ public class AtomsVisualiser : MonoBehaviour {
             "Refresh", 
             true
         );
+        
+		contextMenu.AddButton(
+            () => {StartCoroutine(SetFocus());}, 
+            "Go To", 
+            true
+        );
 
 		contextMenu.AddButton(
             () => {StartCoroutine(CalculateConnectivity());}, 
@@ -694,6 +832,7 @@ public class AtomsVisualiser : MonoBehaviour {
         );
 
         bool orbitalsAvailable = (geometry.gaussianCalculator != null && geometry.gaussianCalculator.orbitalsAvailable);
+        bool resultsAvailable = (geometry.gaussianResults != null && geometry.gaussianResults.size > 1);
 
 		contextMenu.AddSpacer();
 
@@ -722,14 +861,21 @@ public class AtomsVisualiser : MonoBehaviour {
 
 		contextMenu.AddSpacer();
 
-        contextMenu.AddButton(() => {StartCoroutine(ShowMolecularOrbital()); HideContextMenu();}, "Show Molecular Orbital", orbitalsAvailable);
+        ContextButtonGroup atomLayerButtonGroup = contextMenu.AddButtonGroup("Move Atom to Layer", true);
+		atomLayerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_ATOM_TO_LAYER); moveOLID = OLID.REAL; HideContextMenu();}, "Real", true);
+		atomLayerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_ATOM_TO_LAYER); moveOLID = OLID.INTERMEDIATE; HideContextMenu();}, "Intermediate", true);
+		atomLayerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_ATOM_TO_LAYER); moveOLID = OLID.MODEL; HideContextMenu();}, "Model", true);
+
+        ContextButtonGroup residueLayerButtonGroup = contextMenu.AddButtonGroup("Move Residue to Layer", true);
+		residueLayerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_RESIDUE_TO_LAYER); moveOLID = OLID.REAL; HideContextMenu();}, "Real", true);
+		residueLayerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_RESIDUE_TO_LAYER); moveOLID = OLID.INTERMEDIATE; HideContextMenu();}, "Intermediate", true);
+		residueLayerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_RESIDUE_TO_LAYER); moveOLID = OLID.MODEL; HideContextMenu();}, "Model", true);
 
 		contextMenu.AddSpacer();
 
-        ContextButtonGroup layerButtonGroup = contextMenu.AddButtonGroup("Move Selection to Layer", true);
-		layerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_TO_LAYER); moveOLID = OLID.REAL; HideContextMenu();}, "Real", true);
-		layerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_TO_LAYER); moveOLID = OLID.INTERMEDIATE; HideContextMenu();}, "Intermediate", true);
-		layerButtonGroup.AddButton(() => {SetSelectedEditMode(EditMode.MOVE_TO_LAYER); moveOLID = OLID.MODEL; HideContextMenu();}, "Model", true);
+        ContextButtonGroup resultsGroup = contextMenu.AddButtonGroup("Results", true);
+        resultsGroup.AddButton(() => {StartCoroutine(ShowMolecularOrbital()); HideContextMenu();}, "Show Molecular Orbital", orbitalsAvailable);
+        resultsGroup.AddButton(() => {StartCoroutine(AnimateVibrationalMode()); HideContextMenu();}, "Animate Vibrational Modes", resultsAvailable);
 
         contextMenu.AddSpacer();
 
@@ -766,7 +912,7 @@ public class AtomsVisualiser : MonoBehaviour {
         return true;
     }
 
-    void MoveToLayer(AtomID atomID) {
+    void MoveAtomToLayer(AtomID atomID) {
         Atom atom;
         if (geometry.TryGetAtom(atomID, out atom)) {
             if (atom.oniomLayer == moveOLID) {
@@ -784,10 +930,30 @@ public class AtomsVisualiser : MonoBehaviour {
         );
     }
 
+    void MoveResidueToLayer(ResidueID residueID) {
+        Residue residue;
+        if (geometry.TryGetResidue(residueID, out residue)) {
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+                if (atom.oniomLayer != moveOLID) {
+                    atom.oniomLayer = moveOLID;
+                }
+            }
+        }
+        StartCoroutine(Redraw());
+        geometryHistory.SaveState(
+            string.Format(
+                "Move Residue '{0}' to {1}", 
+                residueID,
+                moveOLID
+            )
+        );
+    }
+
     void ModifyHydrogen(AtomID atomID) {
         Atom atom;
         if (geometry.TryGetAtom(atomID, out atom)) {
             if (atomID.pdbID.element == Element.H) {
+                // Selected proton -> Remove proton
                 geometry.GetResidue(atomID.residueID).RemoveAtom(atomID);
                 StartCoroutine(Redraw());
                 geometryHistory.SaveState(
@@ -797,7 +963,27 @@ public class AtomsVisualiser : MonoBehaviour {
                     )
                 );
             } else {
-                geometry.GetResidue(atomID.residueID).AddProton(atomID.pdbID);
+                // Selected non-proton -> Add proton
+
+                bool terminalAtom = (atom.EnumerateNeighbours().Count() == 1);
+                Residue residue = geometry.GetResidue(atomID.residueID);
+
+                try {
+                    residue.AddProton(atomID.pdbID);
+                } catch {
+                    CustomLogger.LogFormat(
+                        EL.ERROR,
+                        "Unable to add Proton to this atom"
+                    );
+                    return;
+                }
+
+                if (terminalAtom) {
+                    // Hack to ensure new protons are not added in a straight line
+                    PDBID tempProton = residue.AddProton(atomID.pdbID);
+                    residue.RemoveAtom(tempProton);
+                }
+
                 StartCoroutine(Redraw());
                 geometryHistory.SaveState(
                     string.Format(
@@ -838,37 +1024,71 @@ public class AtomsVisualiser : MonoBehaviour {
         float3 origin = lineDrawer.transform.InverseTransformPoint(ray.origin);
         float3 direction = lineDrawer.transform.InverseTransformDirection(ray.direction);
         
+        float3 vector;
+        float3 projection;
+        float3 residual;
 
-        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
 
-            float3 vector = atom.position - offset - origin;
+        foreach ((ResidueID residueID, PDBID pdbID, Atom atom) in geometry.EnumerateAtomIDTriples()) {
 
+            vector = atom.position - offset - origin;
+            
             //Check atom is at least 2 units of distance in front of camera
             float dot = math.dot(vector, direction);
             if (dot > 2f) {
 
-                float3 projection = dot * direction;
-                float3 residual = projection - vector;
+                projection = dot * direction;
+                residual = projection - vector;
 
                 float distanceSq = math.lengthsq(residual);
 
                 if (
                     distanceSq < bestDistanceSq 
                     &&
-                    distanceSq < Settings.GetAtomRadiusFromElement(atomID.pdbID.element).Squared()
+                    distanceSq < Settings.GetAtomRadiusFromElement(pdbID.element).Squared()
                 ) {
                     bestDistanceSq = distanceSq;
-                    bestAtomID = atomID;
+                    bestAtomID =  new AtomID(residueID, pdbID);
                 }
             }
-            
         }
 
+
         atomExitHandler(bestAtomID);
+        if (closestAtomLineGO != null) {
+            GameObject.Destroy(closestAtomLineGO.gameObject);
+        }
         if (bestAtomID.IsEmpty()) {
             closestAtom = null;
         } else {
-            geometry.TryGetAtom(bestAtomID, out closestAtom);
+            if (geometry.TryGetAtom(bestAtomID, out closestAtom) && highlightClosestAtom) {
+
+                float3 GetUnsnappedPosition(float3 target) {
+                    
+                    Vector3 pos = Input.mousePosition;
+                    pos.z = math.length(
+                        lineDrawer.transform.TransformPoint(target - offset)
+                        - Camera.main.transform.position
+                    );
+
+                    return lineDrawer.transform.InverseTransformPoint(Camera.main.ScreenToWorldPoint(pos));
+                }
+
+                Vector3 startPosition = closestAtom.position - offset;
+                Vector3 endPosition = GetUnsnappedPosition(closestAtom.position);
+                float lineWidth = Settings.layerLineThicknesses[OLID.REAL] * lineDrawer.transform.lossyScale.x * 0.1f;
+
+                closestAtomLineGO = DrawLine(
+                    startPosition,
+                    endPosition,
+                    ColorScheme.GetLineGlowMaterial(),
+                    Color.white,
+                    Color.white,
+                    lineWidth,
+                    lineWidth,
+                    lineDrawer.transform
+                );
+            }
             atomEnterHandler(bestAtomID);
         }
 
@@ -879,7 +1099,7 @@ public class AtomsVisualiser : MonoBehaviour {
     }
 
     void ShowToolTip(AtomID atomID) {
-        if (tooltipEnumeratorRunning) {
+        if (tooltipEnumeratorRunning || isBusy) {
             return;
         }
         Atom atom;
@@ -971,6 +1191,8 @@ public class AtomsVisualiser : MonoBehaviour {
 
     IEnumerator ModifyAtomChain(int numAtomsToSelect, Color unsnappedColour, Color connectedColour, Color disconnectedColour, IEnumerator action) {
         
+        bool oldHighlightClosestAtom = highlightClosestAtom;
+
         if (numAtomsToSelect < 2) {
             CustomLogger.LogFormat(
                 EL.ERROR,
@@ -993,6 +1215,7 @@ public class AtomsVisualiser : MonoBehaviour {
                 chainAtomIDs[atomIndex] = AtomID.Empty;
                 chainAtoms[atomIndex] = null;
             }
+            highlightClosestAtom = oldHighlightClosestAtom;
             ResetPointerHandler();
         }
 
@@ -1110,6 +1333,7 @@ public class AtomsVisualiser : MonoBehaviour {
                 GameObject.Destroy(lineGO);
             }
         }
+        highlightClosestAtom = false;
         yield return action;
         CleanUp();
 
@@ -1273,6 +1497,8 @@ public class AtomsVisualiser : MonoBehaviour {
             atom0.position = p0 + atom0ModifyVector;
             atom1.position = p1 + atom1ModifyVector;
 
+            DisplayDistance();
+
             //Update the lineDrawer with the new positions
             lineDrawer.UpdatePosition(atomID0, atom0.position - offset);
             lineDrawer.UpdatePosition(atomID1, atom1.position - offset);
@@ -1402,6 +1628,8 @@ public class AtomsVisualiser : MonoBehaviour {
             startAtom.position = (float3)(R0 * (startAtom.position - centreAtom.position)) + centreAtom.position;
             endAtom.position   = (float3)(R2 * (endAtom.position   - centreAtom.position)) + centreAtom.position;
 
+            DisplayAngle();
+
             lineDrawer.UpdatePosition(startID, startAtom.position - offset);
             lineDrawer.UpdatePosition(endID  , endAtom.position   - offset);
 
@@ -1509,12 +1737,6 @@ public class AtomsVisualiser : MonoBehaviour {
             (endHandle.isBeingDragged) ? Color.green : Color.white
         );
         lineDrawer.arcs.Add(arc2);
-
-        Tooltip tooltip = Tooltip.main;
-
-        if (tooltip != null) {
-            tooltip.Show("Dihedral", "0000.00", 0f);
-        }
         
         while (draggedHandle.isBeingDragged) {
 
@@ -1540,10 +1762,6 @@ public class AtomsVisualiser : MonoBehaviour {
             } else {
                 angle = - math.degrees(CustomMathematics.SignedAngleRad(w32, v1mn, v21n));
             }
-            
-            if (tooltip != null) {
-                tooltip.infoText.text = string.Format("{0,7:F2}", angle);
-            }
 
             this.w01 = w01;
             this.w32 = w32;
@@ -1559,6 +1777,8 @@ public class AtomsVisualiser : MonoBehaviour {
             startAtom.position = (float3)(R0 * (startAtom.position - centre)) + centre;
             endAtom.position   = (float3)(R3 * (endAtom.position   - centre)) + centre;
 
+            DisplayDihedral();
+
             lineDrawer.UpdatePosition(startID, startAtom.position - offset);
             lineDrawer.UpdatePosition(endID  , endAtom.position   - offset);
 
@@ -1568,10 +1788,6 @@ public class AtomsVisualiser : MonoBehaviour {
             //yield return new WaitForSeconds(0.5f);
 
             yield return null;
-        }
-        
-        if (tooltip != null) {
-            tooltip.Hide();
         }
         
         draggedHandle.button.image.color = Color.white;
@@ -1707,6 +1923,7 @@ public class AtomsVisualiser : MonoBehaviour {
             startHandleRect.rotation = topPivotHandleRect.rotation = Quaternion.Euler(0f, 0f, angle + 90f);
             endHandleRect.rotation = bottomPivotHandleRect.rotation = Quaternion.Euler(0f, 0f, angle - 90f);
 
+            DisplayDistance();
             yield return null;
         }
 
@@ -1784,7 +2001,6 @@ public class AtomsVisualiser : MonoBehaviour {
         startConnectionButton.button.onClick.AddListener(() => {ConnectionCycleToggled(startConnectionButton, startConnectionButton, endConnectionButton);});
         endConnectionButton.button.onClick.AddListener(()   => {ConnectionCycleToggled(endConnectionButton, startConnectionButton, endConnectionButton);});
 
-
         bool cancelled = false;
         while (true) {
 
@@ -1813,6 +2029,8 @@ public class AtomsVisualiser : MonoBehaviour {
             float angle = math.degrees(math.atan2(centreToPivotVectorNormalised.y, centreToPivotVectorNormalised.x));
 
             pivotHandleRect.rotation = Quaternion.Euler(0f, 0f, angle - 90f);
+
+            DisplayAngle();
 
             yield return null;
         }
@@ -1898,7 +2116,6 @@ public class AtomsVisualiser : MonoBehaviour {
         startConnectionButton.button.onClick.AddListener(() => {ConnectionCycleToggled(startConnectionButton, startConnectionButton, endConnectionButton);});
         endConnectionButton.button.onClick.AddListener(() => {ConnectionCycleToggled(endConnectionButton, startConnectionButton, endConnectionButton);});
 
-        
         bool cancelled = false;
         while (true) {
 
@@ -1927,6 +2144,7 @@ public class AtomsVisualiser : MonoBehaviour {
             topPivotHandleRect.rotation    = Quaternion.Euler(0f, 0f, angle + 90f);
             bottomPivotHandleRect.rotation = Quaternion.Euler(0f, 0f, angle - 90f);
 
+            DisplayDihedral();
             
             yield return null;
         }
@@ -1952,14 +2170,19 @@ public class AtomsVisualiser : MonoBehaviour {
         float zRotation = 0f;
         float3 screenCentre = new float3(Screen.width * 0.5f, Screen.height * 0.5f, 0f);
         float3 oldMousePosition = Input.mousePosition;
+
+        //float3 focalVector = mainCamera.transform.position + atomsRepresentationStartPosition  - atomsRepresentation.position;
         while (pointerDown && !moving) {
             
             float3 mousePosition = (float3)Input.mousePosition;
             float3 mouseDelta = mousePosition - oldMousePosition;
 
+            //Shift all rotations to centre camera's focal point
+            mainCamera.transform.Translate(atomsRepresentationStartPosition);
+
             if (finalEditMode == EditMode.TRANSLATE) {
-                atomsRepresentation.Translate(Vector3.right * mouseDelta.x * translationSensitivity, Space.World);
-                atomsRepresentation.Translate(Vector3.up  * mouseDelta.y * translationSensitivity, Space.World);
+                mainCamera.transform.Translate(Vector3.left * mouseDelta.x * translationSensitivity);
+                mainCamera.transform.Translate(Vector3.down  * mouseDelta.y * translationSensitivity);
             } else if (finalEditMode == EditMode.ROTATEZ) {
                 float3 torque = math.cross(
                     (mousePosition - screenCentre),
@@ -1967,16 +2190,18 @@ public class AtomsVisualiser : MonoBehaviour {
                 );
                 zRotation = torque.z * rotationSensitivity / math.length(screenCentre);
 
-                atomsRepresentation.Rotate(Vector3.forward, zRotation, Space.World);
+                mainCamera.transform.Rotate(Vector3.back, zRotation);
                 
             } else {
                 yRotation = mouseDelta.x * rotationSensitivity;
                 xRotation = mouseDelta.y * rotationSensitivity;
 
-                atomsRepresentation.Rotate(Vector3.down,  yRotation, Space.World);
-                atomsRepresentation.Rotate(Vector3.right, xRotation, Space.World);
+                mainCamera.transform.Rotate(Vector3.up,  yRotation);
+                mainCamera.transform.Rotate(Vector3.left, xRotation);
 
             }
+            
+            mainCamera.transform.Translate(-atomsRepresentationStartPosition);
 
             oldMousePosition = mousePosition;
 
@@ -1986,12 +2211,175 @@ public class AtomsVisualiser : MonoBehaviour {
         //Continue spinning until cursor is pressed
         if (xRotation != 0f || yRotation != 0f || zRotation != 0f) {
             while (!pointerDown && enabled) {
-                atomsRepresentation.Rotate(Vector3.forward, zRotation, Space.World);
-                atomsRepresentation.Rotate(Vector3.down,    yRotation, Space.World);
-                atomsRepresentation.Rotate(Vector3.right,   xRotation, Space.World);
+                mainCamera.transform.Translate(atomsRepresentationStartPosition);
+                mainCamera.transform.Rotate(Vector3.back, zRotation);
+                mainCamera.transform.Rotate(Vector3.up,   yRotation);
+                mainCamera.transform.Rotate(Vector3.left, xRotation);
+                mainCamera.transform.Translate(-atomsRepresentationStartPosition);
                 yield return null;
             }
         }
+    }
+
+    IEnumerator SetFocus() {
+        
+        bool cancelled = false;
+
+        MultiPrompt multiPrompt = MultiPrompt.main;
+        multiPrompt.Initialise(
+            "Go To",
+            string.Format(
+                "Input a Residue or Atom ID to focus."
+            ),
+            new ButtonSetup("Go", () => {}),
+            new ButtonSetup("Cancel", () => {cancelled = true;}),
+            input:true
+        );
+
+        while (!multiPrompt.userResponded) {
+            yield return null;
+        }
+
+        multiPrompt.Hide();
+
+        if (cancelled || multiPrompt.cancelled) {
+            yield break;
+        }
+
+        SetFocus(multiPrompt.inputField.text.ToUpper(), atomsRepresentationStartPosition.z * 0.4f, 1);
+    }
+
+    /// <summary>
+    /// Translates the Atoms Representation to look at an Atom over moveTime
+    /// </summary>
+    /// <param name="atomID">AtomID to translate to</param>
+    /// <param name="targetDistance">Final distance between target and Atoms Representation</param>
+    /// <param name="moveTime">Time to reach target</param>
+    void SetFocus(string idString, float targetDistance, float moveTime = 1f) {
+
+        ResidueID residueID= ResidueID.FromString(idString);
+        if (!residueID.IsEmpty()) {
+            SetFocus(residueID, targetDistance, moveTime);
+        } else {
+            AtomID atomID = AtomID.FromString(idString);
+            SetFocus(atomID, targetDistance, moveTime);
+        }
+        
+    }
+
+    AtomCollider CreateSphere(Atom atom, Element element) {
+        GameObject sphere = Instantiate<GameObject>(spherePrefab, meshHolder);
+        sphere.transform.localPosition = atom.position - offset;
+
+        AtomCollider collider =  sphere.GetComponent<AtomCollider>();
+        Color originalColour = Settings.GetAtomColourFromElement(element);
+        collider.SetColor(originalColour);
+
+        return collider;
+    }
+
+    IEnumerator HighlightAtom(Atom atom, Element element, float waitTime, float decayTime) {
+        
+        GameObject sphere = Instantiate<GameObject>(spherePrefab, meshHolder);
+        sphere.transform.localPosition = atom.position - offset;
+
+        AtomCollider collider = sphere.GetComponent<AtomCollider>();
+
+        Color originalColour = Settings.GetAtomColourFromElement(element);
+        Color finalColour = originalColour;
+        finalColour.a = 0;
+        
+        collider.SetColor(originalColour);
+        yield return new WaitForSeconds(waitTime);
+        yield return collider.FadeAndDestroy(finalColour, decayTime);
+    }
+
+    /// <summary>
+    /// Translates the Atoms Representation to look at an Atom over moveTime
+    /// </summary>
+    /// <param name="atomID">AtomID to translate to</param>
+    /// <param name="targetDistance">Final distance between target and Atoms Representation</param>
+    /// <param name="moveTime">Time to reach target</param>
+    void SetFocus(AtomID atomID, float targetDistance, float moveTime = 1f) {
+        
+        Atom atom;
+        if (geometry.TryGetAtom(atomID, out atom)) {
+            StartCoroutine(SetFocus(atom.position - offset, targetDistance, moveTime));
+            StartCoroutine(HighlightAtom(atom, atomID.pdbID.element, 5, 1));
+        }
+    }
+
+    /// <summary>
+    /// Translates the Atoms Representation to look at a Residue over moveTime
+    /// </summary>
+    /// <param name="residueID">ResidueID to translate to</param>
+    /// <param name="targetDistance">Final distance between target and Atoms Representation</param>
+    /// <param name="moveTime">Time to reach target</param>
+    void SetFocus(ResidueID residueID, float targetDistance, float moveTime = 1f) {
+        
+        Residue residue;
+        if (geometry.TryGetResidue(residueID, out residue)) {
+            StartCoroutine(SetFocus(residue.GetCentre() - offset, targetDistance, moveTime));
+            foreach ((PDBID pdbID, Atom atom) in residue.EnumerateAtoms()) {
+                StartCoroutine(HighlightAtom(atom, pdbID.element, 5, 1));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Translates the Atoms Representation to target over moveTime
+    /// </summary>
+    /// <param name="target">Position to look at</param>
+    /// <param name="targetDistance">Final distance between target and Atoms Representation</param>
+    /// <param name="moveTime">Time to reach target</param>
+    IEnumerator SetFocus(float3 target, float targetDistance, float moveTime = 1f) {
+
+        Vector3 initialPosition = mainCamera.transform.position;
+        float3 transformedTarget = (float3)lineDrawer.transform.localScale * target +  (float3)atomsRepresentation.transform.position;
+
+        // Vector between current camera position and target
+        float3 vector = transformedTarget - (float3)initialPosition;
+
+        float currentDistance = math.length(vector * lineDrawer.transform.localScale);
+
+        float3 normVec;
+        if (currentDistance == 0) {
+            //Case that Atoms Rep is sitting exactly on the target
+            //Need to shift it away and look back
+            normVec = new float3(0,0,1);
+        } else {
+            normVec = math.normalize(vector);
+        }
+
+        float timer = moveTime;
+        float3 targetVector = vector - normVec * targetDistance;
+
+        Vector3 finalPosition = (Vector3)targetVector + initialPosition;
+
+        Quaternion originalRotation = mainCamera.transform.rotation;
+        Quaternion rotation = Quaternion.LookRotation(normVec);
+
+        // Instant movement if moveTime <= 0
+        if (moveTime <= 0) {
+            yield break;
+        }
+
+        moving = true;
+        while (timer >= 0f) {
+
+            float a = timer / moveTime;
+
+            mainCamera.transform.position = Vector3.Lerp(finalPosition, initialPosition, a);
+            mainCamera.transform.rotation = Quaternion.Slerp(rotation, originalRotation, a);
+
+            yield return null;
+            timer -= Time.deltaTime;
+        }
+        
+        mainCamera.transform.position = finalPosition;
+        mainCamera.transform.rotation = Quaternion.LookRotation(normVec);
+        
+        moving = false;
     }
 
     IEnumerator ToggleConnection() {
@@ -2062,6 +2450,8 @@ public class AtomsVisualiser : MonoBehaviour {
     }
 
     IEnumerator MutateResidue(Residue residue) {
+
+        activeTasks++;
 
         bool cancelled = false;
         bool optimise = false;
@@ -2136,8 +2526,8 @@ public class AtomsVisualiser : MonoBehaviour {
             newResidue,
             10f,
             (optimise) 
-                ? ResidueMutator.OptisationMethod.TREE 
-                : ResidueMutator.OptisationMethod.NONE
+                ? ResidueMutator.OptimisationMethod.TREE_BRUTE 
+                : ResidueMutator.OptimisationMethod.NONE
         );
 
         if (residueMutator.failed) {
@@ -2146,62 +2536,10 @@ public class AtomsVisualiser : MonoBehaviour {
         }
 
         StartCoroutine(Redraw());
-
-//        // TEMP
-//        DihedralScanner dihedralScanner = residueMutator.dihedralScanner;
-//
-//        List<int2> bonds = new List<int2>();
-//        foreach ((PDBID pdbID, int index) in residueMutator.dihedralScanner.residueClashGroup.pdbIDs.Select((x,i) => (x,i))) {
-//            if (pdbID.identifier == "" || pdbID.identifier == "A") {
-//                continue;
-//            }
-//
-//            Atom atom = residue.GetAtom(pdbID);
-//            foreach (PDBID neighbourID in atom.internalConnections.Keys) {
-//                int neighbourIndex = System.Array.IndexOf(residueMutator.dihedralScanner.residueClashGroup.pdbIDs, neighbourID);
-//                if (neighbourIndex > index) {
-//                    bonds.Add(new int2(index, neighbourIndex));
-//                }
-//            }
-//        }
-//
-//        int scoresCount = dihedralScanner.scores.Count;
-//        if (scoresCount > 1) {
-//            float minScore = dihedralScanner.scores.Min();
-//            float averageScore = dihedralScanner.scores.Sum() / scoresCount;
-//
-//            int vertexCount = scoresCount * bonds.Count;
-//
-//            foreach ((float score, int index) in dihedralScanner.scores.Select((x,i) => (x,i))) {
-//
-//                float normScore = CustomMathematics.Map(score, minScore, averageScore, 0, 1);
-//                normScore = Mathf.Clamp(normScore, 0, 1);
-//
-//                float3[] scorePositions = dihedralScanner.acceptedPositions[index];
-//                foreach (int2 bond in bonds) {
-//                    lineDrawer.AddLine(
-//                        scorePositions[bond.x], 
-//                        scorePositions[bond.y], 
-//                        Color.Lerp(Color.blue, Color.red, normScore),
-//                        -offset
-//                    );
-//                }
-//                if (Timer.yieldNow) {
-//                    yield return null;
-//                }
-//            }
-//            
-//            pointerClickHandler = () => {
-//                lineDrawer.ClearLines();
-//                ResetPointerHandler();
-//            };
-//        }
-//        
-//        // TEMP
-
         
         geometryHistory.SaveState(string.Format("Mutate Residue '{0}'", residue.residueID));
 
+        activeTasks--;
     }
 
     void CapResidue(AtomID atomID) {
@@ -2231,6 +2569,8 @@ public class AtomsVisualiser : MonoBehaviour {
     }
 
     IEnumerator CapResidue(Residue residue, PDBID pdbID) {
+
+        activeTasks++;
 
         bool cancelled = false;
         bool residueCap = false;
@@ -2296,6 +2636,7 @@ public class AtomsVisualiser : MonoBehaviour {
         
         geometryHistory.SaveState(string.Format("Cap Residue '{0}'", closestAtom.residueID));
 
+        activeTasks--;
     }
 
     IEnumerator BrushOptimise() {
@@ -2580,8 +2921,8 @@ public class AtomsVisualiser : MonoBehaviour {
         lineRendererGO.transform.localRotation = Quaternion.identity;
 
         LineRenderer lineRenderer = lineRendererGO.AddComponent<LineRenderer>();
-        lineRenderer.startColor = Color.red;
-        lineRenderer.endColor = Color.red;
+        lineRenderer.startColor = startColor;
+        lineRenderer.endColor = endColor;
         lineRenderer.sharedMaterial = material;
         lineRenderer.startWidth = startWidth;
         lineRenderer.endWidth = endWidth;
@@ -2589,6 +2930,56 @@ public class AtomsVisualiser : MonoBehaviour {
         lineRenderer.SetPositions( new Vector3[2] {start, end});
         
         return lineRendererGO;
+    }
+
+    void DisplayDistance () {
+        float distance = 0f;
+        if (chainAtoms[0] != null && chainAtoms[1] != null) {
+            distance = math.distance(chainAtoms[0].position, chainAtoms[1].position);
+        }
+        title.text = string.Format(
+            "Distance '{0}'-'{1}': {2,8:F3} \u00C5", 
+            chainAtomIDs[0],
+            chainAtomIDs[1],
+            distance
+        );
+    }
+
+    void DisplayAngle () {
+        float angleRad = 0f;
+        if (chainAtoms[0] != null && chainAtoms[1] != null) {
+            angleRad = CustomMathematics.GetAngle(chainAtoms[0], chainAtoms[1], chainAtoms[2]);
+        }
+
+        float angleDeg = math.degrees(angleRad);
+        
+        title.text = string.Format(
+            "Angle '{0}'-'{1}'-'{2}': {3,8:F3} \u03C0 ({4,8:F3} \u00B0)", 
+            chainAtomIDs[0],
+            chainAtomIDs[1],
+            chainAtomIDs[2],
+            angleRad,
+            angleDeg
+        );
+    }
+
+    void DisplayDihedral () {
+        float angleRad = 0f;
+        if (chainAtoms[0] != null && chainAtoms[1] != null) {
+            angleRad = CustomMathematics.GetDihedral(chainAtoms[0], chainAtoms[1], chainAtoms[2], chainAtoms[3]);
+        }
+
+        float angleDeg = math.degrees(angleRad);
+
+        title.text = string.Format(
+            "Dihedral '{0}'-'{1}'-'{2}'-'{3}': {4,8:F3} \u03C0 ({5,8:F3} \u00B0)", 
+            chainAtomIDs[0],
+            chainAtomIDs[1],
+            chainAtomIDs[2],
+            chainAtomIDs[3],
+            angleRad,
+            angleDeg
+        );
     }
 
 
@@ -2792,23 +3183,23 @@ public class AtomsVisualiser : MonoBehaviour {
         PDBID backboneN = PDBID.N;
         count = 0;
         counter = 0;
-        foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
-            if (atomID.pdbID == backboneN) {
+        foreach ((ResidueID residueID, PDBID pdbID, Atom atom) in geometry.EnumerateAtomIDTriples()) {
+            if (pdbID == backboneN) {
                 GameObject sphere = Instantiate<GameObject>(spherePrefab, meshHolder);
                 sphere.transform.localPosition = atom.position - offset;
 
                 AtomCollider collider = sphere.GetComponent<AtomCollider>();
                 collider.Set(true, count==0);
                 colliderDict[count] = collider;
-                if (geometry.HasResidue(atomID.residueID)) {
+                if (geometry.HasResidue(residueID)) {
                     residueDict[count] = string.Format(
                         "{0}[{1}]", 
-                        atomID.residueID, 
-                        geometry.GetResidue(atomID.residueID).residueName
+                        residueID, 
+                        geometry.GetResidue(residueID).residueName
                     );
                     count++;
                 }
-            } else if (atomID.pdbID.element == Element.O) {
+            } else if (pdbID.element == Element.O) {
                 GameObject sphere = Instantiate<GameObject>(spherePrefab, meshHolder);
                 sphere.transform.localPosition = atom.position - offset;
 

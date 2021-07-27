@@ -82,6 +82,7 @@ public class Macro : MacroGroup {
 
         //Set root Geometry as the special Geometry accessible from the Macro
         geometryDict["GEOMETRY"] = macro.rootGeometry;
+        CustomLogger.LogFormat(EL.INFO, $"Set GEOMETRY to {macro.rootGeometry}");
 
         return macro;
     }
@@ -295,6 +296,7 @@ public class MacroGroup : MonoBehaviour {
     IEnumerator CreateGroup(XElement groupX) {
 
         string sourceName = ParseXMLAttrString(groupX, "source", "", rootGeometry);
+        //CustomLogger.LogFormat(EL.INFO, $"Create Group: {sourceName}");
         Geometry source = GetGeometry(groupX, "source", true);
         if (source == null) {
             Fail(groupX, "Source geometry '{0}' not found!", sourceName);
@@ -741,6 +743,7 @@ public class MacroGroup : MonoBehaviour {
 
         Geometry source = null;
         if (string.IsNullOrEmpty(sourceName) && allowEmpty) {
+            //CustomLogger.LogFormat(EL.INFO, $"Get GEOMETRY");
             source = GetGeometry("GEOMETRY");
         } else {
             source = GetGeometry(sourceName);
@@ -1507,14 +1510,16 @@ public class MacroGroup : MonoBehaviour {
 
         bool optimise = (ParseXMLString(actionX, "optimise", "false", source).ToLower() == "true");
 
-        ResidueMutator.OptisationMethod optisationMethod;
+        ResidueMutator.OptimisationMethod optimisationMethod;
         string optimisationMethodStr = ParseXMLString(actionX, "method", "", source).ToLower();
         if (string.IsNullOrEmpty(optimisationMethodStr)) {
-            optisationMethod = ResidueMutator.OptisationMethod.TREE;
+            optimisationMethod = ResidueMutator.OptimisationMethod.TREE;
         } else if (optimisationMethodStr == "tree") {
-            optisationMethod = ResidueMutator.OptisationMethod.TREE;
+            optimisationMethod = ResidueMutator.OptimisationMethod.TREE;
         } else if (optimisationMethodStr == "brute") {
-            optisationMethod = ResidueMutator.OptisationMethod.BRUTE_FORCE;
+            optimisationMethod = ResidueMutator.OptimisationMethod.BRUTE_FORCE;
+        } else if (optimisationMethodStr == "treebrute") {
+            optimisationMethod = ResidueMutator.OptimisationMethod.TREE_BRUTE;
         } else {
             Fail(actionX, "Failed to parse Optimisation Method '{0}'", optimisationMethodStr);
             yield break;
@@ -1559,8 +1564,8 @@ public class MacroGroup : MonoBehaviour {
             newResidue,
             deltaTheta,
             (optimise) 
-                ? optisationMethod
-                : ResidueMutator.OptisationMethod.NONE
+                ? optimisationMethod
+                : ResidueMutator.OptimisationMethod.NONE
         );
 
         CustomLogger.LogFormat(
@@ -1569,7 +1574,7 @@ public class MacroGroup : MonoBehaviour {
             residueID,
             source.name,
             residueMutator.clashScore,
-            optisationMethod,
+            optimisationMethod,
             oldResidueName,
             targetStr
             
@@ -2705,6 +2710,7 @@ public class MacroGroup : MonoBehaviour {
         string defaultValue="", 
         Geometry geometry=null
     ) {
+        //CustomLogger.LogFormat(EL.INFO, $"Parse: FileIO.ParseXMLAttrString(xElement, name, defaultValue)");
         return ExpandVariables(FileIO.ParseXMLAttrString(xElement, name, defaultValue), geometry);
     }
 
@@ -2972,6 +2978,9 @@ public class MacroGroup : MonoBehaviour {
 
     static string ExpandVariable(string input, Geometry geometry=null) {
         string output;
+        //CustomLogger.LogFormat(EL.INFO, $"Expand variable: {input}");
+        //CustomLogger.LogFormat(EL.INFO, string.Join(", ", variableDict.Keys));
+
         if (variableDict.TryGetValue(input.ToLower(), out output)) {
             return output;
         }

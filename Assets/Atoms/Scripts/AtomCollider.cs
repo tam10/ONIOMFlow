@@ -33,6 +33,10 @@ public class AtomCollider : MonoBehaviour {
         mesh.colors = colors;
     }
 
+    public Color GetColor() {
+        return mesh.colors.First();
+    }
+
     public void OnTriggerEnter(Collider other) {
         if (other == null) {return;}
         if (isEligible) {

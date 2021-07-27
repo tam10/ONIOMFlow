@@ -721,14 +721,18 @@ public static class Cleaner {
 
             //If this is a hydrogen and it has no connections, join to nearest non-H atom.
             if (pdbID0.element == Element.H) {
-                PDBID pdbID1 = residue.EnumerateAtoms(pdbID => pdbID.element != Element.H)
-                    .ToList()
-                    .OrderBy(x => CustomMathematics.GetDistance(atom0, x.atom))
-                    .First()
-                    .pdbID;
+                List<(PDBID pdbID, Atom atom)> heavyAtoms = residue.EnumerateAtoms(pdbID => pdbID.element != Element.H)
+                    .ToList();
+                if (heavyAtoms.Count != 0) {
+                    PDBID pdbID1 = heavyAtoms
+                        .OrderBy(x => CustomMathematics.GetDistance(atom0, x.atom))
+                        .First()
+                        .pdbID;
+
+                    atom0.internalConnections[pdbID1] = BT.SINGLE;
+                    residue.GetAtom(pdbID1).internalConnections[pdbID0] = BT.SINGLE;
+                }
                 
-                atom0.internalConnections[pdbID1] = BT.SINGLE;
-                residue.GetAtom(pdbID1).internalConnections[pdbID0] = BT.SINGLE;
             }
         }
     }

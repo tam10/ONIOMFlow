@@ -14,15 +14,17 @@
     <userBool id="OPTIMISE" title="Mutate Residue" prompt="Optimise Mutated Residue?" />
     <array id="RESIDUE_NAMES">
         <item>ALA</item><item>ARG</item><item>ASN</item><item>ASH</item><item>ASP</item>
-        <item>CYS</item><item>CYM</item><item>CYX</item><item>GLU</item><item>GLH</item>
-        <item>GLN</item><item>GLY</item><item>HID</item><item>HIE</item><item>HIP</item>
-        <item>ILE</item><item>LEU</item><item>LYN</item><item>LYS</item><item>MET</item>
-        <item>PHE</item><item>PRO</item><item>SER</item><item>THR</item><item>TRP</item>
-        <item>TYR</item><item>VAL</item>
+        <item>CYS</item><item>GLU</item><item>GLH</item><item>GLN</item><item>GLY</item>
+        <item>HID</item><item>HIE</item><item>HIP</item><item>ILE</item><item>LEU</item>
+        <item>LYN</item><item>LYS</item><item>MET</item><item>PHE</item><item>PRO</item>
+        <item>SER</item><item>THR</item><item>TRP</item><item>TYR</item><item>VAL</item>
     </array>
 
+
+    <action id="copy" source="GEOMETRY" destination="clone" />
+
     <foreach array="RESIDUE_NAMES" var="TARGET">
-        <group type="geometry" name="geometryGroup" source="$(GEOMETRY)">
+        <group type="geometry" name="geometryGroup" source="GEOMETRY">
 
             <residueVar id="MUTANT" type="mutant">
                 <residueID>$(RESIDUE_ID)</residueID>
@@ -33,13 +35,20 @@
                 <residueID>$(RESIDUE_ID)</residueID>
                 <target>$(TARGET)</target>
                 <optimise>$(OPTIMISE)</optimise>
+                <method>treeBrute</method>
             </action>
+
+            <action id="generateAtomMap" />
+            <action id="estimateChargeMultiplicity" />
 
             <action id="save">
                 <directory>$(PROJECT)/Mutation</directory>
-                <name>$(MUTANT)_$(TARGET).xat</name>
+                <name>$(MUTANT)_$(TARGET).gjf</name>
                 <connectivity>true</connectivity>
             </action>
+
+
+            <action id="copy" source="clone" destination="GEOMETRY" />
 
         </group>
     </foreach>

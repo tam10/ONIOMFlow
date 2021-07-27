@@ -29,7 +29,7 @@ public class PrefabManager : MonoBehaviour {
 	public Button buttonPrefab;
 	public ScrollRect scrollViewPrefab;
 	public ScrollText scrollTextPrefab;
-	
+	public Scrollbar scrollbarPrefab;
 
 
 	// Geometry Interface
@@ -130,7 +130,8 @@ public class PrefabManager : MonoBehaviour {
 		Transform transform,  
 		COL colour=COL.BRIGHT_75,
 		TMPro.FontStyles fontStyles=TMPro.FontStyles.Normal,
-		TMPro.TextAlignmentOptions textAlignmentOptions=TMPro.TextAlignmentOptions.Center
+		TMPro.TextAlignmentOptions textAlignmentOptions=TMPro.TextAlignmentOptions.Center,
+		bool autosize=true
 	) {
 		GameObject textPrefab;
 		int key = (int)colour;
@@ -142,7 +143,7 @@ public class PrefabManager : MonoBehaviour {
 
 			TextMeshProUGUI text = textPrefab.GetComponent<TextMeshProUGUI>();
 			text.color = ColorScheme.GetColor(colour);
-			text.enableAutoSizing = true;
+			text.enableAutoSizing = autosize;
 		}
 		GameObject textGO = GameObject.Instantiate<GameObject>(textPrefab, transform);
 		TextMeshProUGUI textGOText = textGO.GetComponent<TextMeshProUGUI>();
@@ -182,7 +183,8 @@ public class PrefabManager : MonoBehaviour {
 		SIZE size=SIZE.SMALL, 
 		CS colourScheme=CS.BRIGHT,
 		TMPro.FontStyles fontStyles=TMPro.FontStyles.Normal,
-		TMPro.TextAlignmentOptions textAlignmentOptions=TMPro.TextAlignmentOptions.Center
+		TMPro.TextAlignmentOptions textAlignmentOptions=TMPro.TextAlignmentOptions.Center,
+		bool autosize=true
 	) {
 		GameObject buttonPrefab;
 		int key = (int)size + 1024 * (int)colourScheme;
@@ -211,6 +213,7 @@ public class PrefabManager : MonoBehaviour {
 		textGOText.fontStyle = fontStyles;
 		textGOText.alignment = textAlignmentOptions;
 		textGOText.text = textString;
+		textGOText.enableAutoSizing = autosize;
 		return buttonGO;
 	}
 
@@ -370,5 +373,12 @@ public class PrefabManager : MonoBehaviour {
 		return scrollViewGO;
 	}
 
-
+	public static GameObject InstantiateScrollBar(
+		Transform transform,
+		CS colourScheme=CS.DARK
+	) {
+		Scrollbar scrollbar = GameObject.Instantiate<Scrollbar>(main.scrollbarPrefab, transform);
+		scrollbar.colors = ColorScheme.GetColorSchemeBlock(colourScheme);
+		return scrollbar.gameObject;
+	}
 }

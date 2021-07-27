@@ -148,7 +148,10 @@ public static class PartialChargeCalculator {
             Geometry groupGeometry = geometryInterface.geometry.TakeResidues(residueGroup, null);
             yield return RedistributeCharge(groupGeometry, Settings.chargeDistributions);
             yield return geometryInterface.geometry.UpdateFrom(groupGeometry, updateCharges:true);
-            GameObject.Destroy(groupGeometry);
+
+            if (groupGeometry != null) {
+                GameObject.Destroy(groupGeometry.gameObject);
+            }
 
         }
 
@@ -432,6 +435,10 @@ public static class PartialChargeCalculator {
         bool internalRESP,
         TID taskID
     ) {
+
+        if (residueGroup.Count() == 0) {
+            yield break;
+        }
                 
         CustomLogger.LogFormat(
             EL.VERBOSE,
@@ -439,12 +446,18 @@ public static class PartialChargeCalculator {
             string.Join("', '", residueGroup)
         );
         Geometry groupGeometry = geometryInterface.geometry.TakeResidues(residueGroup, null);
+        Constants.ChainID chainID = residueGroup.First().chainID;
 
         foreach (Atom atom in groupGeometry.EnumerateAtoms()) {
             atom.oniomLayer = OLID.REAL;
         }
 
 		yield return groupGeometry.gaussianCalculator.EstimateChargeMultiplicity(true);
+
+        if (groupGeometry.gaussianCalculator.cancelled) {
+
+            yield break;
+        }
 
         GaussianCalculator gc = groupGeometry.gaussianCalculator;
         Layer layer = gc.layerDict[OLID.REAL];
@@ -456,9 +469,9 @@ public static class PartialChargeCalculator {
             Directory.CreateDirectory(chargesDirectory);
         }
 
-        string optInput = Path.Combine(Settings.projectPath, Settings.chargesDirectory, groupBaseName + "_opt.gjf");
-        string optOutput = Path.Combine(Settings.projectPath, Settings.chargesDirectory, groupBaseName + "_opt.log");
-        string optCheck = Path.Combine(Settings.projectPath, Settings.chargesDirectory, groupBaseName + "_opt.chk");
+        string optInput = Path.Combine(Settings.projectPath, Settings.chargesDirectory, groupBaseName + "_opt1.gjf");
+        string optOutput = Path.Combine(Settings.projectPath, Settings.chargesDirectory, groupBaseName + "_opt1.log");
+        string optCheck = Path.Combine(Settings.projectPath, Settings.chargesDirectory, groupBaseName + "_opt1.chk");
 
         gc.numProcessors = 4;
 
@@ -487,15 +500,21 @@ public static class PartialChargeCalculator {
             false,
             true,
             //Estimation of the amount of time PM6 opt takes for 1% completion
-            (float)(CustomMathematics.IntPow(electrons, 3) / 100000000),
+            (float)(CustomMathematics.IntPow(electrons, 3) / 1000000),
             optInput,
             optOutput
         );
-
-        yield return FileReader.UpdateGeometry(groupGeometry, optOutput, updatePositions:true);
+        
+        yield return FileReader.UpdateGeometry(groupGeometry, optOutput, updatePositions:true, chainID:chainID);
 
         gc.additionalKeywords = new List<string> {"SCF=Conver=8"};
 
+        optInput = Path.Combine(Settings.projectPath, Settings.chargesDirectory, groupBaseName + "_opt2.gjf");
+        optOutput = Path.Combine(Settings.projectPath, Settings.chargesDirectory, groupBaseName + "_opt2.log");
+        optCheck = Path.Combine(Settings.projectPath, Settings.chargesDirectory, groupBaseName + "_opt2.chk");
+
+        gc.convergenceThreshold = GCT.TIGHT;
+        
         gc.title = "Second Optimisation";
 
         gc.checkpointPath = optCheck;
@@ -512,12 +531,12 @@ public static class PartialChargeCalculator {
             false,
             true,
             //Estimation of the amount of time HF opt takes for 1% completion
-            (float)(CustomMathematics.IntPow(electrons, 4) / 1000000000),
+            (float)(CustomMathematics.IntPow(electrons, 4) / 10000000),
             optInput,
             optOutput
         );
 
-        yield return FileReader.UpdateGeometry(groupGeometry, optOutput, updatePositions:true);
+        yield return FileReader.UpdateGeometry(groupGeometry, optOutput, updatePositions:true, chainID:chainID);
 
         //Charges
 
@@ -549,7 +568,7 @@ public static class PartialChargeCalculator {
             chargeOutput
         );
 
-        yield return FileReader.UpdateGeometry(geometryInterface.geometry, chargeOutput, updateCharges:true);
+        yield return FileReader.UpdateGeometry(geometryInterface.geometry, chargeOutput, updateCharges:true, chainID:chainID);
 
     }
 

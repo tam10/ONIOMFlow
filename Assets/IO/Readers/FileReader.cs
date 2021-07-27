@@ -82,21 +82,20 @@ public static class FileReader {
         Map<AtomID, int> atomMap=null,
 		ChainID chainID=ChainID._
 	) {
-		
+
 		Geometry tempGeometry = PrefabManager.InstantiateGeometry(null);
 
 		tempGeometry.atomMap = atomMap ?? geometry.atomMap;
 
 		yield return LoadGeometry(tempGeometry, path, chainID:chainID);
 
-
 		if (chainID == ChainID._) {
 			//Update all atoms with exact match
-			foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
+			foreach ((ResidueID residueID, PDBID pdbID, Atom atom) in geometry.EnumerateAtomIDTriples()) {
 				//Skip atoms with a different chainID
 
 				Atom tempAtom;
-				if (tempGeometry.TryGetAtom(atomID, out tempAtom)) {
+				if (tempGeometry.TryGetAtom(residueID, pdbID, out tempAtom)) {
 					if (updateAmbers) {
 						atom.amber = tempAtom.amber;
 					}
@@ -114,35 +113,42 @@ public static class FileReader {
 
 		} else {
 			// Update atoms forcing to a particular chain
-			foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
+			foreach ((ResidueID residueID, PDBID pdbID, Atom atom) in geometry.EnumerateAtomIDTriples()) {
 				//Skip atoms with a different chainID
-				if (atomID.residueID.chainID != chainID) {
+				if (residueID.chainID != chainID) {
 					continue;
 				}
 
-				AtomID altAtomID = atomID;
-				altAtomID.residueID.chainID = ChainID._;
 
-				Atom tempAtom;
-				if (tempGeometry.TryGetAtom(atomID, out tempAtom) || tempGeometry.TryGetAtom(altAtomID, out tempAtom)) {
-					if (updateAmbers) {
-						atom.amber = tempAtom.amber;
-					}
-					if (updateCharges) {
-						atom.partialCharge = tempAtom.partialCharge;
-					}
-					if (updatePositions) {
-						atom.position = tempAtom.position;
-					}
-				}
 				if (Timer.yieldNow) {
 					yield return null;
+				}
+				
+				Atom tempAtom;
+
+				if (!tempGeometry.TryGetAtom(residueID, pdbID, out tempAtom)) {
+					ResidueID altResidueID = residueID;
+					altResidueID.chainID = ChainID._;
+					if (!tempGeometry.TryGetAtom(altResidueID, pdbID, out tempAtom)) {
+						continue;
+					}
+				}
+
+				if (updateAmbers) {
+					atom.amber = tempAtom.amber;
+				}
+				if (updateCharges) {
+					atom.partialCharge = tempAtom.partialCharge;
+				}
+				if (updatePositions) {
+					atom.position = tempAtom.position;
 				}
 			}
 		}
 
-
-		GameObject.Destroy(tempGeometry.gameObject);
+		if (tempGeometry != null) {
+			GameObject.Destroy(tempGeometry.gameObject);
+		}
 
 	}
 

@@ -1,7 +1,9 @@
 ﻿using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
+#if UNITY_STANDALONE_OSX
 using Unity.Burst;
+#endif
 using Unity.Jobs;
 
 ///<summary>Icosphere Generator Singleton Class</summary>
@@ -212,7 +214,6 @@ public class Sphere : MonoBehaviour {
 				innerTriangle[edgeIndex0] = cachedVertIndices[innerVertexIndex];
 			}
 
-
 		}
 		
 		//Build 3 new triangles from 1 outer vertex and 2 inner vertices each (see diagram at top)
@@ -323,7 +324,9 @@ public class Sphere : MonoBehaviour {
 	}
 
 	/// <summary>Job container to generate spheres</summary>
+#if UNITY_STANDALONE_OSX
 	[BurstCompile]
+#endif
 	private struct GetAllSpheresJob : IJob {
 
 		/// <summary>How much a sphere's radius be scaled versus the atomic radius</summary>

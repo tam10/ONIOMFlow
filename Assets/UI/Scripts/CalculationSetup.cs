@@ -118,6 +118,9 @@ public class CalculationSetup : MonoBehaviour {
         Flow.GetGeometryInterface(targetID).activeTasks++;
         Flow.GetGeometryInterface(targetID).status = GIS.OK;
         yield return Flow.CopyGeometry(GIID.COMBINED, targetID);
+
+        //Update parameters
+        Flow.GetGeometry(targetID).parameters.UpdateParameters(Flow.GetGeometry(startID).parameters);
         
         foreach (TID taskID in taskIDs) {
             yield return RunTask(targetID, taskID);
@@ -269,11 +272,22 @@ public class CalculationSetup : MonoBehaviour {
                 oniomLayerID
             );
 
+            //string debugStr = $"{connectionAtomID}\n";
+            //debugStr += $"H-{connectionAtomID.pdbID.element} {Data.GetBondDistances(Element.H, connectionAtomID.pdbID.element)[0]}\n";
+            //debugStr += $"{hostAtomID.pdbID.element}-{connectionAtomID.pdbID.element} {Data.GetBondDistances(hostAtomID.pdbID.element, connectionAtomID.pdbID.element)[0]}\n";
+
             float scaleFactor = 
                 Data.GetBondDistances(Element.H, connectionAtomID.pdbID.element)[0] / 
                 Data.GetBondDistances(hostAtomID.pdbID.element, connectionAtomID.pdbID.element)[0];
+
+            //debugStr += $"Scale Factor: {scaleFactor}\n";
+            //debugStr += $"Old Distance: {CustomMathematics.GetDistance(connectionAtom, linkAtom)}\n";
+
             CustomMathematics.ScaleDistance(connectionAtom, linkAtom, scaleFactor, 0f);
-            
+
+            //debugStr += $"New Distance: {CustomMathematics.GetDistance(connectionAtom, linkAtom)}\n";
+            //Debug.Log(debugStr);
+
             PDBID linkPDBID = connectionAtomID.pdbID;
             linkPDBID.element = Element.H;
 
@@ -484,7 +498,7 @@ public class CalculationSetup : MonoBehaviour {
         NumberOfAtomsResult.text = layerAtomCount[currentLayerID].ToString();
         NumberOfResiduesResult.text = layerResidueCount[currentLayerID].ToString();
         NumberOfElectronsResult.text = layerElectronCount[currentLayerID].ToString();
-        SumOfChargesResult.text = layerCharges[currentLayerID].ToString();
+        SumOfChargesResult.text =  string.Format("{0,8:F3}", layerCharges[currentLayerID]);
 
         Layer currentLayer = GetCurrentLayer();
 

@@ -121,7 +121,7 @@ public static class CustomMathematics {
 				}
 			}
 		} else {
-			
+
 			if (res > minBound) {
 				if (y + res == y) {
 					return 0;
@@ -211,6 +211,18 @@ public static class CustomMathematics {
 			result[i] = A[index++];
 		}
 		return result;
+	}
+
+	public static float3x3 float3x3FromArray(in float[,] A) {
+		float3x3 result = new float3x3();
+		
+		for (int i=0; i<3; i++) {
+			for (int j=0; j<3; j++) {
+				result[i][j] = A[i,j];
+			}
+		}
+		return result;
+
 	}
 
 	/// <summary>Get the average value in float3 of an array of float3's.</summary>
@@ -790,8 +802,8 @@ public static class CustomMathematics {
 	}
 
 	/// <summary>Get the dot product between a 3x3Matrix and a Float3.</summary>
-	/// <param name="v0">Float3 0.</param>
-	/// <param name="v1">Float3 1.</param>
+	/// <param name="A">Array.</param>
+	/// <param name="v1">Float3.</param>
 	public static float[] Dot3(in float[,] A, in float[] v) {
 		float[] result = new float[3];
 		for (int i=0; i<3; i++) {
@@ -802,14 +814,49 @@ public static class CustomMathematics {
 		return result;
 	}
 
+	/// <summary>Get the dot product between a 3x3Matrix and a 3x3Matrix.</summary>
+	/// <param name="A">Array.</param>
+	/// <param name="v1">Float3.</param>
+	public static float[,] Dot3(in float[,] A0, in float[,] A1) {
+		float[,] result = new float[3,3];
+		for (int i=0; i<3; i++) {
+			for (int j=0; j<3; j++) {
+				float r = 0;
+				for (int k=0; j<3; k++) {
+					r += A0[k,j] * A1[i,k];
+				}
+				result[i,j] = r;
+			}
+		}
+		return result;
+	}
+
 	/// <summary>Get the dot product between a float3x3 and a float3.</summary>
-	/// <param name="v0">float3 0.</param>
-	/// <param name="v1">float3 1.</param>
+	/// <param name="A">float3x3.</param>
+	/// <param name="v">float3.</param>
 	public static float3 Dot(in float3x3 A, in float3 v) {
 		float3 result = new float3();
 		for (int i=0; i<3; i++) {
 			result[i] = math.dot(A[i], v);
 		}
+		return result;
+	}
+
+	/// <summary>Get the dot product between a float3x3 and a float3x3.</summary>
+	/// <param name="A0">float3x3.</param>
+	/// <param name="A1">float3x3.</param>
+	public static float3x3 Dot(in float3x3 A0, in float3x3 A1) {
+		float3x3 result = new float3x3();
+		for (int i=0; i<3; i++) {
+			for (int j=0; j<3; j++) {
+				float r = 0;
+				for (int k=0; k<3; k++) {
+					r += A0[i][k] * A1[k][j];
+				}
+				result[i][j] = r;
+			}
+		}
+
 		return result;
 	}
 
@@ -951,6 +998,23 @@ public static class CustomMathematics {
 			}
 		}
 		return At;
+	}
+
+	public static float3[] TransposeDot(in float3[] A, in float3[] B) {
+		int A_l0 = A.Length;
+		
+		float3[] R = new float3[3];
+		for (int r0=0; r0<3; r0++) {
+			for (int r1=0; r1<3; r1++) {
+				float r = 0;
+				for (int l0 = 0; l0 < A_l0; l0++) {
+					r += A[l0][r0] * B[l0][r1];
+				}
+				R[r0][r1] = r;
+			}
+		}
+
+		return R;
 	}
 
 	/// <summary>Return the Matrix Multiplication result of Transpose(A) and B.</summary>
@@ -1312,14 +1376,14 @@ public static class CustomMathematics {
 	/// <param name="atom0">Atom to measure Vector from.</param>
 	/// <param name="atom1">Atom to measure Vector to.</param>
 	public static float3 GetVector(Atom atom0, Atom atom1) {
-		return atom0.position - atom1.position;
+		return atom1.position - atom0.position;
 	}
 
 	/// <summary>Get the normalised Vector from atom0's position to atom1's position.</summary>
 	/// <param name="atom0">Atom to measure Vector from.</param>
 	/// <param name="atom1">Atom to measure Vector to.</param>
 	public static float3 GetNormalisedVector(Atom atom0, Atom atom1) {
-		return math.normalizesafe(atom0.position - atom1.position);
+		return math.normalizesafe(atom1.position - atom0.position);
 	}
 
 	/// <summary>Get the distance between atom0 and atom1.</summary>
@@ -1395,9 +1459,10 @@ public static class CustomMathematics {
 	/// <param name="pivot">The normalised position between atom0 and atom1 that will remain stationary during transformation.</param>
 	public static void ScaleDistance(Atom atom0, Atom atom1, float scaleFactor, float pivot=0.5f) {
 		float3 vector = GetVector(atom0, atom1);
+
 		float amount = (scaleFactor - 1f) * math.length(vector);
-		atom0.position += vector * amount * pivot;
-		atom1.position += vector * amount * (pivot - 1f);
+		atom0.position -= 0.5f * vector * amount * pivot;
+		atom1.position -= 0.5f * vector * amount * (pivot - 1f);
 	}
 
 	//////////////////////////
@@ -1495,6 +1560,239 @@ public static class CustomMathematics {
 		return SignedAngleRad(w01, w32, v21);
 	}
 
+	public class Numpy {
+		
+		public bool succeeded;
+		public string buffer;
+		public float timeoutTime = 10;
+
+		public Numpy() {
+			buffer = "";
+			succeeded = true;
+			if (!Bash.CommandExists("python3")) {
+				CustomLogger.LogFormat(EL.ERROR, "Command 'python3' not found!");
+				succeeded = false;
+			}
+		}
+
+		public System.Diagnostics.Process GetProcess(string name) {
+			string command = $"python3 " + System.IO.Path.Combine(Settings.projectPath, "bin", $"{name}.py");
+
+			return Bash.InteractiveProcess(
+				command, 
+				OutputReceivedHandler,
+				ErrorReceivedHandler
+			);
+		}
+
+		public void OutputReceivedHandler(object s, System.Diagnostics.DataReceivedEventArgs e) {
+			while (!string.IsNullOrEmpty(buffer)) {}
+			buffer = e.Data;
+		}
+
+		public void ErrorReceivedHandler(object s, System.Diagnostics.DataReceivedEventArgs e) {
+			if (e.Data != null) {
+				succeeded = false;
+				CustomLogger.LogFormat(EL.ERROR, e.Data);
+			}
+		}
+
+		public IEnumerator Send1DArray(System.Diagnostics.Process process, float[] array, int dim_i) {
+			
+			// Length of array
+			process.StandardInput.WriteLine(dim_i);
+			if (!succeeded) {
+				CustomLogger.LogFormat(EL.ERROR, "Failed to send Dimension 'dim_i' for 1D Array");
+				yield break;
+			}
+
+			// Input array
+			for (int i=0; i<dim_i; i++) {
+				if (Timer.yieldNow) {yield return null;}
+				process.StandardInput.WriteLine(array[i]);
+				if (!succeeded) {
+					CustomLogger.LogFormat(EL.ERROR, $"Failed to send 1D Array Element '{array[i]}' for 1D Array");
+					yield break;
+				}
+			}
+		}
+
+		public IEnumerator Send2DArray(System.Diagnostics.Process process, float[,] array, int dim_i, int dim_j) {
+			
+			process.StandardInput.WriteLine(dim_i);
+			if (!succeeded) {
+				CustomLogger.LogFormat(EL.ERROR, "Failed to send Dimension 'dim_i' for 2D Array");
+				yield break;
+			}
+
+			process.StandardInput.WriteLine(dim_j);
+			if (!succeeded) {
+				CustomLogger.LogFormat(EL.ERROR, "Failed to send Dimension 'dim_j' for 2D Array");
+				yield break;
+			}
+
+			// Input array
+			for (int i=0; i<dim_i; i++) {
+				for (int j=0; j<3; j++) {
+					if (Timer.yieldNow) {yield return null;}
+					process.StandardInput.WriteLine(array[i,j]);
+					if (!succeeded) {
+						CustomLogger.LogFormat(EL.ERROR, $"Failed to send 2D Array Element '{array[i,j]}' for 1D Array");
+						yield break;
+					}
+				}
+			}
+		}
+
+		public IEnumerator Get1DArray(System.Diagnostics.Process process, float[] array, int dim_i) {
+			
+			float timer = 0f;
+
+			process.StandardInput.WriteLine("1");
+
+			for (int i=0; i<dim_i; i++) {
+
+				//Wait for process to send data
+				while (string.IsNullOrEmpty(buffer)) {
+					timer += Time.deltaTime;
+					if ((timer += Time.deltaTime) > timeoutTime) {
+						CustomLogger.LogFormat(EL.ERROR, "Timed out fetching 1D Array");
+						succeeded = false;
+						process.Close();
+						yield break;
+					}
+					yield return null;
+				}
+
+				float x;
+				if (!float.TryParse(buffer, out x)) {
+					CustomLogger.LogFormat(EL.ERROR, $"Failed to parse '{buffer}' as a float");
+					succeeded = false;
+					process.Close();
+					yield break;
+				}
+				buffer = "";
+				array[i] = x;
+			}
+		}
+
+		public IEnumerator Get2DArray(System.Diagnostics.Process process, float[,] array, int dim_i, int dim_j) {
+			
+			float timer = 0f;
+
+			process.StandardInput.WriteLine("1");
+
+			for (int i=0; i<dim_i; i++) {
+				for (int j=0; j<dim_i; j++) {
+
+					//Wait for process to send data
+					while (string.IsNullOrEmpty(buffer)) {
+						timer += Time.deltaTime;
+						if ((timer += Time.deltaTime) > timeoutTime) {
+							CustomLogger.LogFormat(EL.ERROR, "Timed out fetching 2D Array");
+							succeeded = false;
+							process.Close();
+							yield break;
+						}
+						yield return null;
+					}
+
+					float x;
+					if (!float.TryParse(buffer, out x)) {
+						CustomLogger.LogFormat(EL.ERROR, $"Failed to parse '{buffer}' as a float");
+						succeeded = false;
+						process.Close();
+						yield break;
+					}
+					buffer = "";
+					array[i,j] = x;
+					CustomLogger.LogOutput($"({i},{j})={x}");
+					
+				}
+			}
+		}
+
+		public virtual IEnumerator Execute() {yield break;}
+	}
+
+	public class SVD : Numpy {
+
+		public float[,] inputArray;
+		public int dim_i=0;
+		public int dim_j=0;
+		public int dim_k=0;
+
+		public float[,] v;
+		public float[] l;
+		public float[,] u;
+
+
+		public SVD(float3[] array) : base() {
+			dim_i = array.Length;
+			dim_j = 3;
+			dim_k = math.min(dim_i, dim_j);
+
+			inputArray = new float[dim_i, dim_j];
+			
+			for (int i=0; i<dim_i; i++) {
+				float3 vector = array[i];
+				for (int j=0; j<3; j++) {
+					inputArray[i,j] = vector[j];
+				}
+			}
+			
+			v = new float[dim_i, dim_i];
+			l = new float[dim_k];
+			u = new float[dim_j, dim_j];
+
+		}
+
+		public SVD(float[,] array) : base() {
+			dim_i = array.GetLength(0);
+			dim_j = array.GetLength(1);
+			dim_k = math.min(dim_i, dim_j);
+
+			inputArray = new float[dim_i, dim_j];
+			
+			for (int i=0; i<dim_i; i++) {
+				for (int j=0; j<3; j++) {
+					inputArray[i,j] = array[i,j];
+				}
+			}
+			
+			v = new float[dim_i, dim_i];
+			l = new float[dim_k];
+			u = new float[dim_j, dim_j];
+
+		}
+
+		public override IEnumerator Execute() {
+
+			if (!succeeded) {yield break;}
+
+			System.Diagnostics.Process svdProcess = GetProcess("SVD");
+
+			// Send inputs
+			yield return Send2DArray(svdProcess, inputArray, dim_i, dim_j);
+			if (!succeeded) {yield break;}
+
+			// Get results
+
+			// Request V
+			yield return Get2DArray(svdProcess, v, dim_i, dim_i);
+			if (!succeeded) {yield break;}
+
+			// Request L
+			yield return Get1DArray(svdProcess, l, dim_k);
+			if (!succeeded) {yield break;}
+
+			// Request U
+			yield return Get2DArray(svdProcess, u, dim_j, dim_j);
+			if (!succeeded) {yield break;}
+
+			svdProcess.Close();
+		}
+	}
 
 	public class AngleRuler {
 		public float3 p0;
@@ -1546,6 +1844,13 @@ public static class CustomMathematics {
 		/// <summary>The dihedral in radians.</summary>
 		public float dihedral;
 
+		/// <summary>
+		/// Create a Dihedral Ruler about atom1 and atom2 using atom0 and atom3 as rotators.
+		/// </summary>
+		/// <param name="atom0">First atom in the dihedral.</param>
+		/// <param name="atom1">Second atom in the dihedral. Central atom.</param>
+		/// <param name="atom2">Third atom in the dihedral. Central atom.</param>
+		/// <param name="atom3">Fourth atom in the dihedral.</param>
 		public DihedralRuler(Atom atom0, Atom atom1, Atom atom2, Atom atom3) {
 			p0 = atom0.position;
 			p1 = atom1.position;
@@ -1562,6 +1867,13 @@ public static class CustomMathematics {
 			dihedral = SignedAngleRad(w01, w32, v21n);
 		}
 
+		/// <summary>
+		/// Create a Dihedral Ruler about position1 and position2 using position0 and position3 as rotators.
+		/// </summary>
+		/// <param name="position0">First position in the dihedral.</param>
+		/// <param name="position1">Second position in the dihedral. Central position.</param>
+		/// <param name="position2">Third position in the dihedral. Central position.</param>
+		/// <param name="position3">Fourth position in the dihedral.</param>
 		public DihedralRuler(float3 position0, float3 position1, float3 position2, float3 position3) {
 			p0 = position0;
 			p1 = position1;
@@ -1578,70 +1890,138 @@ public static class CustomMathematics {
 			dihedral = SignedAngleRad(w01, w32, v21n);
 		}
 
+		/// <summary>
+		/// Generate a rotation quaternion about this DihedralRuler's axis that rotates by angleRad.
+		/// </summary>
+		/// <param name="angleRad">The angle (in radians) to rotate by.</param>
+		/// <returns>quaternion.AxisAngle(this.v21n, angleRad)</returns>
 		public quaternion GetRotation(float angleRad) {
 			return quaternion.AxisAngle(v21n, angleRad);
 		}
 
-
-		public float3 Rotate(float3 position, float angleRad) {
-			return Rotate(position, GetRotation(angleRad));
+		/// <summary>
+		/// Get the new position of a point to rotate by angleRad about this DihedralRuler's axis.
+		/// </summary>
+		/// <param name="point">The point to rotate.</param>
+		/// <param name="angleRad">The angle to rotate by.</param>
+		/// <returns>The new position of point.</returns>
+		public float3 Rotate(float3 point, float angleRad) {
+			return Rotate(point, GetRotation(angleRad));
 		}
 
-		public float3 Rotate(float3 position, Quaternion rotation) {
-			return math.rotate(rotation, position - p2) + p2;
+		/// <summary>
+		/// Get the new position of a point to rotate by rotation about this DihedralRuler's axis.
+		/// </summary>
+		/// <param name="point">The point to rotate.</param>
+		/// <param name="rotation">The quaternion to rotate by.</param>
+		/// <returns>The new position of point.</returns>
+		public float3 Rotate(float3 point, Quaternion rotation) {
+			return math.rotate(rotation, point - p2) + p2;
 		}
 
-		public float3[] Rotate(float3[] positions, float angleRad) {
-			return Rotate(positions, GetRotation(angleRad));
+		/// <summary>
+		/// Get the new positions of an array of positions to rotate by angleRad about this DihedralRuler's axis.
+		/// </summary>
+		/// <param name="points">The points to rotate.</param>
+		/// <param name="angleRad">The angle to rotate by.</param>
+		/// <returns>The new positions of points.</returns>
+		public float3[] Rotate(float3[] points, float angleRad) {
+			return Rotate(points, GetRotation(angleRad));
 		}
 
-		public float3[] Rotate(float3[] positions, Quaternion rotation) {
-			return positions
+		/// <summary>
+		/// Get the new positions of an array of positions to rotate by rotation about this DihedralRuler's axis.
+		/// </summary>
+		/// <param name="points">The points to rotate.</param>
+		/// <param name="rotation">The rotation to rotate by.</param>
+		/// <returns>The new positions of points.</returns>
+		public float3[] Rotate(float3[] points, Quaternion rotation) {
+			return points
 				.AsParallel()
 				.Select(position => Rotate(position, rotation))
 				.ToArray();
 		}
 
-		public float3[] Rotate(float3[] positions, float angleRad, bool[] mask) {
-			return Rotate(positions, GetRotation(angleRad), mask);
+		/// <summary>
+		/// Get the new positions of an array of positions to rotate by angleRad about this DihedralRuler's axis.
+		/// Use a boolean mask to select which positions are to be rotated (true) and which remain the same (false).
+		/// </summary>
+		/// <param name="points">The points to rotate.</param>
+		/// <param name="angleRad">The angle to rotate by.</param>
+		/// <param name="mask">The boolean mask to decide which positions rotate. Must be the same length as points</param>
+		/// <returns>The new positions of points.</returns>
+		public float3[] Rotate(float3[] points, float angleRad, bool[] mask) {
+			return Rotate(points, GetRotation(angleRad), mask);
 		}
 
-		public float3[] Rotate(float3[] positions, Quaternion rotation, bool[] mask) {
-			int posLen = positions.Length;
+		/// <summary>
+		/// Get the new positions of an array of positions to rotate by rotation about this DihedralRuler's axis.
+		/// Use a boolean mask to select which positions are to be rotated (true) and which remain the same (false).
+		/// </summary>
+		/// <param name="points">The points to rotate.</param>
+		/// <param name="rotation">The rotation to rotate by.</param>
+		/// <param name="mask">The boolean mask to decide which positions rotate. Must be the same length as points</param>
+		/// <returns>The new positions of points.</returns>
+		public float3[] Rotate(float3[] points, Quaternion rotation, bool[] mask) {
+			int posLen = points.Length;
 			if (posLen != mask.Length) {
 				throw new System.ArgumentException(string.Format(
-					"Length of positions ({0}) not equal to length of mask ({1})",
+					"Length of points ({0}) not equal to length of mask ({1})",
 					posLen,
 					mask.Length
 				));
 			}
 			
-			return positions
+			return points
 				.AsParallel()
 				.Select((position, index) => mask[index] ? Rotate(position, rotation) : position)
 				.ToArray();
 
 		}
 
-		public void RotateIP(float3[] positions, float angleRad) {
-			RotateIP(positions, GetRotation(angleRad));
+		/// <summary>
+		/// In-place rotation of points by angleRad about this DihedralRuler's axis.
+		/// </summary>
+		/// <param name="points">The points to rotate.</param>
+		/// <param name="angleRad">The angle to rotate by.</param>
+		public void RotateIP(float3[] points, float angleRad) {
+			RotateIP(points, GetRotation(angleRad));
 		}
 
-		public void RotateIP(float3[] positions, Quaternion rotation) {
-            for (int index=0; index<positions.Length; index++) {
-                positions[index] = Rotate(positions[index], rotation);
+		/// <summary>
+		/// In-place rotation of points by a quaternion about this DihedralRuler's axis.
+		/// </summary>
+		/// <param name="points">The points to rotate.</param>
+		/// <param name="rotation">The rotation to rotate by.</param>
+		public void RotateIP(float3[] points, Quaternion rotation) {
+            for (int index=0; index<points.Length; index++) {
+                points[index] = Rotate(points[index], rotation);
             }
 		}
 
-		public void RotateIP(float3[] positions, float angleRad, bool[] mask) {
-			RotateIP(positions, GetRotation(angleRad), mask);
+		/// <summary>
+		/// In-place rotation of points by angleRad about this DihedralRuler's axis.
+		/// Use a boolean mask to select which positions are to be rotated (true) and which remain the same (false).
+		/// </summary>
+		/// <param name="points">The points to rotate.</param>
+		/// <param name="angleRad">The angle to rotate by.</param>
+		/// <param name="mask">The boolean mask to decide which positions rotate. Must be the same length as points</param>
+		public void RotateIP(float3[] points, float angleRad, bool[] mask) {
+			RotateIP(points, GetRotation(angleRad), mask);
 		}
 
-		public void RotateIP(float3[] positions, Quaternion rotation, bool[] mask) {
-			int posLen = positions.Length;
+		/// <summary>
+		/// In-place rotation of points by a quaternion about this DihedralRuler's axis.
+		/// Use a boolean mask to select which positions are to be rotated (true) and which remain the same (false).
+		/// </summary>
+		/// <param name="points">The points to rotate.</param>
+		/// <param name="rotation">The rotation to rotate by.</param>
+		/// <param name="mask">The boolean mask to decide which positions rotate. Must be the same length as points</param>
+		public void RotateIP(float3[] points, Quaternion rotation, bool[] mask) {
+			int posLen = points.Length;
 			if (posLen != mask.Length) {
 				throw new System.ArgumentException(string.Format(
-					"Length of positions ({0}) not equal to length of mask ({1})",
+					"Length of points ({0}) not equal to length of mask ({1})",
 					posLen,
 					mask.Length
 				));
@@ -1650,7 +2030,7 @@ public static class CustomMathematics {
             for (int index=0; index<posLen; index++) {
                 // Ignore masked atoms
                 if (! mask[index]) {continue;}
-                positions[index] = Rotate(positions[index], rotation);
+                points[index] = Rotate(points[index], rotation);
             }
 		}
 	}
@@ -1838,6 +2218,21 @@ public static class CustomMathematics {
 			return 0;
 		}
 		return coulombFactor / length_squared;
+	}
+	
+
+	/// <summary>Get the Stretching Energy.</summary>
+	/// <param name="deltaLength">The difference between length of the bond and the equilibrium distance.</param>
+	/// <param name="keq">The force constant.</param>
+	/// <param name="req">The equibrium distance.</param>
+	/// <param name="order">The order of the derivative.</param>
+	public static float EBend(float deltaAngle, float aeq, int order) {
+		switch (order) {
+			case (0): return      aeq * deltaAngle * deltaAngle;
+			case (1): return 2f * aeq * deltaAngle;
+			case (2): return 2f * aeq;
+			default:  return 0f;
+		}
 	}
 	/// <summary>Get the Bend Energy between 3 atoms.</summary>
 	/// <param name="deltaAngle">The difference between the current angle and the equilibrium angle.</param>

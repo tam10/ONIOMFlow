@@ -483,6 +483,7 @@
             <task>standardiseWaters</task>
             <task>calculateAMBERTypes</task>
             <task>calculateConnectivity</task>
+            <task>calculateParameters</task>
             <task>checkGeometry</task>
         </defaultTasks>
     </connection>

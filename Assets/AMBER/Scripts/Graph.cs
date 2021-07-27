@@ -822,7 +822,7 @@ public class BendCalculator : MMCalculator {
 
         float angle = CustomMathematics.UnsignedAngleRad(v10, v12);
 
-        float de = CustomMathematics.EStretch(angle - aeq, keq, 1);
+        float de = CustomMathematics.EBend(angle - aeq, keq, 1);
 
         float3 perp = math.cross(v10, v12);
         float3 force10 = math.cross(v10, perp) * de;
@@ -851,7 +851,7 @@ public class BendCalculator : MMCalculator {
 
         float angle = CustomMathematics.UnsignedAngleRad(v10, v12);
 
-        float de = CustomMathematics.EStretch(angle - aeq, keq, 1);
+        float de = CustomMathematics.EBend(angle - aeq, keq, 1);
 
         float3 perp = math.cross(v10, v12);
         float3 force10 = math.cross(v10, perp) * de;

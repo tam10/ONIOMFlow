@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using COL = Constants.Colour;
 using CS = Constants.ColourScheme;
+using EL = Constants.ErrorLevel;
 using SIZE = Constants.Size;
 using TMPro;
 
@@ -330,14 +331,14 @@ public class PopupWindow : MonoBehaviour {
 	/// <param name="parent">The Transform to hold the Rect.</param>
 	/// <param name="name">The name of the Rect's GameObject.</param>
 	/// <param name="color">The colour of the Rect.</param>
-	/// <param name="fillCenter">Whether the centre of the image should be filled.</param>
+	/// <param name="fillCentre">Whether the centre of the image should be filled.</param>
     protected RectTransform AddRect(
         Transform parent, 
         string name, 
         COL color=COL.CLEAR, 
-        bool fillCenter=true
+        bool fillCentre=true
     ) {
-        GameObject rect = PrefabManager.InstantiateRectImage(parent, color, fillCenter);
+        GameObject rect = PrefabManager.InstantiateRectImage(parent, color, fillCentre);
         rect.name = name;
         return rect.GetComponent<RectTransform>();
     }
@@ -391,6 +392,54 @@ public class PopupWindow : MonoBehaviour {
         return scrollViewGO;
     }
 
+    protected Scrollbar AddHorizontalScrollBar(
+        Transform parent,
+        string name,
+        float height,
+        COL troughColour=COL.DARK_50,
+        COL barColour=COL.LIGHT_75,
+        CS colourScheme=CS.DARK
+    ) {
+        RectTransform scrollbarRect = AddRect(parent, name, troughColour);
+        SetRect(scrollbarRect, 0, 0, 1, 0, 0, 0, 0, height);
+
+        RectTransform troughArea = AddRect(scrollbarRect, "Trough");
+        SetRect(troughArea, 0, 0, 1, 1, 0, 0, 0, 0);
+
+        RectTransform handleRect = AddRect(troughArea, "Handle", troughColour);
+        SetRect(handleRect, 0, 0, 1, 1, 2, 2, -2, -2);
+
+        Scrollbar scrollbar = scrollbarRect.gameObject.AddComponent<Scrollbar>();
+        scrollbar.targetGraphic = handleRect.gameObject.GetComponent<Image>();
+        scrollbar.SetDirection(Scrollbar.Direction.LeftToRight, true);
+
+        return scrollbar;
+    }
+
+    protected Scrollbar AddVerticalScrollBar(
+        Transform parent,
+        string name,
+        float width,
+        COL troughColour=COL.DARK_50,
+        COL barColour=COL.LIGHT_75,
+        CS colourScheme=CS.DARK
+    ) {
+        RectTransform scrollbarRect = AddRect(parent, name, troughColour);
+        SetRect(scrollbarRect, 1, 1, 0, 1, 0, 0, -width, 0);
+
+        RectTransform troughArea = AddRect(scrollbarRect, "Trough");
+        SetRect(troughArea, 0, 0, 1, 1, 0, 0, 0, 0);
+
+        RectTransform handleRect = AddRect(troughArea, "Handle", troughColour);
+        SetRect(handleRect, 0, 0, 1, 1, 2, 2, -2, -2);
+
+        Scrollbar scrollbar = scrollbarRect.gameObject.AddComponent<Scrollbar>();
+        scrollbar.targetGraphic = handleRect.gameObject.GetComponent<Image>();
+        scrollbar.SetDirection(Scrollbar.Direction.TopToBottom, true);
+
+        return scrollbar;
+    }
+
 	/// <summary>Adds a Scroll Text to a Transform.</summary>
 	/// <param name="parent">The Transform to hold the Scroll Text.</param>
 	/// <param name="name">The name of the Scroll Text's GameObject.</param>
@@ -419,20 +468,38 @@ public class PopupWindow : MonoBehaviour {
 	/// <param name="name">The name of the Text's GameObject.</param>
 	/// <param name="textString">The initial string value of the Text.</param>
 	/// <param name="size">The size the Text.</param>
-	/// <param name="color">The colour of the Text.</param>
+	/// <param name="colour">The colour of the Text.</param>
 	/// <param name="fontStyles">The style of the Font of the Text.</param>
 	/// <param name="textAlignmentOptions">The Alignment of the Text.</param>
     protected GameObject AddText(
         Transform parent, 
         string name, 
         string text, 
-        COL color=COL.LIGHT_75, 
+        COL colour=COL.LIGHT_75, 
         TMPro.FontStyles fontStyles=TMPro.FontStyles.Normal,
-		TMPro.TextAlignmentOptions textAlignmentOptions=TMPro.TextAlignmentOptions.Center
+		TMPro.TextAlignmentOptions textAlignmentOptions=TMPro.TextAlignmentOptions.Center,
+		bool autosize=true
     ) {
-        GameObject textGO = PrefabManager.InstantiateText(text, parent, color, fontStyles, textAlignmentOptions);
+        GameObject textGO = PrefabManager.InstantiateText(text, parent, colour, fontStyles, textAlignmentOptions, autosize);
         textGO.name = name;
         return textGO;
+    }
+
+    protected RectTransform AddTextBox(
+        Transform parent, 
+        string name, 
+        string text, 
+        COL textColour=COL.LIGHT_75,
+        COL rectColour=COL.DARK_25, 
+        bool fillCentre=true,
+        TMPro.FontStyles fontStyles=TMPro.FontStyles.Normal,
+		TMPro.TextAlignmentOptions textAlignmentOptions=TMPro.TextAlignmentOptions.Center,
+		bool autosize=true
+    ) {
+        RectTransform rect = AddRect(parent, name, rectColour, fillCentre);
+        GameObject textGO = PrefabManager.InstantiateText(text, rect, textColour, fontStyles, textAlignmentOptions, autosize);
+        textGO.name = name;
+        return rect;
     }
 
 
@@ -515,7 +582,7 @@ public class PopupWindow : MonoBehaviour {
         return notebookGO;
     }
 
-    protected static GameObject AddToggle(
+    protected GameObject AddToggle(
         Transform parent,
         string name,
         COL colour,
@@ -524,6 +591,59 @@ public class PopupWindow : MonoBehaviour {
         GameObject toggleGo = PrefabManager.InstantiateToggle(parent, colour, colourScheme);
         toggleGo.name = name;
         return toggleGo;
+    }
+
+    protected GameObject AddButton(
+        Transform parent,
+        string name,
+        string text,
+        COL colour,
+        CS colourScheme,
+        UnityEngine.Events.UnityAction onClick,
+        TextAlignmentOptions textAlignmentOptions=TextAlignmentOptions.Center,
+        bool autosize=true
+    ) {
+        GameObject buttonGo = PrefabManager.InstantiateButton(text, parent, colourScheme:colourScheme, textAlignmentOptions:textAlignmentOptions, autosize:autosize);
+        Button button = buttonGo.GetComponent<Button>();
+        if (button != null) {
+            button.onClick.AddListener(onClick);
+        }
+        buttonGo.name = name;
+        return buttonGo;
+    }
+
+    protected GameObject AddTable(
+        Transform parent,
+        string name,
+        int numRows,
+        int numCols,
+        COL colour,
+        CS colourScheme = CS.DARK,
+        bool fillCentre=true
+    ) {
+        RectTransform tableRect = AddRect(parent, name, colour, fillCentre);
+
+        Table table = tableRect.gameObject.AddComponent<Table>();
+        table.Initialise(this, tableRect, colourScheme, numRows, numCols);
+
+        return tableRect.gameObject;
+    }
+
+    protected GameObject AddScrollTable(
+        Transform parent,
+        string name,
+        int numRows,
+        int numCols,
+        COL colour,
+        CS colourScheme = CS.DARK,
+        bool fillCentre=true
+    ) {
+        RectTransform tableRect = AddRect(parent, name, colour, fillCentre);
+
+        ScrollTable scrollTable = tableRect.gameObject.AddComponent<ScrollTable>();
+        scrollTable.Initialise(this, tableRect, colourScheme, numRows, numCols);
+
+        return tableRect.gameObject;
     }
 
     /// <summary>Set the geometry of a GameObject with a RectTransform</summary>
@@ -598,4 +718,228 @@ public class PopupWindow : MonoBehaviour {
         }
     }
 
+    public class Table : MonoBehaviour {
+        public int numRows;
+        public int numCols;
+        public delegate bool ButtonUpdater();
+        public delegate string TextUpdater();
+
+        public RectTransform rectTransform;
+
+        public delegate void EventHandler();
+
+        public event EventHandler onUpdate;
+
+        public PopupWindow parent;
+
+        public virtual void Initialise(
+            PopupWindow parent, 
+            RectTransform tableRect, 
+            CS colourScheme,
+            int numRows, 
+            int numCols
+        ) {
+            this.parent = parent;
+            rectTransform = tableRect;
+            this.numRows = numRows;
+            this.numCols = numCols;
+        }
+
+        public void Refresh() {
+            onUpdate?.Invoke();
+        }
+
+        public void SetCell(
+            RectTransform cell, 
+            int rowNum, 
+            int colNum,
+            int rowSpan=1,
+            int colSpan=1,
+            int padding=12
+        ) {
+            if (rowNum >= numRows) {
+                CustomLogger.Log(
+                    EL.ERROR,
+                    $"Cannot create a cell with rowNum ({rowNum}) >= numRows ({numRows})"
+                );
+            }
+            if (colNum >= numCols) {
+                CustomLogger.Log(
+                    EL.ERROR,
+                    $"Cannot create a cell with rowNum ({colNum}) >= numRows ({numCols})"
+                );
+            } 
+
+            float anchorMinX = (float)colNum/numCols;
+            float anchorMaxX = (float)(colNum+colSpan)/numCols;
+            float anchorMinY = 1-(float)(rowNum+rowSpan)/numRows;
+            float anchorMaxY = 1-(float)(rowNum)/numRows;
+
+            SetRect(
+                cell, 
+                anchorMinX, anchorMinY,
+                anchorMaxX, anchorMaxY,
+                padding*2, padding,
+                -padding*2, -padding  
+            );
+        }
+
+        public GameObject CreateBorder( 
+            int rowNum,     
+            int colNum,
+            int rowSpan,
+            int colSpan,
+            COL colour=COL.CLEAR
+        ) {
+            RectTransform border = parent.AddRect(
+                rectTransform,
+                $"[{rowNum}->{rowNum+rowSpan}]_[{colNum}->{colNum+colSpan}]",
+                colour,
+                false
+            );
+
+            border.GetComponent<Image>().pixelsPerUnitMultiplier *= 0.5f;
+
+            SetCell(border, rowNum, colNum, rowSpan, colSpan, 2);
+
+            return border.gameObject;
+
+        }
+        
+        public GameObject CreateTextCell(
+            int rowNum,     
+            int colNum, 
+            string text, 
+            TextUpdater textUpdater=null,
+            COL rectColour=COL.BRIGHT_50, 
+            COL textColour=COL.BRIGHT_75, 
+            bool fillCentre=false,
+            FontStyles fontStyles=FontStyles.Normal,
+            TextAlignmentOptions textAlignmentOptions=TextAlignmentOptions.MidlineLeft
+        ) {
+
+            RectTransform cell = parent.AddTextBox(
+                rectTransform,
+                $"{rowNum}_{colNum}",
+                text,
+                rectColour:rectColour,
+                textColour:textColour,
+                fillCentre:fillCentre,
+                fontStyles:fontStyles,
+                textAlignmentOptions:textAlignmentOptions,
+                autosize:false
+            );
+
+            SetCell(cell, rowNum, colNum);
+
+            TextMeshProUGUI tmp = cell.GetComponentInChildren<TextMeshProUGUI>();
+
+            if (tmp != null && textUpdater != null) {
+                onUpdate += () => {tmp.text = textUpdater();};
+            }
+
+
+            return cell.gameObject;
+
+        }
+
+        public GameObject CreateButtonCell(
+            int rowNum,     
+            int colNum, 
+            string text, 
+            UnityEngine.Events.UnityAction onClick,
+            ButtonUpdater buttonEnabled=null,
+            COL colour=COL.CLEAR, 
+            TextAlignmentOptions textAlignmentOptions=TextAlignmentOptions.MidlineLeft
+        ) {
+
+            GameObject cell = parent.AddButton(
+                rectTransform,
+                $"{rowNum}_{colNum}",
+                text,
+                colour,
+                CS.BRIGHT,
+                onClick,
+                autosize:false
+            );
+
+            SetCell(cell.GetComponent<RectTransform>(), rowNum, colNum);
+
+            Button button = cell.GetComponent<Button>();
+
+            if (button != null && buttonEnabled != null) {
+                onUpdate += () => {
+                    if (buttonEnabled()) {
+                        button.enabled = true;
+                        button.GetComponentInChildren<TextMeshProUGUI>().text = "Update";    
+                    } else {
+                        button.enabled = false;
+                        button.GetComponentInChildren<TextMeshProUGUI>().text = "";    
+
+                    }
+                };
+            }
+
+            return cell;
+
+        }
+    }
+
+    public class ScrollTable : Table {
+
+        public delegate void RowUpdateHandler(int index, RectTransform row);
+
+        /// <summary>
+        /// The action to take when a row is created
+        /// </summary>
+        public RowUpdateHandler RowSetter;
+        /// <summary>
+        /// The action to take when a row is updated
+        /// </summary>
+        public RowUpdateHandler RowUpdater;
+        public RectTransform scrollRect;
+
+        public int numBufferedRows;
+
+        public override void Initialise(
+            PopupWindow parent, 
+            RectTransform tableRect, 
+            CS colourScheme,
+            int numRows, 
+            int numCols
+        ) {
+            this.parent = parent;
+            rectTransform = tableRect;
+            this.numBufferedRows = numRows;
+            this.numRows = Mathf.Min(numRows, 25);
+            this.numCols = numCols;
+            
+            GameObject scrollViewGO = parent.AddScrollView(tableRect, $"{name}_ScrollView", colourScheme);
+            SetRect(scrollViewGO, 0, 0, 1, 1, 0, 0, -16, 0);
+            scrollRect = scrollViewGO.GetComponent<ScrollRect>().content;
+
+        }
+
+        public void InitialiseScrollTable(RowUpdateHandler rowSetter, RowUpdateHandler rowUpdater) {
+
+            this.RowSetter = rowSetter;
+            this.RowUpdater = rowUpdater;
+
+            float cellWidth = (scrollRect.rect.width - 4) / numCols;
+
+            for (int rowNum=0; rowNum<this.numRows; rowNum++) {
+                RectTransform row = parent.AddRect(scrollRect, $"Row {rowNum}");
+                SetRect(row, 0, 0, 1, 0, 2, 0, -2, 60);
+                for (int colNum=0; colNum<this.numCols; colNum++) {
+                    RectTransform cell = parent.AddRect(row, $"Cell {colNum}");
+                    SetRect(cell, 0, 0, 0, 1, cellWidth * colNum, 0, cellWidth * (colNum+1), 0);
+                }
+                RowSetter(rowNum, row);
+            }
+        }
+
+
+    }
+
 }
+

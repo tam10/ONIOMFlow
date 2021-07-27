@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Mathematics;
+#if UNITY_STANDALONE_OSX
 using Unity.Burst;
+#endif
 using Unity.Jobs;
 
 ///<summary>Cylinder Generator Singleton Class</summary>
@@ -219,8 +221,10 @@ public class Cylinder : MonoBehaviour {
 
 	}
 
+	#if UNITY_STANDALONE_OSX
 	/// <summary>Job container to generate cylinders</summary>
 	[BurstCompile]
+	#endif
 	private struct GetAllCylindersJob : IJob {
 
 		/// <summary>How much a cylinder's radius be scaled versus the atomic radius</summary>
@@ -345,8 +349,6 @@ public class Cylinder : MonoBehaviour {
 			}
 
 		}
-
-        
-
 	}
+
 }

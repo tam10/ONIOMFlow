@@ -192,4 +192,8 @@ public class NotificationBar : MonoBehaviour {
         if (Timer.yieldNow) {yield return null;}
         
     }
+
+    public static void SetTaskText(string text) {
+        main.taskBar.SetText(text);
+    }
 }

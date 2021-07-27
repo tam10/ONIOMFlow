@@ -64,6 +64,8 @@ public class RotationCube : MonoBehaviour {
             return;
         }
 
+        Camera.main.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+
         linkedTransform.localPosition = initialPosition;
         linkedTransform.eulerAngles = eulerAngles;
         

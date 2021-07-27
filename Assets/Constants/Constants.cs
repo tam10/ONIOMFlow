@@ -97,7 +97,7 @@ public static class Constants {
 	COPY_GEOMETRY, COPY_POSITIONS, REPLACE_PARAMETERS, UPDATE_PARAMETERS, 
 	COPY_PARTIAL_CHARGES, COPY_AMBERS, ALIGN_GEOMETRIES, COMPUTE_PARAMETER_SCORES, 
 	CALCULATE_PW_SASA, CALCULATE_NUM_SASA,
-	FORMAT_CHECKPOINT, CUBE_GEN }
+	FORMAT_CHECKPOINT, CUBE_GEN, ANIMATE_NORMAL_MODE }
 	public static Map<string, TaskID> TaskIDMap = new Map<string, TaskID> {
 		//Checker
 		{"checkGeometry", TaskID.CHECK_GEOMETRY},
@@ -148,6 +148,7 @@ public static class Constants {
 		{"runGaussianRecipe", TaskID.RUN_GAUSSIAN_RECIPE},
 		{"formchk", TaskID.FORMAT_CHECKPOINT},
 		{"cubegen", TaskID.CUBE_GEN},
+		{"animateNormalMode", TaskID.ANIMATE_NORMAL_MODE},
 		//Macros
 		{"runMacro", TaskID.RUN_MACRO},
 

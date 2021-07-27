@@ -326,6 +326,13 @@
     </task>
 
     <task>
+        <name>animateNormalMode</name>
+        <parentClass>gaussian</parentClass>
+        <fullName>Animate Normal Mode</fullName>
+        <description>Read a Normal Mode from a Gaussian Log File and animate it in the AtomsVisualiser</description>
+    </task>
+
+    <task>
         <name>getModelLayer</name>
         <parentClass>layers</parentClass>
         <fullName>Get Model Layer</fullName>

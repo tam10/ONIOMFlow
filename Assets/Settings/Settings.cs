@@ -148,7 +148,7 @@ public static class Settings {
  
 	//NOT YET IN FILE
 
-	public static float maxNonBondingCutoff = 15f;
+	public static float maxNonBondingCutoff = 10f;
 
 	public static float fogStartDistance = 1f;
 	public static float fogEndDistance = 50f;
@@ -400,12 +400,22 @@ public static class Settings {
 		int qualitySetting = QualitySettings.GetQualityLevel ();
 
 		XDocument sX = FileIO.ReadXML (graphicsSettingsPath);
-		foreach (XElement el in sX.Element("graphics").Elements("globalResolution")) {
+		XElement graphicsX = sX.Element("graphics");
+		foreach (XElement el in graphicsX.Elements("globalResolution")) {
 			if (FileIO.ParseXMLAttrInt(el, "value") == qualitySetting) {
 				ballResolution = FileIO.ParseXMLInt(el, "ballResolution");
 				stickResolution = FileIO.ParseXMLInt(el, "stickResolution");
 			}
 		}
+
+		XElement fpsX = graphicsX.Element("targetFPS");
+		if (fpsX != null) {
+			float targetFPS;
+			if (float.TryParse(fpsX.Value, out targetFPS)) {
+				Timer.targetFPS = targetFPS;
+			}
+		}
+
 		yield return null;
 
 	}

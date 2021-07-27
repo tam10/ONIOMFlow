@@ -52,7 +52,9 @@ public class GaussianOutputReader : GeometryReader {
 		float3[] positions = standardPositions.Last();
 
 		foreach ((AtomID atomID, int atomNum) in geometry.atomMap) {
+
 			Atom atom;
+			
 			if (geometry.TryGetAtom(atomID, out atom)) {
 				atom.position = positions[atomNum];
 				atom.partialCharge = currentESPs[atomNum];
@@ -78,17 +80,16 @@ public class GaussianOutputReader : GeometryReader {
 	List<string> keywords;
 
 	bool atomInfoSet = false;
+	bool isONIOM;
 	int[] atomNumbers;
 	ChainID chainID;
 
-	List<float> energies;
+	public List<float> energies;
 	float3[] currentPositions;
-	List<float3[]> standardPositions;
+	public List<float3[]> standardPositions;
 
 	float3[] currentForces;
 	List<float3[]> allForces;
-
-	VibrationalAnalysis vibrationalAnalysis;
 
 	int currentStateIndex;
 	List<ExcitedState> currentExcitedStates;
@@ -161,7 +162,7 @@ public class GaussianOutputReader : GeometryReader {
 			keywords = keywordLines.SelectMany(x => x.Split(new [] {' '})).ToList();
 			RemoveKey(ParseDictKey.KEYWORDS);
 
-			bool isONIOM = false;
+			isONIOM = false;
 			readFreq = false;
 			readForce = false;
 			readTD = false;
@@ -251,18 +252,6 @@ public class GaussianOutputReader : GeometryReader {
 				));
 			}
 
-			//Check atom maps are the same if there's an old map
-			if (
-				atomMapSet && 
-				geometry.atomMap.Count != geometry.atomMap.Count && 
-				geometry.atomMap.Except(geometry.atomMap).Any()
-			) {
-				CustomLogger.LogFormat(
-					EL.WARNING,
-					"Old Atom Map is not the same as New Atom Map. It's possible that these geometries are not related or the order changed."
-				);
-			}
-
 			AddKey(ParseDictKey.STANDARD_ORIENTATION);
 			activeParser = ParseNormal;
 		} else {
@@ -301,16 +290,21 @@ public class GaussianOutputReader : GeometryReader {
 			}
 
 			//Build new map
-			geometry.atomMap[atomIndex++] = atomID;
+			if (!atomMapSet) {
+				geometry.atomMap[atomIndex] = atomID;
+			}
+			atomIndex++;
 		}
 	}
 
 	void ParseStandardOrientation() {
 
 		if (line.StartsWith(" --")) {
-			standardPositions.Add((float3[])currentPositions.Clone());
 			
-			RemoveKey(ParseDictKey.STANDARD_ORIENTATION);
+			standardPositions.Add((float3[])currentPositions.Clone());
+
+			
+			//RemoveKey(ParseDictKey.STANDARD_ORIENTATION);
 			if (readTD) {
 				AddKey(ParseDictKey.E_DIP_MOM);
 				AddKey(ParseDictKey.EXCITED_STATE);
@@ -513,20 +507,29 @@ public class GaussianOutputReader : GeometryReader {
 				}
 				modesPerLine = splitLine.Length - 2;
 				
-				AddFrequencyInfo(vibrationalAnalysis.frequencies, splitLine, 2);
+				AddFrequencyInfo(geometry.gaussianResults.frequencies, splitLine, 2);
 				break;
 			case "Red.":
-				AddFrequencyInfo(vibrationalAnalysis.reducedMasses, splitLine, 3);
+				AddFrequencyInfo(geometry.gaussianResults.reducedMasses, splitLine, 3);
 				break;
 			case "Frc":
-				AddFrequencyInfo(vibrationalAnalysis.forceConstants, splitLine, 3);
+				AddFrequencyInfo(geometry.gaussianResults.forceConstants, splitLine, 3);
 				break;
 			case "IR":
-				AddFrequencyInfo(vibrationalAnalysis.intensities, splitLine, 3);
+				AddFrequencyInfo(geometry.gaussianResults.intensities, splitLine, 3);
+				break;
+			case "%ModelSys":
+				AddFrequencyInfo(geometry.gaussianResults.modelPercents, splitLine, 2);
+				break;
+			case "%RealSys":
+				AddFrequencyInfo(geometry.gaussianResults.realPercents, splitLine, 2);
 				break;
 			case "Atom":
-				atomIndex = 0;
-				activeParser = ParseNormalModes;
+				skipLines = size;
+				for (int modeIndex=0; modeIndex<3; modeIndex++) {
+					geometry.gaussianResults.modeLineStarts[modeIndex+currentMode] = new int2(lineNumber+1, modeIndex);
+				}
+				currentMode += modesPerLine;
 				break;
 			default:
 
@@ -534,27 +537,64 @@ public class GaussianOutputReader : GeometryReader {
 		}
 	}
 
-	void ParseNormalModes() {
-		string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
-		int startIndex = 2;
-		for (int modeNum=currentMode; modeNum<currentMode+modesPerLine; modeNum++) {
-			for (int coord=0; coord<3; coord++) {
-				vibrationalAnalysis.normalModes[modeNum, atomIndex, coord] = float.Parse(splitLine[startIndex++]);
+	public static IEnumerator ParseNormalMode(float3[] normalMode, string path, int size, int modeStartLineNumber, int modeIndex) {
+
+		int atomIndex = 0;
+		int startIndex = 2 + 3 * modeIndex;
+
+		// First try sed to grab file section
+
+		string command = $"sed -n \"{modeStartLineNumber+1},{modeStartLineNumber+size}p;{modeStartLineNumber+size+1}q\" {path}";
+
+		Bash.ProcessResult result = new Bash.ProcessResult();
+
+		yield return Bash.ExecuteShellCommand(command, result, logOutput:false);
+
+		IEnumerable<string> enumerable;
+
+		if (result.ExitCode == 0) {
+			string output = result.Output;
+			enumerable = output.Split(new string[] {FileIO.newLine}, StringSplitOptions.RemoveEmptyEntries);
+		} else {
+			enumerable = FileIO.EnumerateLines(path).Skip(modeStartLineNumber).Take(size);
+		}
+
+		foreach (string line in enumerable) {
+			string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
+			if (splitLine.Length < startIndex + 3) {
+				CustomLogger.LogFormat(EL.ERROR, $"Failed to parse Normal Mode (Line {modeStartLineNumber+atomIndex}): \"{line}\" (Line too short)");
+				yield break;
 			}
+			for (int coord=0,index=startIndex; coord<3; coord++,index++) {
+				float x;
+				if (!float.TryParse(splitLine[index], out x)) {
+					CustomLogger.LogFormat(EL.ERROR, $"Failed to parse Normal Mode (Line {modeStartLineNumber+atomIndex}): \"{line}\" (Error parsing float)");
+					yield break;
+				}
+				normalMode[atomIndex][coord] = x;
+			}
+			atomIndex++;
+			if (Timer.yieldNow) {yield return null;}
 		}
-		if (++atomIndex == size) {
-			currentMode += modesPerLine;
-			activeParser = ParseFrequencyInfo;
-		}
+
 	}
 
 	bool ExpectEnergy() {
 
-		if (!line.StartsWith(" ONIOM: extrapolated")) {return false;}
+		if (isONIOM) {
+			if (!line.StartsWith(" ONIOM: extrapolated")) {
+				return false;
+			}
+		} else {
+			if (!line.StartsWith(" SCF Done:")) {
+				return false;
+			}
+		}
 		float energy;
 		
 		string[] splitLine = line.Split(new [] {' '}, System.StringSplitOptions.RemoveEmptyEntries);
-		if (splitLine.Length != 5) {
+
+		if (splitLine.Length != (isONIOM ? 5 : 9)) {
 			throw new System.Exception(string.Format(
 				"Failed to read Energy: invalid line specification"
 			));
@@ -615,7 +655,7 @@ public class GaussianOutputReader : GeometryReader {
 	}
 
 	bool ExpectStandardOrientation() {
-
+		
 		if (!line.StartsWith("                         Standard orientation:")) {return false;}
 
 		CustomLogger.LogFormat(
@@ -631,7 +671,9 @@ public class GaussianOutputReader : GeometryReader {
 
 	bool ExpectForces() {
 
-		if (!line.StartsWith(" Center     Atomic") && line.Substring(42, 6) == "Forces") {return false;}
+		if (
+			!(line.StartsWith(" Center     Atomic") && line.Substring(42, 6) == "Forces")
+		) {return false;}
 		
 		CustomLogger.LogFormat(
 			EL.VERBOSE,
@@ -752,7 +794,7 @@ public class GaussianOutputReader : GeometryReader {
 	bool ExpectFrequencies() {
 		
 		if (!line.StartsWith(" Harmonic frequencies ")) {return false;}
-
+		Debug.LogFormat("Freq");
 		skipLines = 3;
 		currentMode = 0;
 		activeParser = ParseFrequencyInfo;
@@ -765,9 +807,8 @@ public class GaussianOutputReader : GeometryReader {
 	///////////
 
 	void AddFrequencyInfo(float[] array, string[] splitLine, int startIndex) {
-		ArraySegment<float> segment = new ArraySegment<float>(array, currentMode, modesPerLine);
-		for (int i=2; i<2+modesPerLine; i++) {
-			segment.Array[i] = float.Parse(splitLine[startIndex++]);
+		for (int i=0; i<modesPerLine; i++) {
+			array[currentMode+i] = float.Parse(splitLine[startIndex++]);
 		}
 	}
 
@@ -785,7 +826,7 @@ public class GaussianOutputReader : GeometryReader {
 			currentESPs = new float[size];
 			atomInfoSet = true;
 
-			vibrationalAnalysis = new VibrationalAnalysis(size);
+			geometry.gaussianResults = new GaussianResults(path, size);
 		}
 	}
 

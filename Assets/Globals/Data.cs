@@ -76,8 +76,8 @@ public static class Data {
 	public static Dictionary<Amber, Dictionary<int, float>> formalChargesDict = new Dictionary<Amber, Dictionary<int, float>>();
 	public static Dictionary<Amber, float> aromaticAmbers = new Dictionary<Amber, float>();
 
-	public static Amber waterAmberH = Amber.HO;
-	public static Amber waterAmberO = Amber.OH;
+	public static Amber waterAmberH = Amber.HW;
+	public static Amber waterAmberO = Amber.OW;
 
 	public const float angstromToBohr = 1.8897259886f;
 	public const float kcalToHartree = 0.0015936011f;
@@ -838,9 +838,9 @@ public static class Data {
 		float aromaticCount = 0;
 		float chargeContribution = 0f;
 		int electrons = 0;
-		foreach ((AtomID atomID, Atom atom) in geometry.EnumerateAtomIDPairs()) {
+		foreach ((ResidueID residueID, PDBID pdbID, Atom atom) in geometry.EnumerateAtomIDTriples()) {
 			Amber amber = atom.amber;
-			electrons += atomID.pdbID.atomicNumber;
+			electrons += pdbID.atomicNumber;
 
 			float aromaticContribution;
 			if (aromaticAmbers.TryGetValue(amber, out aromaticContribution)) {

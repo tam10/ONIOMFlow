@@ -13,7 +13,63 @@ public static class Bash {
 
 	static Dictionary<int, Process> processDict = new Dictionary<int, Process>();
 
-	public static Process StartBashProcess(string command, string directory="", bool logOutput=false, bool logError=false) {
+	public static Process InteractiveProcess(
+		string command, 
+		DataReceivedEventHandler outputReceivedHandler, 
+		DataReceivedEventHandler errorReceivedHandler, 
+		string directory=""
+	) {
+
+		List<string> bashRCs = new List<string> {".bashrc", ".bash_profile"};
+		foreach (string bashRC in bashRCs) {
+			string bashRCPath = Path.Combine(Settings.home, bashRC);
+			if (File.Exists(bashRCPath)) {
+				command = string.Format("source {0}; {1}", bashRCPath, command);
+				break;
+			} else {
+				UnityEngine.Debug.LogFormat("{0} doesn't exist", bashRCPath);
+			}
+		}
+
+		command = string.Format ("-c \'{0}\'", command);
+
+		Process process = new Process();
+		ProcessStartInfo StartInfo = new ProcessStartInfo();
+		StartInfo.FileName = "/bin/bash";
+
+		foreach (DictionaryEntry de in System.Environment.GetEnvironmentVariables()) {
+			StartInfo.EnvironmentVariables[(string)de.Key] = (string)de.Value;
+		}
+
+		StartInfo.Arguments = command;
+		StartInfo.WorkingDirectory = directory == "" ? Settings.tempFolder : directory;
+		StartInfo.CreateNoWindow = true;
+		StartInfo.UseShellExecute = false;
+		process.EnableRaisingEvents = false;
+
+		StartInfo.RedirectStandardOutput = true;
+		process.OutputDataReceived += outputReceivedHandler;
+
+		StartInfo.RedirectStandardError = true;
+		process.ErrorDataReceived += errorReceivedHandler;
+
+		StartInfo.RedirectStandardInput = true;
+
+		process.StartInfo = StartInfo;
+
+		process.Start();
+
+		process.BeginOutputReadLine();
+		process.BeginErrorReadLine();
+
+		int pid = process.Id;
+		processDict[pid] = process;
+		
+		return process;
+
+	}
+
+	public static Process StartBashProcess(string command, string directory="", bool logOutput=false, bool logError=false, bool redirectStandardInput=false) {
 
 		List<string> bashRCs = new List<string> {".bashrc", ".bash_profile"};
 		foreach (string bashRC in bashRCs) {
@@ -70,6 +126,8 @@ public static class Bash {
 			);
 		}
 
+		StartInfo.RedirectStandardInput = redirectStandardInput;
+
 		process.StartInfo = StartInfo;
 		process.Start();
 
@@ -84,47 +142,25 @@ public static class Bash {
 
 		int pid = process.Id;
 		processDict[pid] = process;
-
+		
 		return process;
-
-		//ProcessStartInfo procInfo = new ProcessStartInfo {
-		//	UseShellExecute = false,
-		//	RedirectStandardOutput = true,
-		//	RedirectStandardError = true,
-		//	CreateNoWindow = false,
-		//	FileName = "/bin/bash",
-		//	WorkingDirectory = directory == "" ? Settings.tempFolder : directory,
-		//	Arguments = command
-		//};
-//
-		//foreach (DictionaryEntry de in System.Environment.GetEnvironmentVariables()) {
-		//	procInfo.EnvironmentVariables[(string)de.Key] = (string)de.Value;
-		//}
-//
-		//Process process = new Process { StartInfo = procInfo };
-//
-		//process.Start();
-//
-		//if (logOutput) {
-		//	process.OutputDataReceived += LogInfo;
-		//	process.BeginOutputReadLine();
-		//}
-		//if (logError) {
-		//	process.ErrorDataReceived += LogError;
-		//	process.BeginErrorReadLine();
-		//}
-		//
-		//int pid = process.Id;
-		//processDict[pid] = process;
-		//
-		//return process;
 	}
 
 	public static bool CommandExists(string command) {
 		string commandCheck = string.Format("which {0}", command);
-		Process process = StartBashProcess(commandCheck);
-		
-        process.WaitForExit();
+
+		Process process;
+		try {
+			process = StartBashProcess(commandCheck);
+			process.WaitForExit();
+
+		} catch (System.ComponentModel.Win32Exception) {
+			CustomLogger.LogFormat(
+				EL.WARNING,
+				$"Bash not installed - cannot use external command '{command}'"
+			);
+			return false;
+		}
 
 		string output = process.StandardOutput.ReadToEnd();
 
@@ -270,7 +306,7 @@ public static class Bash {
 					while (!process.HasExited) {
 						yield return null;
 					}
-
+					
 					process.WaitForExit();
 
                     result.Completed = true;
@@ -442,7 +478,7 @@ public static class Bash {
 				yield return externalCommand.UserSetCommandPath();
 				if (command != "") {
 					externalCommandX.Element("command").Remove();
-					externalCommandX.Element("commandPath").Remove();
+					externalCommandX.Element("commandPath")?.Remove();
 					externalCommandX.Add(new XElement("command", externalCommand.command));
 					externalCommandX.Add(new XElement("commandPath", externalCommand.commandPath));;
 				} else {

@@ -67,6 +67,7 @@ public static class FileIO {
 		using (FileStream fileStream = File.OpenRead(filename)) {
 			using (StreamReader streamReader = new StreamReader(fileStream, Encoding.UTF8, true)) {
 				string line;
+
 				while ((line = streamReader.ReadLine()) != null) {
 					yield return line;
 				}

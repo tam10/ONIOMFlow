@@ -12,6 +12,8 @@ public class ProjectBuilder : MonoBehaviour {
     public string dataPath;
     public string recipeDirectory;
     public string recipePath;
+    public string binDirectory;
+    public string binPath;
 
     public string projectFile = ".project";
     
@@ -29,6 +31,7 @@ public class ProjectBuilder : MonoBehaviour {
         GetSettingsFiles();
         GetDataFiles();
         GetRecipeFiles();
+        GetBinFiles();
 
         yield return Settings.Initialise(projectPath);
         yield return Data.Initialise();
@@ -144,6 +147,14 @@ public class ProjectBuilder : MonoBehaviour {
         CreateFile(recipeDirectory, "mutateAllDouble", recipePath, "mutateAllDouble.xml");
         CreateFile(recipeDirectory, "mutateAll", recipePath, "mutateAll.xml");
         CreateFile(recipeDirectory, "mutateCompare", recipePath, "mutateCompare.xml");
+    }
+
+    void GetBinFiles() {
+        binDirectory = "bin";
+        binPath = Path.Combine(projectPath, binDirectory);
+
+        CreateDirectory(binPath);
+        CreateFile(binDirectory, "SVD", binPath, "SVD.py");
     }
 
     void CreateDirectory(string path) {

@@ -105,6 +105,15 @@ public class Geometry : MonoBehaviour {
 		);
 	
 	/// <summary>Enumerate each Atom in this Geometry object</summary>
+	public IEnumerable<Atom> EnumerateAtoms()  =>
+		//Loop through all Residues
+		EnumerateResidues().SelectMany(
+			r => r.residue.EnumerateAtoms()
+				//Yield the Atom
+				.Select(a => a.atom)
+		);
+	
+	/// <summary>Enumerate each Atom and its Atom ID in this Geometry object</summary>
 	public IEnumerable<(AtomID atomID, Atom atom)> EnumerateAtomIDPairs()  =>
 		//Loop through all Residues
 		EnumerateResidues().SelectMany(
@@ -113,13 +122,13 @@ public class Geometry : MonoBehaviour {
 				.Select(a => (new AtomID(r.residueID, a.pdbID), a.atom))
 		);
 	
-	/// <summary>Enumerate each Atom in this Geometry object</summary>
-	public IEnumerable<Atom> EnumerateAtoms()  =>
+	/// <summary>Enumerate each Atom, its Residue ID and its PDB ID in this Geometry object</summary>
+	public IEnumerable<(ResidueID residueID, PDBID pDBID, Atom atom)> EnumerateAtomIDTriples()  =>
 		//Loop through all Residues
 		EnumerateResidues().SelectMany(
 			r => r.residue.EnumerateAtoms()
-				//Yield the Atom
-				.Select(a => a.atom)
+				//Yield the AtomID formed by the ResidueID and PDBID
+				.Select(a => (r.residueID, a.pdbID, a.atom))
 		);
 
 	/// <summary>Return the unique ONIOM Layer IDs in this Geometry object</summary>
@@ -187,6 +196,7 @@ public class Geometry : MonoBehaviour {
 	public GaussianCalculator gaussianCalculator;
 	/// <summary>The reference to this Geometry's Molecular Mechanics Parameters.</summary>
 	public Parameters parameters;
+	public GaussianResults gaussianResults;
 	public string path;
 	
 	void Awake () {
@@ -516,11 +526,11 @@ public class Geometry : MonoBehaviour {
 		bool updateCharges=false,
 		bool updateAmbers=false
 	) {
-		foreach ((AtomID atomID, Atom otherAtom) in other.EnumerateAtomIDPairs()) {
+		foreach ((ResidueID residueID, PDBID pdbID, Atom otherAtom) in other.EnumerateAtomIDTriples()) {
 			Atom thisAtom;
-			if (TryGetAtom(atomID, out thisAtom)) {
+			if (TryGetAtom(residueID, pdbID, out thisAtom)) {
 				if (updatePositions) {
-					thisAtom.position = otherAtom.position.xyz;
+					thisAtom.position = otherAtom.position;
 				}
 				if (updateCharges) {
 					thisAtom.partialCharge = otherAtom.partialCharge;
@@ -554,9 +564,9 @@ public class Geometry : MonoBehaviour {
 
 			atomsToFit = new List<AtomID>();
 			foreach (PDBID pdbID in pdbIDs) {
-				CustomLogger.LogFormat(EL.DEBUG, "PDBID {0}", pdbID);
+				CustomLogger.LogFormat(EL.VERBOSE, "Aligning using PDBID '{0}'", pdbID);
 				foreach (ResidueID thisResidueID in residueDict.Keys) {
-					CustomLogger.LogFormat(EL.DEBUG, "ResidueID {0}", thisResidueID);
+					CustomLogger.LogFormat(EL.DEBUG, "Checking ResidueID '{0}'", thisResidueID);
 					Residue thisResidue = residueDict[thisResidueID];
 					Residue otherResidue;
 					if (!target.residueDict.TryGetValue(thisResidueID, out otherResidue)) {
@@ -620,7 +630,7 @@ public class Geometry : MonoBehaviour {
 
 		CustomLogger.LogFormat(EL.VERBOSE, "Alignment using {0} atoms", numAtomsToFit);
 		CustomLogger.LogFormat(
-			EL.INFO, 
+			EL.DEBUG, 
 			"Atoms to align: ['{0}']", 
 			() => new object[1] {
 				string.Join("', '", atomsToFit)
@@ -664,41 +674,61 @@ public class Geometry : MonoBehaviour {
 		
 		if (Timer.yieldNow) {yield return null;}
 
-		//Get all rotation matrices
-		float3x3[] rotationMatrices = Enumerable.Range(0, numAtomsToFit)
-			.Select(x => CustomMathematics.GetRotationMatrix(
-				math.normalize(thisPositions[x]), 
-				math.normalize(otherPositions[x])
-			))
-			.Where(x => {
-				//Make sure there are no NaNs
-				for (int i=0; i<3; i++) {
-					if (math.any(math.isnan(x[i]))) {
-						return false;
-					}
-				}
-				return true;
-			})
-			.ToArray();
+		float3x3 rotationMatrix;
+		// Try SVD Method first (Kabsch algorithm)
 
-		if (rotationMatrices.Length == 0) {
-			CustomLogger.LogFormat(
-				EL.ERROR,
-				"Unable to find a rotation matrix for alignment"
-			);
-			yield break;
+		//Cross-covariance matrix
+		float3[] cov = CustomMathematics.TransposeDot(thisPositions, otherPositions);
+
+		CustomMathematics.SVD svd = new CustomMathematics.SVD(cov);
+
+		if (svd.succeeded) {
+			yield return svd.Execute();
 		}
 
-		//Get average rotation matrix
-		float3x3 averageRotationMatrix = CustomMathematics.Average(rotationMatrices);
+		if (svd.succeeded) {
+			// Kabsch algorithm
+			float3x3 v = CustomMathematics.float3x3FromArray(svd.v);
+			float3x3 u = CustomMathematics.float3x3FromArray(svd.u);
+
+			rotationMatrix = CustomMathematics.Dot(v, u);
+		} else {
+			//Get all rotation matrices
+			float3x3[] rotationMatrices = Enumerable.Range(0, numAtomsToFit)
+				.Select(x => CustomMathematics.GetRotationMatrix(
+					math.normalize(thisPositions[x]), 
+					math.normalize(otherPositions[x])
+				))
+				.Where(x => {
+					//Make sure there are no NaNs
+					for (int i=0; i<3; i++) {
+						if (math.any(math.isnan(x[i]))) {
+							return false;
+						}
+					}
+					return true;
+				})
+				.ToArray();
+
+			if (rotationMatrices.Length == 0) {
+				CustomLogger.LogFormat(
+					EL.ERROR,
+					"Unable to find a rotation matrix for alignment"
+				);
+				yield break;
+			}
+
+			//Get average rotation matrix
+			rotationMatrix = CustomMathematics.Average(rotationMatrices);
+		}
 
 		CustomLogger.LogFormat(
 			EL.VERBOSE, 
-			"Average Rotation Matrix: {0}", 
-			averageRotationMatrix
+			"Rotation Matrix: {0}", 
+			rotationMatrix
 		);
 
-		float3 translation = otherAverage - CustomMathematics.Dot(averageRotationMatrix, thisAverage);
+		float3 translation = otherAverage - CustomMathematics.Dot(rotationMatrix, thisAverage);
 
 		CustomLogger.LogFormat(
 			EL.VERBOSE, 
@@ -706,11 +736,8 @@ public class Geometry : MonoBehaviour {
 			translation
 		);
 
-		foreach (Atom atom in EnumerateAtoms()) {
-			atom.position = CustomMathematics.Dot(averageRotationMatrix, atom.position) + translation;
-
-			if (Timer.yieldNow) {yield return null;}
-		}
+		float4x4 transformation = new float4x4(rotationMatrix, translation);
+		yield return TransformPosition(transformation);
 
 	}
 
@@ -1241,6 +1268,44 @@ public class Geometry : MonoBehaviour {
 		}
 		
 	}
+
+	public int AmberCount() {
+		return EnumerateAtoms().Count(atom => atom.hasAmber());
+	}
+
+	public int ChargeCount() {
+		return EnumerateAtoms().Count(atom => atom.partialCharge != 0f);
+	}
+
+	public IEnumerator Translate(float3 translation) {
+
+		foreach (Atom atom in EnumerateAtoms()) {
+			atom.position += translation;
+			if (Timer.yieldNow) {yield return null;}
+		}
+	}
+
+	public IEnumerator Rotate(float3x3 rotation) {
+		
+		foreach (Atom atom in EnumerateAtoms()) {
+			atom.position = (
+				rotation.c0 * atom.position.x + 
+				rotation.c1 * atom.position.y + 
+				rotation.c2 * atom.position.z
+			);
+			if (Timer.yieldNow) {yield return null;}
+		}
+	}
+
+	public IEnumerator TransformPosition(float4x4 transformation) {
+		
+		foreach (Atom atom in EnumerateAtoms()) {
+			atom.position = math.transform(transformation, atom.position);
+			if (Timer.yieldNow) {yield return null;}
+		}
+	}
+
+
 
 }
 

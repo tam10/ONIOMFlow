@@ -41,9 +41,13 @@ public class TaskBar : MonoBehaviour {
     }
 
     public void SetProgress(string newText, float progressRatio) {
-        text.text = newText;
+        SetText(newText);
         progressBar.SetValue(progressRatio);
         ready = false;
+    }
+
+    public void SetText(string newText) {
+        text.text = newText;
     }
 
     public void Clear() {

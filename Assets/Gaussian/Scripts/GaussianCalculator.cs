@@ -35,6 +35,8 @@ public class GaussianCalculator : MonoBehaviour {
 	public string killJobLink;
 	public int killJobAfter;
 
+	public bool cancelled;
+
 	
 	//KEYWORDS
 	//Character after # in keywords
@@ -142,6 +144,7 @@ public class GaussianCalculator : MonoBehaviour {
 		killJobAfter = 1;
 
 		doFreq = false;
+		cancelled = false;
 
 		orbitalsAvailable = false;
 
@@ -186,6 +189,8 @@ public class GaussianCalculator : MonoBehaviour {
 	
 	
     public IEnumerator EstimateChargeMultiplicity(bool getChargesFromUser) {
+
+		cancelled = false;
 
 		foreach ((OLID oniomLayerID, Layer layer) in layerDict) {
 			Geometry tempGeometry = layer.GenerateLayerGeometry(parent, null);
@@ -253,7 +258,9 @@ public class GaussianCalculator : MonoBehaviour {
 					}
 
 					if (multiPrompt.cancelled) {
-						continue;
+						multiPrompt.Hide();
+						cancelled = true;
+						yield break;
 					}
 
 					yield return null;
@@ -282,7 +289,7 @@ public class GaussianCalculator : MonoBehaviour {
 				multiPrompt.Hide();
 
 				if (multiPrompt.cancelled) {
-					continue;
+					cancelled = true;
 				}
 			}
 			

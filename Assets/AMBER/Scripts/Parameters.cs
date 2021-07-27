@@ -124,7 +124,7 @@ public class Parameters : MonoBehaviour {
 
 			Stretch thisP;
 			//Check if this has parameter
-			if (stretches.TryGetValue(types, out thisP)) {
+			if (stretches.TryGetValue(types, out thisP) || stretches.TryGetValue(types.Reversed(), out thisP)) {
 				//Has parameter - See if it needs to be replaced
 				if (replace && !thisP.ValuesClose(otherP)) {
 					thisP = otherP.Copy();
@@ -153,7 +153,7 @@ public class Parameters : MonoBehaviour {
 
 			Bend thisP;
 			//Check if this has parameter
-			if (bends.TryGetValue(types, out thisP)) {
+			if (bends.TryGetValue(types, out thisP) || bends.TryGetValue(types.Reversed(), out thisP)) {
 				//Has parameter - See if it needs to be replaced
 				if (replace && !thisP.ValuesClose(otherP)) {
 					thisP = otherP.Copy();
@@ -182,7 +182,7 @@ public class Parameters : MonoBehaviour {
 
 			Torsion thisP;
 			//Check if this has parameter
-			if (torsions.TryGetValue(types, out thisP)) {
+			if (torsions.TryGetValue(types, out thisP) || torsions.TryGetValue(types.Reversed(), out thisP)) {
 				//Has parameter - See if it needs to be replaced
 				if (replace && !thisP.ValuesClose(otherP)) {
 					thisP = otherP.Copy();
@@ -211,7 +211,7 @@ public class Parameters : MonoBehaviour {
 
 			ImproperTorsion thisP;
 			//Check if this has parameter
-			if (improperTorsions.TryGetValue(types, out thisP)) {
+			if (improperTorsions.TryGetValue(types, out thisP) || improperTorsions.TryGetValue(types.Reversed(), out thisP)) {
 				//Has parameter - See if it needs to be replaced
 				if (replace && !thisP.ValuesClose(otherP)) {
 					thisP = otherP.Copy();

@@ -188,7 +188,7 @@ public class Residue {
 	/// </remarks>
 	public PDBID AddProton(PDBID hostPDBID) {
 		int pdbNumber = 0;
-		while (pdbNumber < 8) {
+		while (pdbNumber < 10) {
 			PDBID protonPDBID = new PDBID(Element.H, hostPDBID.identifier, pdbNumber);
 			
 			if (!pdbIDs.Contains(protonPDBID)) {

@@ -55,7 +55,9 @@ public class ProjectSelector : PopupWindow {
 
         PlatformID platformID = Environment.OSVersion.Platform;
         bool isWindows = (platformID != PlatformID.Unix && platformID != PlatformID.MacOSX);
-    	projectPath = isWindows ? Environment.SpecialFolder.Personal.ToString() : Environment.GetEnvironmentVariable("HOME");
+    	projectPath = isWindows 
+			? System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments) 
+			: Environment.GetEnvironmentVariable("HOME");
         
         AddBackgroundCanvas();
 

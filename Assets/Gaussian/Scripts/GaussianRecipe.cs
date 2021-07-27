@@ -670,8 +670,8 @@ public static class GaussianRecipe {
             newResidue,
             10f,
             (optimise) 
-                ? ResidueMutator.OptisationMethod.TREE 
-                : ResidueMutator.OptisationMethod.NONE
+                ? ResidueMutator.OptimisationMethod.TREE 
+                : ResidueMutator.OptimisationMethod.NONE
         );
     }
 

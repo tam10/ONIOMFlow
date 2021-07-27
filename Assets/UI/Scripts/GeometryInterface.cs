@@ -530,22 +530,28 @@ public class GeometryInterface :
 	/// <summary>Update this Geometry Interface's Geometry from a file path.</summary>
 	/// <param name="path">The path of the file to load.</param>
 	/// <param name="checkAll">Perform checks on the loaded Geometry for validity.</param>
-	public IEnumerator UpdateGeometry(string path, bool checkAll=true) {
+	public IEnumerator UpdateGeometry(bool checkAll=true) {
 		activeTasks++;
 
 		//Reset the status in case the previous status was an error
 		status = GIS.OK;
 
-		//Load the file into the Geometry
-		yield return FileReader.LoadGeometry(geometry, path, fullName);
+		OutputUpdater outputUpdater = OutputUpdater.main;
 
-		//Link the Geometry to this Geometry Interface
-		yield return SetGeometry(geometry);
+		yield return outputUpdater.Initialise(id);
+		while (!outputUpdater.userResponded) {
+			yield return null;
+		}
 
-		//Perform checks if needed
+		if (outputUpdater.cancelled) {
+			GameObject.Destroy(outputUpdater.gameObject);
+			activeTasks--;
+			yield break;
+		}
+			
 		if (checkAll) yield return CheckAll();
-
 		activeTasks--;
+
 
 	}
 
@@ -599,42 +605,41 @@ public class GeometryInterface :
 			}
 		}
 
-		FileSelector loadPrompt = FileSelector.main;
-
-		//Set FileSelector to Load mode
-		yield return loadPrompt.Initialise(saveMode:false, Flow.loadTypes);
-		//Wait for user response
-		while (!loadPrompt.userResponded) {
-			yield return null;
-		}
-
-		if (loadPrompt.cancelled) {
-			GameObject.Destroy(loadPrompt.gameObject);
-			activeTasks--;
-			yield break;
-		}
-
-		//Got a non-cancelled response from the user
-		string path = loadPrompt.confirmedText;
-		//Close the FileSelector
-		GameObject.Destroy(loadPrompt.gameObject);
-
-		//Check the file exists
-		if (!File.Exists(path)) {
-			CustomLogger.LogFormat(EL.ERROR, "File does not exist: {0}", path);
-			GameObject.Destroy(loadPrompt.gameObject);
-			activeTasks--;
-			yield break;
-		}
-
-		//File exists. Load from path
 		if (update) {
-			yield return UpdateGeometry(path);
+			yield return UpdateGeometry();
 		} else {
+			FileSelector loadPrompt = FileSelector.main;
+
+			//Set FileSelector to Load mode
+			yield return loadPrompt.Initialise(saveMode:false, Flow.loadTypes);
+			//Wait for user response
+			while (!loadPrompt.userResponded) {
+				yield return null;
+			}
+
+			if (loadPrompt.cancelled) {
+				GameObject.Destroy(loadPrompt.gameObject);
+				activeTasks--;
+				yield break;
+			}
+
+			//Got a non-cancelled response from the user
+			string path = loadPrompt.confirmedText;
+			//Close the FileSelector
+			GameObject.Destroy(loadPrompt.gameObject);
+
+			//Check the file exists
+			if (!File.Exists(path)) {
+				CustomLogger.LogFormat(EL.ERROR, "File does not exist: {0}", path);
+				GameObject.Destroy(loadPrompt.gameObject);
+				activeTasks--;
+				yield break;
+			}
+
+			//File exists. Load from path
 			yield return LoadGeometry(path);
 		}
 		activeTasks--;
-		//yield return Cleaner.CalculateConnectivity(id);
 	}
 
 	/// <summary>Open a FileSelector to load a file.</summary>
@@ -791,8 +796,8 @@ public class GeometryInterface :
 
 		contextMenu.AddSpacer();
 
-		contextMenu.AddButton(() => LoadFile(), "Load File", true);
-		contextMenu.AddButton(() => SaveFile(), "Save File", geometryEnabled);
+		contextMenu.AddButton(() => LoadFile(), "Load Geometry", true);
+		contextMenu.AddButton(() => SaveFile(), "Save Geometry", geometryEnabled);
 
 		//Show the Context Menu
 		contextMenu.Show();

@@ -152,6 +152,10 @@ public class Atom {
 			partialCharge
 		);
 	}
+
+	public bool hasAmber() {
+		return amber != Amber._;
+	}
 }
 
 /// <summary>PDB ID Structure</summary>

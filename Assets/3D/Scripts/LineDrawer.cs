@@ -20,7 +20,7 @@ public class LineDrawer : MonoBehaviour {
 
     private Dictionary<ResidueID, ResidueWireFrame> residueWireFrames = new Dictionary<ResidueID, ResidueWireFrame>();
     private Dictionary<(AtomID, AtomID), LinkerWireFrame> linkerWireFrames = new Dictionary<(AtomID, AtomID), LinkerWireFrame>();
-    public List<Arc> arcs = new List<Arc>();
+    public List<Arc> arcs = new List<Arc>(); 
     public List<Line> lines = new List<Line>();
 
     public enum AtomColour: int {ELEMENT, CHARGE, HAS_AMBER, PARAMETERS, SASA, CAP, MUTATE, REMOVE}
@@ -28,7 +28,27 @@ public class LineDrawer : MonoBehaviour {
 
     public static float maxSASA = 0.001f;
 
+    public static float3 cameraPosition;
+    public static float frustumRatio;
+    public static float focalLength;
+    public static float4x4 localToWorldMatrix;
+
+    public bool animateVibrations;
+    public static float3 v = new float3(0.5f, 1f, -1f);
+    public static float t;
+    public float vibrationRate = 1f;
+    public float vibrationMagnitude = 1f;
+
+    void Update() {
+        if (animateVibrations) {
+            t = vibrationMagnitude * math.sin(math.PI * 2f * vibrationRate * Time.realtimeSinceStartup);
+        } else {
+            t = 0;
+        }
+    }
+
     void Start() {
+        animateVibrations = false;
         activeCamera = Camera.main;
         maxSASA = 0.001f;
     }
@@ -125,12 +145,6 @@ public class LineDrawer : MonoBehaviour {
     public void RemoveLinker((AtomID, AtomID) key) {
         
         if (!linkerWireFrames.ContainsKey(key)) {
-            CustomLogger.LogFormat(
-                EL.ERROR,
-                "Cannot remove Linker '{0}'-'{1}' from LineDrawer - key not present in LinkerWireFrames!",
-                key.Item1,
-                key.Item2
-            );
             return;
         }
 
@@ -143,9 +157,23 @@ public class LineDrawer : MonoBehaviour {
         if (residueWireFrames.TryGetValue(residueID, out residueWireFrame)) {
             residueWireFrame.UpdatePosition(pdbID, newPosition);
         }
-        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Where(x => x.Key.Item1 == atomID || x.Key.Item2 == atomID).Select(x => x.Value)) {
-            linkerWireFrame.UpdatePosition(atomID, newPosition);
-            return;
+        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
+            if (linkerWireFrame.UpdatePosition(atomID, newPosition)) {
+                return;
+            }
+        }
+    }
+    
+    public void UpdateVibrationVector(AtomID atomID, float3 newVector) {
+        (ResidueID residueID, PDBID pdbID) = atomID;
+        ResidueWireFrame residueWireFrame;
+        if (residueWireFrames.TryGetValue(residueID, out residueWireFrame)) {
+            residueWireFrame.UpdateVibrationVector(pdbID, newVector);
+        }
+        foreach (LinkerWireFrame linkerWireFrame in linkerWireFrames.Values) {
+            if (linkerWireFrame.UpdateVibrationVector(atomID, newVector)) {
+                return;
+            }
         }
     }
 
@@ -178,106 +206,41 @@ public class LineDrawer : MonoBehaviour {
         //GL.LoadPixelMatrix();
         //Initialise the material
         lineMaterial.SetPass(0);
-        //Tell GL to use QUADS (4 vertices at a time)
-		GL.Begin(GL.QUADS);
 
 
         //Get Camera position for this frame
-        float3 cameraPosition = Camera.main.transform.position;
+        cameraPosition = Camera.main.transform.position;
 
         //Get the relative Screen Width for a World Position
-        float frustumRatio = math.tan(Camera.main.fieldOfView * 0.5f * Mathf.Deg2Rad);
+        frustumRatio = math.tan(Camera.main.fieldOfView * 0.5f * Mathf.Deg2Rad);
 
         //Get the distance from the observer to the screen
-        float focalLength = Camera.main.focalLength;
+        focalLength = Camera.main.focalLength;
 
         //Get the transformation matrix to transform a Local Position to a World Position
-        float4x4 localToWorldMatrix = transform.localToWorldMatrix;
+        localToWorldMatrix = transform.localToWorldMatrix;
 
 
-        //This gets the colors and World Positions of each bond
-        IEnumerable<(Color, float3, float3, float3, float3)> bondEnumerator;
-        if (Settings.useParallelLineDrawer) {
-            bondEnumerator = residueWireFrames
-            //Get all the Residue Wire Frames
+        //Tell GL to use QUADS (4 vertices at a time)
+		GL.Begin(GL.QUADS);
+
+        //Draw Residues
+        residueWireFrames
             .Values
-            //Parallelise the selection
-            .AsParallel()
-            //SelectMany will join the selection 
-            .SelectMany(
-                //Calculate the World Positions of the Quads representing bonds etc
-                x => x.EnumerateBondQuads(
-                    cameraPosition, 
-                    frustumRatio, 
-                    focalLength,
-                    localToWorldMatrix
-                )
-            )
-            //Join parallel threads
-            .AsSequential();
-        } else {
-            bondEnumerator = residueWireFrames
-            //Get all the Residue Wire Frames
-            .Values
-            //SelectMany will join the selection 
-            .SelectMany(
-                //Calculate the World Positions of the Quads representing bonds etc
-                x => x.EnumerateBondQuads(
-                    cameraPosition, 
-                    frustumRatio, 
-                    focalLength,
-                    localToWorldMatrix
-                )
-            );
-        }
-
+            .ForEach(rwf => rwf.DrawBondQuads());
         
-        IEnumerable<(Color, float3, float3, float3, float3)> linkerEnumerator;
-        if (Settings.useParallelLineDrawer) {
-            linkerEnumerator = linkerWireFrames
-            //Parallelise the selection
-            .AsParallel()
-            //SelectMany will join the selection 
-            .SelectMany(
-                //Calculate the World Positions of the Quads representing bonds etc
-                x => x.Value.EnumerateBondQuads(
-                    cameraPosition, 
-                    frustumRatio, 
-                    focalLength,
-                    localToWorldMatrix
-                )
-            )
-            //Join parallel threads
-            .AsSequential();
-        } else {
-            linkerEnumerator = linkerWireFrames
-            //SelectMany will join the selection 
-            .SelectMany(
-                //Calculate the World Positions of the Quads representing bonds etc
-                x => x.Value.EnumerateBondQuads(
-                    cameraPosition, 
-                    frustumRatio, 
-                    focalLength,
-                    localToWorldMatrix
-                )
-            );
-        }
+        //Draw Linkers
+        linkerWireFrames
+            .Values
+            .ForEach(lwf => lwf.DrawBondQuads());
 
-        //Draw each quad with GL
-        foreach ((Color, float3, float3, float3, float3) bondQuad in bondEnumerator) {
-            DrawBond(bondQuad);
-        }
+        GL.End();
 
-        foreach ((Color, float3, float3, float3, float3) bondQuad in linkerEnumerator) {
-            DrawBond(bondQuad);
-        }
 
-		GL.End();
         GL.Begin(GL.LINES);
         foreach (Line line in lines) {
             DrawLine(line, localToWorldMatrix);
-        }
-		
+        }		
 		GL.End();
         GL.Begin(GL.LINE_STRIP);
 
@@ -291,18 +254,6 @@ public class LineDrawer : MonoBehaviour {
 
     void OnPostRender() {
 		DrawGLConnections();
-    }
-	//void OnDrawGizmos() {
-	//	DrawGLConnections();
-	//}
-
-    void DrawBond((Color color, float3 v0, float3 v1, float3 v2, float3 v3) bondQuad) {
-        
-        GL.Color(bondQuad.color);
-        GL.Vertex(bondQuad.v0);
-        GL.Vertex(bondQuad.v1);
-        GL.Vertex(bondQuad.v2);
-        GL.Vertex(bondQuad.v3);
     }
 
     void DrawLine(Line line, float4x4 localToWorldMatrix) {
@@ -344,6 +295,7 @@ class ResidueWireFrame {
 
     int numBonds;
     float3[] bondVertices;
+    float3[] bondVibrationVectors;
     Dictionary<LineDrawer.AtomColour, Color[]> bondColours;
     float[] bondWidths;
     BT[] bondTypes;
@@ -353,6 +305,7 @@ class ResidueWireFrame {
 
     int numNonBondedAtoms;
     float3[] nonBondedVertices;
+    float3[] nonBondVibrationVectors;
     Dictionary<LineDrawer.AtomColour, Color[]> nonBondedColours;
     float[] nonBondedWidths;
     int[] nonBondedAtoms;
@@ -450,13 +403,14 @@ class ResidueWireFrame {
         this.nonBondedAtoms = nonBondedAtomList.ToArray();
 
         bondVertices = new float3[numBonds * 2];
+        bondVibrationVectors = new float3[numBonds * 2];
         
         bondColours = Enumerable.Range(0, LineDrawer.numAtomColourTypes)
             .ToDictionary(
                 x => (LineDrawer.AtomColour)x, 
                 x => new Color[numBonds * 2]
             );
-        bondWidths = new float[numBonds];
+        bondWidths = new float[numBonds * 2];
 
         int bondAtomIndex = 0;
         int bondVertexIndex = 0;
@@ -466,6 +420,7 @@ class ResidueWireFrame {
         bondTypes = bondTypeList.ToArray();
 
         nonBondedVertices = new float3[numNonBondedAtoms * 6];
+        nonBondVibrationVectors = new float3[numNonBondedAtoms];
         nonBondedColours = Enumerable.Range(0, LineDrawer.numAtomColourTypes)
             .ToDictionary(
                 x => (LineDrawer.AtomColour)x, 
@@ -525,6 +480,27 @@ class ResidueWireFrame {
         }
     }
 
+    public void UpdateVibrationVector(PDBID pdbID, float3 vector) {
+        int index = System.Array.IndexOf (pdbIDs, pdbID);
+
+        for (int nonBondedAtomNum=0; nonBondedAtomNum<numNonBondedAtoms; nonBondedAtomNum++) {
+            int nonBondedAtomIndex = nonBondedAtoms[nonBondedAtomNum];
+            if (nonBondedAtomIndex == index) {
+
+                nonBondVibrationVectors[nonBondedAtomNum] = vector;
+
+                return; //Can only be one of these per geometry so no need to look at bonds
+            }
+        }
+
+        for (int bondAtomIndex=0; bondAtomIndex<numBonds*2; bondAtomIndex++) {
+            int bondVertexIndex = bondPairs[bondAtomIndex];
+            if (bondVertexIndex == index) {
+                bondVibrationVectors[bondAtomIndex] = vector;
+            } 
+        }
+    }
+
     void AddBondGeometry(
         ref int bondAtomIndex,
         ref int bondVertexIndex,
@@ -545,7 +521,7 @@ class ResidueWireFrame {
         bondColours[LineDrawer.AtomColour.REMOVE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.REMOVE][i0];
 
         bondAtomIndex++;
-
+        bondWidths[bondVertexIndex] = width0;
         bondVertices[bondVertexIndex++] = positions[i0++];
         
         int i1 = bondPairs[bondAtomIndex];
@@ -562,9 +538,8 @@ class ResidueWireFrame {
         bondColours[LineDrawer.AtomColour.REMOVE][bondAtomIndex] = atomColours[LineDrawer.AtomColour.REMOVE][i1];
         
         bondAtomIndex++;
+        bondWidths[bondVertexIndex] = width1;
         bondVertices[bondVertexIndex++] = positions[i1++];
-
-        bondWidths[bondNum] = Mathf.Min(width0, width1);
     }
 
     void AddNonbondedWireframeGeometry(
@@ -614,12 +589,7 @@ class ResidueWireFrame {
 
     }
 
-    public IEnumerable<(Color, float3, float3, float3, float3)> EnumerateBondQuads(
-        float3 cameraPosition, 
-        float frustumRatio, 
-        float focalLength,
-        float4x4 localToWorldMatrix
-    ) {
+    public void DrawBondQuads() {
 
         float distance;
 
@@ -627,38 +597,56 @@ class ResidueWireFrame {
         float3 mid = new float3();
         float3 end = new float3();
 
+        float3 cameraVec = new float3();
+        float3 norm;
+
+        float3 normStart;
+        float3 normMid;
+        float3 normEnd;
+
         Color[] bondColorArray = bondColours[colourType];
         Color[] nonbondedColorArray = nonBondedColours[colourType];
 
         int bondVertexIndex = 0;
-        int colourIndex = 0;
+
+        Color startColour;
+        Color endColour;
         for (int bondNum=0; bondNum<numBonds; bondNum++) {
 
-            start = math.transform(localToWorldMatrix, bondVertices[bondVertexIndex++]);            
-            end = math.transform(localToWorldMatrix, bondVertices[bondVertexIndex++]);
+            float startWidth = bondWidths[bondVertexIndex];
+            startColour = bondColorArray[bondVertexIndex];
+            start = math.transform(LineDrawer.localToWorldMatrix, bondVertices[bondVertexIndex] + LineDrawer.t * bondVibrationVectors[bondVertexIndex]); 
+            bondVertexIndex++;
+
+            float endWidth = bondWidths[bondVertexIndex];
+            endColour = bondColorArray[bondVertexIndex];
+            end = math.transform(LineDrawer.localToWorldMatrix, bondVertices[bondVertexIndex] + LineDrawer.t * bondVibrationVectors[bondVertexIndex]);
+            bondVertexIndex++;
+
             mid = (start + end) * 0.5f;
 
-            distance = math.distance(cameraPosition, mid) + focalLength;
+            cameraVec = mid - LineDrawer.cameraPosition;
 
-            float width = bondWidths[bondNum] / (distance * frustumRatio);
+            float screenScale = 1f / (LineDrawer.frustumRatio * (math.length(cameraVec) + LineDrawer.focalLength));
             
-            float3 norm = math.normalizesafe(math.cross(start, end)) * width;
+            norm = math.normalizesafe(math.cross(end - start, cameraVec)) * screenScale;
 
-            yield return (
-                bondColorArray[colourIndex++], 
-                start + norm,
-                start - norm,
-                mid - norm,
-                mid + norm
-            );
+            normStart = norm * startWidth;
+            normMid = norm * (endWidth + startWidth) * 0.5f;
+            normEnd = norm * endWidth;
 
-            yield return (
-                bondColorArray[colourIndex++], 
-                mid + norm,
-                mid - norm,
-                end - norm,
-                end + norm
-            );
+            GL.Color(startColour);
+            GL.Vertex(start + normStart);
+            GL.Vertex(start - normStart);
+            GL.Vertex(mid - normMid);
+            GL.Vertex(mid + normMid);
+
+            GL.Color(endColour);
+            GL.Vertex(mid + normMid);
+            GL.Vertex(mid - normMid);
+            GL.Vertex(end - normEnd);
+            GL.Vertex(end + normEnd);
+            
         }
 
         int nonBondVertexIndex = 0;
@@ -666,38 +654,38 @@ class ResidueWireFrame {
             
             float width = 0;
             for (int coord=0; coord<3; coord++) {
-                start = nonBondedVertices[nonBondVertexIndex++];
-                end = nonBondedVertices[nonBondVertexIndex++];
+                start = nonBondedVertices[nonBondVertexIndex++] + LineDrawer.t * nonBondVibrationVectors[nonBondNum];
+                end = nonBondedVertices[nonBondVertexIndex++] + LineDrawer.t * nonBondVibrationVectors[nonBondNum];
 
-                start = math.transform(localToWorldMatrix, start);
-                end = math.transform(localToWorldMatrix, end);
+                start = math.transform(LineDrawer.localToWorldMatrix, start);
+                end = math.transform(LineDrawer.localToWorldMatrix, end);
 
                 //Only compute mid and width once for each atom
                 if (coord == 0) {
 
                     mid = (start + end) * 0.5f;
+                    
+                    cameraVec = mid - LineDrawer.cameraPosition;
 
-                    distance = math.distance(cameraPosition, mid) + focalLength;
-                    width = nonBondedWidths[nonBondNum] / (distance * frustumRatio);
+                    distance = math.length(cameraVec) + LineDrawer.focalLength;
+
+                    width = nonBondedWidths[nonBondNum] / (distance * LineDrawer.frustumRatio);
+
                 }
             
-                float3 norm = math.normalizesafe(math.cross(start, end)) * width;
+                norm = math.normalizesafe(math.cross(start, end)) * width;
                 
-                yield return (
-                    nonbondedColorArray[nonBondNum], 
-                    start + norm,
-                    start - norm,
-                    mid - norm,
-                    mid + norm
-                );
+                GL.Color(nonbondedColorArray[nonBondNum]);
+                GL.Vertex(start + norm);
+                GL.Vertex(start - norm);
+                GL.Vertex(mid - norm);
+                GL.Vertex(mid + norm);
 
-                yield return (
-                    nonbondedColorArray[nonBondNum], 
-                    mid + norm,
-                    mid - norm,
-                    end - norm,
-                    end + norm
-                );
+                GL.Color(nonbondedColorArray[nonBondNum]);
+                GL.Vertex(mid + norm);
+                GL.Vertex(mid - norm);
+                GL.Vertex(end - norm);
+                GL.Vertex(end + norm);
             }
         }
 	}
@@ -711,6 +699,8 @@ class LinkerWireFrame {
     Dictionary<LineDrawer.AtomColour, Color> endColours;
     float3 linkerStart;
     float3 linkerEnd;
+    float3 startVibrationVector;
+    float3 endVibrationVector;
     AtomID linkerStartID;
     AtomID linkerEndID;
     float bondWidth;
@@ -720,6 +710,9 @@ class LinkerWireFrame {
 
         linkerStart = atom0.position + offset;
         linkerEnd = atom1.position + offset;
+
+        startVibrationVector = 0f;
+        endVibrationVector = 0f;
 
         this.linkerStartID = atomID0;
         this.linkerEndID = atomID1;
@@ -759,48 +752,54 @@ class LinkerWireFrame {
         colourType = LineDrawer.AtomColour.ELEMENT;
     }
     
-    public IEnumerable<(Color, float3, float3, float3, float3)> EnumerateBondQuads(
-        float3 cameraPosition, 
-        float frustumRatio, 
-        float focalLength,
-        float4x4 localToWorldMatrix
-    ) {
+    public void DrawBondQuads() {
 
-        float3 start = math.transform(localToWorldMatrix, linkerStart);
-        float3 end = math.transform(localToWorldMatrix, linkerEnd);
+        float3 start = math.transform(LineDrawer.localToWorldMatrix, linkerStart);
+        float3 end = math.transform(LineDrawer.localToWorldMatrix, linkerEnd);
         float3 mid = (start + end) * 0.5f;
 
-        float distance = math.distance(cameraPosition, mid) + focalLength;
+        float distance = math.distance(LineDrawer.cameraPosition, mid) + LineDrawer.focalLength;
 
-        float width = bondWidth / (distance * frustumRatio);
+        float width = bondWidth / (distance * LineDrawer.frustumRatio);
 
         float3 norm = math.normalizesafe(math.cross(start, end)) * width;
         
-        yield return (
-            startColours[colourType], 
-            start + norm,
-            start - norm,
-            mid - norm,
-            mid + norm
-        );
+        GL.Color(startColours[colourType]);
+        GL.Vertex(start + norm);
+        GL.Vertex(start - norm);
+        GL.Vertex(mid - norm);
+        GL.Vertex(mid + norm);
 
-        yield return (
-            endColours[colourType], 
-            mid + norm,
-            mid - norm,
-            end - norm,
-            end + norm
-        );
+        GL.Color(endColours[colourType]);
+        GL.Vertex(mid + norm);
+        GL.Vertex(mid - norm);
+        GL.Vertex(end - norm);
+        GL.Vertex(end + norm);
         
 	}
 
     
-    public void UpdatePosition(AtomID atomID, float3 position) {
+    public bool UpdatePosition(AtomID atomID, float3 position) {
         if (atomID == this.linkerStartID) {
             linkerStart = position;
+            return true;
         } else if (atomID == this.linkerEndID) {
             linkerEnd = position;
+            return true;
         }
+        return false;
+    }
+
+    public bool UpdateVibrationVector(AtomID atomID, float3 vector) {
+        if (atomID == this.linkerStartID) {
+            startVibrationVector = vector;
+            return true;
+        } else if (atomID == this.linkerEndID) {
+            endVibrationVector = vector;
+            return true;
+        }
+        return false;
+
     }
     
 }

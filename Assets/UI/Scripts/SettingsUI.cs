@@ -89,7 +89,7 @@ public class SettingsUI : PopupWindow {
             loggingModeRect, 
             "LoggingModeText", 
             "Logging Level", 
-            color:COL.LIGHT_75,
+            colour:COL.LIGHT_75,
             textAlignmentOptions:TextAlignmentOptions.MidlineLeft
         );
         SetRect(
@@ -146,7 +146,7 @@ public class SettingsUI : PopupWindow {
             lineThicknessRect, 
             "LineThicknessText", 
             "ONIOM Layer Line Thickness", 
-            color:COL.LIGHT_75,
+            colour:COL.LIGHT_75,
             textAlignmentOptions:TextAlignmentOptions.MidlineLeft
         );
         SetRect(
@@ -176,7 +176,7 @@ public class SettingsUI : PopupWindow {
             advancedRect, 
             "AdvancedText", 
             "Advanced Options", 
-            color:COL.LIGHT_75,
+            colour:COL.LIGHT_75,
             textAlignmentOptions:TextAlignmentOptions.MidlineLeft
         );
         SetRect(
@@ -199,7 +199,7 @@ public class SettingsUI : PopupWindow {
             parallelRect, 
             "ParallelLineDrawerText", 
             "Use Multi-core LineDrawer", 
-            color:COL.LIGHT_75,
+            colour:COL.LIGHT_75,
             textAlignmentOptions:TextAlignmentOptions.MidlineLeft
         );
         SetRect(
@@ -249,7 +249,7 @@ public class SettingsUI : PopupWindow {
             thicknessRect, 
             $"{layerName}ThicknessText", 
             $"{layerName} Layer", 
-            color:COL.LIGHT_75,
+            colour:COL.LIGHT_75,
             textAlignmentOptions:TextAlignmentOptions.MidlineLeft
         );
         SetRect(

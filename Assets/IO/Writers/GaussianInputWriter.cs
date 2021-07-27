@@ -4,8 +4,9 @@ using Unity.Mathematics;
 using System.Linq;
 using System.Text;
 using System.IO;
-using OL = Constants.OniomLayerID;
+using OLID = Constants.OniomLayerID;
 using BT = Constants.BondType;
+using EL = Constants.ErrorLevel;
 
 public static class GaussianInputWriter {
 
@@ -17,18 +18,12 @@ public static class GaussianInputWriter {
 
             GaussianCalculator gc = geometry.gaussianCalculator;
             //Get reverse sorted list
-            List<OL> oniomLayers = gc.layerDict.Keys.OrderBy(x => -(int)x).ToList();
+            List<OLID> oniomLayers = gc.layerDict.Keys.OrderBy(x => -(int)x).ToList();
 
-            // Atom map for connectivity and links
-            geometry.atomMap = new Map<AtomID, int>();
-            int atomNum = 1;
             IEnumerable<ResidueID> residueIDs = geometry.EnumerateResidueIDs().OrderBy(x => x);
-            foreach (ResidueID residueID in residueIDs) {
-                IEnumerable<PDBID> pdbIDs = geometry.GetResidue(residueID).pdbIDs.OrderBy(x => x);
-                foreach (PDBID pdbID in pdbIDs) {
-                    AtomID atomID = new AtomID(residueID, pdbID);
-                    geometry.atomMap[atomID] = atomNum++;
-                }
+            if (geometry.atomMap == null || geometry.atomMap.Count == 0) {
+                // Atom map for connectivity and links
+                geometry.GenerateAtomMap();
             }
 
             //Link0
@@ -44,33 +39,36 @@ public static class GaussianInputWriter {
             yield return null;
 
             //Atoms
-            atomNum = 1;
             StringBuilder connectivitySB = new StringBuilder();
-            foreach (ResidueID residueID in residueIDs) {
-                Residue residue  = geometry.GetResidue(residueID);
-                IEnumerable<PDBID> pdbIDs = residue.pdbIDs.OrderBy(x => x);
-                foreach (PDBID pdbID in pdbIDs) {
-                    AtomID atomID = new AtomID(residueID, pdbID);
-                    streamWriter.Write(GetAtomLine(geometry, residue, pdbID, geometry.atomMap));
-
-                    //Build up connectivity string in same loop
-                    if (writeConnectivity) {
-                        connectivitySB.AppendFormat("{0} ", atomNum++);
-                        Atom atom = residue.GetAtom(pdbID);
-                        foreach ((AtomID neighbourID, BT bondType) in atom.EnumerateConnections()) {
-                            int neighbourNum = geometry.atomMap[neighbourID];
-
-                            if (neighbourNum > atomNum) {
-                                connectivitySB.AppendFormat(
-                                    "{0} {1} ", 
-                                    geometry.atomMap[neighbourID], 
-                                    Settings.GetBondGaussString(bondType)
-                                );
-                            }
-                        }
-                        connectivitySB.Append(FileIO.newLine);
-                    }
+            foreach ((AtomID atomID, int atomNum) in geometry.atomMap) {
+                (ResidueID residueID, PDBID pdbID) = atomID;
+                Residue residue;
+                if (!geometry.TryGetResidue(residueID, out residue)) {
+                    CustomLogger.LogFormat(
+                        EL.ERROR,
+                        $"Residue '{residueID}' not present in Geometry!"
+                    );
+                    continue;
                 }
+
+                Atom atom;
+                if (!residue.TryGetAtom(pdbID, out atom)) {
+                    CustomLogger.LogFormat(
+                        EL.ERROR,
+                        $"Couldn't find Atom '{pdbID}' in Residue '{residue.residueID}'!"
+                    );
+                    streamWriter.WriteLine($"*** ATOM '{atomID}' NOT FOUND ***");
+                    connectivitySB.AppendLine($"*** ATOM '{atomID}' NOT FOUND ***");
+                    continue;
+                }
+
+                streamWriter.Write(GetAtomLine(atom, geometry, residue, pdbID));
+
+                //Build up connectivity string in same loop
+                if (writeConnectivity) {
+                    connectivitySB.Append(GetConnectivityString(atom, geometry, atomID, atomNum));
+                }
+
             }
             streamWriter.Write(FileIO.newLine);
 
@@ -119,7 +117,7 @@ public static class GaussianInputWriter {
         return sb.ToString();
     }
 
-    public static string GetKeywords(GaussianCalculator gc, List<OL> oniomLayers, bool writeConnectivity=true) {
+    public static string GetKeywords(GaussianCalculator gc, List<OLID> oniomLayers, bool writeConnectivity=true) {
         
         StringBuilder sb = new StringBuilder();
         //Print Level
@@ -175,10 +173,10 @@ public static class GaussianInputWriter {
         return sb.ToString();
     }
 
-    public static string GetChargeMultiplicityString(GaussianCalculator gc, List<OL> oniomLayers) {
+    public static string GetChargeMultiplicityString(GaussianCalculator gc, List<OLID> oniomLayers) {
 
         StringBuilder sb = new StringBuilder();
-        foreach (OL oniomLayerID in oniomLayers) {
+        foreach (OLID oniomLayerID in oniomLayers.OrderBy(x => x)) {
             Layer layer = gc.layerDict[oniomLayerID];
             sb.AppendFormat("{0} {1} ", layer.charge, layer.multiplicity);            
         }
@@ -187,13 +185,13 @@ public static class GaussianInputWriter {
 
     }
 
-    public static string GetMethodsItem(GaussianCalculator gc, List<OL> oniomLayers) {
+    public static string GetMethodsItem(GaussianCalculator gc, List<OLID> oniomLayers) {
         
         StringBuilder sb = new StringBuilder();
 
         List<string> methodStrings = oniomLayers.Select(x => gc.layerDict[x].ToMethodItem()).ToList();
 
-        writeParameters = oniomLayers.Any(x => gc.layerDict[x].method.ToUpper() == "AMBER");
+        writeParameters = oniomLayers.Any(x => gc.layerDict[x].method.ToUpper().StartsWith("AMBER"));
         
         int layerCount = oniomLayers.Count;
         if (layerCount == 1) {
@@ -223,8 +221,8 @@ public static class GaussianInputWriter {
         return sb.ToString();
     }
 
-    public static string GetAtomLine(Geometry geometry, Residue residue, PDBID pdbID, Map<AtomID, int> atomMap) {
-        Atom atom = residue.GetAtom(pdbID);
+    public static string GetAtomLine(Atom atom, Geometry geometry, Residue residue, PDBID pdbID) {
+
         string atomSpec = string.Format(
             "{0}-{1}-{2}(PDBName={3},ResName={4},ResNum={5})",
             pdbID.element,
@@ -238,13 +236,13 @@ public static class GaussianInputWriter {
         float3 position = atom.position;
 
         StringBuilder layerSB = new StringBuilder();
-        OL oniomLayer = atom.oniomLayer;
+        OLID oniomLayer = atom.oniomLayer;
         layerSB.Append(Constants.OniomLayerIDCharMap[oniomLayer]);
         foreach (AtomID neighbourID in atom.EnumerateNeighbours()) {
             Atom neighbour = geometry.GetAtom(neighbourID);
             if (neighbour.oniomLayer > oniomLayer) {
                 //This is a link atom. Tell Gaussian what to replace this atom with and which is the host atom
-                layerSB.AppendFormat(" H-{0} {1}", Data.GetLinkType(neighbour, neighbourID.pdbID), atomMap[neighbourID]);
+                layerSB.AppendFormat(" H-{0} {1}", Data.GetLinkType(neighbour, neighbourID.pdbID), geometry.atomMap[neighbourID] + 1);
             }
         }
 
@@ -258,5 +256,26 @@ public static class GaussianInputWriter {
             layerSB.ToString(),
             FileIO.newLine
         );
+    }
+
+    public static string GetConnectivityString(Atom atom, Geometry geometry, AtomID atomID, int atomNum) {
+        string connectivityString = $"{atomNum + 1}";
+        foreach ((AtomID neighbourID, BT bondType) in atom.EnumerateConnections()) {
+            int neighbourNum;
+            if (! geometry.atomMap.TryGetValue(neighbourID, out neighbourNum)) {
+                CustomLogger.LogFormat(
+                    EL.WARNING,
+                    $"Couldn't find Neighbour ID '{neighbourID}' of Atom ID '{atomID}' in Atom Map"
+                );
+                continue;
+            }
+            //Use Gaussian Indexing
+            neighbourNum++;
+
+            if (neighbourNum > atomNum) {
+                connectivityString += $" {neighbourNum} {Settings.GetBondGaussString(bondType)}";
+            }
+        }
+        return connectivityString + FileIO.newLine;
     }
 }

@@ -15,6 +15,12 @@ public static class Extensions {
         return dictionary.TryGetValue(key, out value) ? value : null;
     }
 
+    public static void ForEach<T>(this IEnumerable<T> enumerable, System.Action<T> action) {
+        foreach (T item in enumerable) {
+            action(item);
+        }
+    }
+
     public static string ToKVString<K,V>(this Dictionary<K,V> dictionary) {
         return "{ {" + string.Join(
             "}, {", 

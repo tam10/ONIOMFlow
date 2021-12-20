@@ -292,8 +292,6 @@ public static class Protonator {
 
             externalCommand.SetSuffix("_" + suffix);
 
-            UnityEngine.Debug.Log(groupGeometry);
-
             yield return externalCommand.WriteInputAndExecute(
                 groupGeometry, 
                 TID.PROTONATE_REDUCE,
@@ -303,21 +301,15 @@ public static class Protonator {
                 (float)groupGeometry.size / 5000
             );
 
-            UnityEngine.Debug.Log(groupGeometry);
-
             if (externalCommand.succeeded) {
-                UnityEngine.Debug.Log(groupGeometry);
                 groupGeometry.SetResidues(new Dictionary<ResidueID, Residue>());
-                UnityEngine.Debug.Log(groupGeometry);
                 yield return FileReader.LoadGeometry(
                     groupGeometry,
                     externalCommand.GetOutputPath(),
                     "ProtonateNonStandard"
                 );
-                UnityEngine.Debug.Log(groupGeometry);
                 
                 SetProtonatedResidueGroup(groupGeometry, geometryInterface, suffix);
-                UnityEngine.Debug.Log(groupGeometry);
             } else {
                 CustomLogger.LogFormat(
                     EL.ERROR,
@@ -325,8 +317,6 @@ public static class Protonator {
                     suffix
                 );
             }
-            
-            UnityEngine.Debug.Log(groupGeometry);
             
             GameObject.Destroy(groupGeometry.gameObject);
         }

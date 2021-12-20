@@ -304,6 +304,8 @@ public class Parameters : MonoBehaviour {
 				//Create a geometry from this - this also copies current set of parameters
 				Geometry tempGeometry = parent.TakeResidues(residueSubgroup, transform);
 
+				tempGeometry.name = residueID.ToString();
+				
 				//Check if any parameters are missing 
 				Parameters missingParameters = GetMissingParameters(tempGeometry, false);
 

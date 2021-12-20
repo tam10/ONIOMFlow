@@ -190,11 +190,11 @@ public class ProceduresPopup : PopupWindow {
         foreach (TID taskID in tasks) {
             string taskParentClass;
             if (!Settings.taskParentClasses.TryGetValue(taskID, out taskParentClass)) {
-                CustomLogger.LogFormat(
-                    EL.ERROR,
-                    "Cannot add Task '{0}'! Task does not have a parent class",
-                    taskID
-                );
+                // CustomLogger.LogFormat(
+                //     EL.ERROR,
+                //     "Cannot add Task '{0}'! Task does not have a parent class",
+                //     taskID
+                // );
             } else if (!parentClasses.Contains(taskParentClass)) {
                 parentClasses.Add(taskParentClass);
                 taskGroups[taskParentClass] = new List<TID> {taskID};

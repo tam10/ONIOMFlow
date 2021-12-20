@@ -238,7 +238,7 @@ public class ResidueMutator : MonoBehaviour {
         float dihedral = CustomMathematics.GetDihedral(caAtom, cAtom, nAtom, targetResidue.GetAtom(PDBID.CA));
         Vector3 bondVector = CustomMathematics.GetVector(cAtom, nAtom);
         targetResidue.Rotate(
-            Quaternion.AngleAxis(dihedral * Mathf.Rad2Deg, bondVector), 
+            quaternion.AxisAngle(math.normalize(cAtom.position - nAtom.position), -dihedral), 
             targetResidue.GetAtom(PDBID.C).position
         );
 
@@ -433,6 +433,22 @@ public class DihedralScanner : MonoBehaviour {
     public ClashGroup residueClashGroup;
     public Dictionary<ResidueID, ClashGroup> geometryClashGroups;
 
+    int[] residueIdentifiers;
+    bool[] residueHydrogens;
+
+
+    float[,] residueResidueScaledCharges;
+    float[,] residueResidueRadiiSq;
+    float[,] residueResidueWellDepths;
+    float[,] residueResidueClashDistancesSq;
+
+    int numNearbyAtoms;
+    float3[] nearbyPositions;
+    float[,] residueNearbyScaledCharges;
+    float[,] residueNearbyRadii;
+    float[,] residueNearbyWellDepths;
+    float[,] residueNearbyClashDistancesSq;
+
     PDBID[][] dihedralGroupPDBIDs;
     int[][] dihedralGroups;
     Torsion[] torsions;
@@ -595,6 +611,73 @@ public class DihedralScanner : MonoBehaviour {
             );
         }
 
+        SetArrays();
+
+    }
+
+    void SetArrays() {
+
+        int residueSize = residueClashGroup.size;
+        numNearbyAtoms = geometryClashGroups
+            .Where(x => x.Value.residueID != residueClashGroup.residueID)
+            .Select(x => x.Value.size)
+            .Sum();
+
+        residueIdentifiers = new int[residueSize];
+        residueHydrogens = new bool[residueSize];
+        residueResidueScaledCharges = new float[residueSize, residueSize];
+        residueResidueRadiiSq = new float[residueSize, residueSize];
+        residueResidueWellDepths = new float[residueSize, residueSize];
+        residueResidueClashDistancesSq = new float[residueSize, residueSize];
+        nearbyPositions = new float3[numNearbyAtoms];
+        residueNearbyScaledCharges = new float[residueSize, numNearbyAtoms];
+        residueNearbyRadii = new float[residueSize, numNearbyAtoms];
+        residueNearbyWellDepths = new float[residueSize, numNearbyAtoms];
+        residueNearbyClashDistancesSq = new float[residueSize, numNearbyAtoms];
+
+        for (int m0=0; m0<residueClashGroup.size; m0++) {
+            ClashGroupAtom residueAtom0 = residueClashGroup.groupAtoms[m0];
+
+            residueIdentifiers[m0] = residueAtom0.identifer;
+            residueHydrogens[m0] = residueAtom0.pdbID.element == Element.H;
+
+            float scaledCharge = residueAtom0.charge / parameters.dielectricConstant;
+
+            for (int m1=m0+1; m1<residueClashGroup.size; m1++) {
+
+                ClashGroupAtom residueAtom1 = residueClashGroup.groupAtoms[m1];
+
+                residueResidueScaledCharges[m0,m1] = residueResidueScaledCharges[m1,m0] = scaledCharge * residueAtom1.charge;
+                residueResidueRadiiSq[m0,m1] = residueResidueRadiiSq[m1,m0] = CustomMathematics.Squared(residueAtom0.radius + residueAtom1.radius);
+                residueResidueWellDepths[m0,m1] = residueResidueWellDepths[m1,m0] = math.sqrt(residueAtom0.wellDepth + residueAtom1.wellDepth);
+
+                float[] clashDisSq;
+                if (Data.TryGetBondDistancesSquared(residueAtom0.pdbID.element, residueAtom1.pdbID.element, out clashDisSq)) {
+                    residueResidueClashDistancesSq[m0,m1] = residueResidueClashDistancesSq[m1,m0] = clashDisSq[0];
+                };
+            }
+
+            foreach (KeyValuePair<ResidueID, ClashGroup> nearbyClashGroup in geometryClashGroups) {
+                if (residueClashGroup.residueID == nearbyClashGroup.Key) {
+                    continue;
+                }
+
+                int m1 = 0;
+                foreach (ClashGroupAtom nearbyAtom in nearbyClashGroup.Value.groupAtoms) {
+
+                    residueNearbyScaledCharges[m0,m1] = scaledCharge * nearbyAtom.charge;
+                    residueNearbyRadii[m0,m1] = CustomMathematics.Squared(residueAtom0.radius + nearbyAtom.radius);
+                    residueNearbyWellDepths[m0,m1] = math.sqrt(residueAtom0.wellDepth + nearbyAtom.wellDepth);
+
+                    float[] clashDisSq;
+                    if (Data.TryGetBondDistancesSquared(residueAtom0.pdbID.element, nearbyAtom.pdbID.element, out clashDisSq)) {
+                        residueNearbyClashDistancesSq[m0,m1] = clashDisSq[0];
+                    };
+                    
+                    m1++;
+                }
+            }
+        }
     }
 
     IEnumerator SetTorsionParameter(Residue residue, int dihedralGroupIndex) {
@@ -864,10 +947,9 @@ public class DihedralScanner : MonoBehaviour {
 
         for (int m0=0; m0<residueClashGroup.size; m0++) {
 
-            ClashGroupAtom residueAtom0 = residueClashGroup.groupAtoms[m0];
-            PDBID pdbID0 = residueAtom0.pdbID;
-            Element element = pdbID0.element;
-            bool isH = element == Element.H;
+
+            bool isH = residueHydrogens[m0];
+            int identifier0 = residueIdentifiers[m0];
 
             //Get atoms that contribute to score
             if (lastGroup) {
@@ -875,11 +957,11 @@ public class DihedralScanner : MonoBehaviour {
                 //Also include previous H
 
                 if (isH) {
-                    if (residueAtom0.identifer - 1 < identifier) {
+                    if (identifier0 - 1 < identifier) {
                         continue;
                     }
                 } else {
-                    if (residueAtom0.identifer < identifier) {
+                    if (identifier0 < identifier) {
                         continue;
                     }
                 }
@@ -888,37 +970,36 @@ public class DihedralScanner : MonoBehaviour {
                 //Also include previous H
 
                 if (isH) {
-                    if (residueAtom0.identifer + 1 != identifier) {
+                    if (identifier0 + 1 != identifier) {
                         continue;
                     }
                 } else {
-                    if (residueAtom0.identifer != identifier) {
+                    if (identifier0 != identifier) {
                         continue;
                     }
                 }
             }
 
             // Skip atoms that have an identifier greater than the currently tested identifier
-            if (!lastGroup && residueAtom0.identifer - identifier > 1) {
+            if (!lastGroup && identifier0 - identifier > 1) {
                 continue;
             }
 
             float3 position = positions[m0];
-            float scaledCharge = residueAtom0.charge / parameters.dielectricConstant;
-            
+
             for (int m1=0; m1<residueClashGroup.size; m1++) {
 
-                ClashGroupAtom residueAtom1 = residueClashGroup.groupAtoms[m1];
-                
+                int identifier1 = residueIdentifiers[m1];
+
                 // Skip atoms that have an identifier greater than the currently tested identifier
-                if (!lastGroup && residueAtom1.identifer - identifier > 1) {
+                if (!lastGroup && identifier1 - identifier > 1) {
                     continue;
                 }
 
                 //Skip atoms with neighbouring or greater identifier
                 //Also skips same atom
                 //Stops the score from going too wild from connected atoms
-                if (residueAtom0.identifer - residueAtom1.identifer < 2) {
+                if (identifier0 - identifier1 < 2) {
                     continue;
                 }
 
@@ -926,67 +1007,45 @@ public class DihedralScanner : MonoBehaviour {
                     position,
                     positions[m1]
                 );
-                
-                //Check that atoms don't clash (would be considered bonded by distance)
-                if (Data.GetBondOrderDistanceSquared(
-                        element, 
-                        residueAtom1.pdbID.element,
-                        r2
-                    ) != BT.NONE
-                ) {
+
+                if (r2 < residueResidueClashDistancesSq[m0, m1]) {
                     return (0f, true);
                 }
 
-                float vdwR2 = CustomMathematics.Squared(residueAtom0.radius + residueAtom1.radius);
-                float vdwV = Mathf.Sqrt (residueAtom0.wellDepth + residueAtom1.wellDepth);
-                score += CustomMathematics.EVdWAmberSquared(r2, vdwV, vdwR2)
-                    +  CustomMathematics.EElectrostaticR1Squared(r2, scaledCharge * residueAtom1.charge);
+                float vdwR2 = residueResidueRadiiSq[m0, m1];
+                float vdwV = residueResidueWellDepths[m0, m1];
+                float charge = residueResidueScaledCharges[m0, m1];
+                score += CustomMathematics.EVdWAmberSquared(r2, vdwR2, vdwR2)
+                    +  CustomMathematics.EElectrostaticR1Squared(r2, charge);
 
             }
 
-            if (residueAtom0.identifer < 2) {
+            if (identifier0 < 2) {
                 continue;
             }
 
-            //Include interactions between residue and nearby residues
-            //foreach (ClashGroupAtom nearbyAtom in nearbyClashGroup.groupAtoms) {
-            foreach ((ResidueID nearbyResidueID, ClashGroup nearbyClashGroup) in geometryClashGroups) {
+            for (int m1=0; m1<numNearbyAtoms; m1++) {
 
-                if (residueID == nearbyResidueID) {
+                float r2 = math.distancesq(
+                    position,
+                    nearbyPositions[m1]
+                );
+
+                // Skip interactions that are too far away
+                if (r2 > maxNonbonCutoff2) {
                     continue;
                 }
-
-                for (int n=0; n<nearbyClashGroup.size; n++) {
-
-                    ClashGroupAtom nearbyAtom = nearbyClashGroup.groupAtoms[n];
-
-                    float r2 = math.distancesq(
-                        position,
-                        nearbyAtom.position
-                    );
-
-                    // Skip interactions that are too far away
-                    if (r2 > maxNonbonCutoff2) {
-                        continue;
-                    }
-                    
-                    //Check that atoms don't clash (would be considered bonded by distance)
-                    if (Data.GetBondOrderDistanceSquared(
-                            element, 
-                            nearbyAtom.pdbID.element,
-                            r2
-                        ) != BT.NONE
-                    ) {
-                        return (0f, true);
-                    }
-
-                    float vdwR2 = CustomMathematics.Squared(residueAtom0.radius + nearbyAtom.radius);
-                    float vdwV = Mathf.Sqrt (residueAtom0.wellDepth + nearbyAtom.wellDepth);
-                    score += CustomMathematics.EVdWAmberSquared(r2, vdwV, vdwR2)
-                        +  CustomMathematics.EElectrostaticR1Squared(r2, scaledCharge * nearbyAtom.charge);
-
+                
+                //Check that atoms don't clash (would be considered bonded by distance)
+                if (r2 < residueNearbyClashDistancesSq[m0, m1]) {
+                    return (0f, true);
                 }
 
+                float vdwR2 = residueNearbyRadii[m0, m1];
+                float vdwV = residueNearbyWellDepths[m0, m1];
+                float charge = residueNearbyScaledCharges[m0, m1];
+                score += CustomMathematics.EVdWAmberSquared(r2, vdwV, vdwR2)
+                    +  CustomMathematics.EElectrostaticR1Squared(r2, charge);
             }
 
         }
@@ -1029,7 +1088,6 @@ public class DihedralScanner : MonoBehaviour {
 
         int steps = (int)(360 / deltaTheta);
 
-        float pi2 = math.PI * 2;
         float deltaRad = math.radians(deltaTheta);
 
         scanSize = CustomMathematics.IntPow(steps, numDihedralGroups);
@@ -1093,7 +1151,7 @@ public class DihedralScanner : MonoBehaviour {
                 for (int atomIndex=0; atomIndex<numAtoms; atomIndex++) {
                     // Ignore masked atoms
                     if (! mask[atomIndex]) {continue;}
-                    positions[atomIndex] = (float3) math.rotate(forwardRotation, positions[atomIndex] - p2) + p2;
+                    positions[atomIndex] = math.rotate(forwardRotation, positions[atomIndex] - p2) + p2;
                 }
             }
 
@@ -1101,7 +1159,7 @@ public class DihedralScanner : MonoBehaviour {
                 for (int atomIndex=0; atomIndex<numAtoms; atomIndex++) {
                     // Ignore masked atoms
                     if (! mask[atomIndex]) {continue;}
-                    positions[atomIndex] = (float3) math.rotate(backwardRotation, positions[atomIndex] - p2) + p2;
+                    positions[atomIndex] = math.rotate(backwardRotation, positions[atomIndex] - p2) + p2;
                 }
             }
 
